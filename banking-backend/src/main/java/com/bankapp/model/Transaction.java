@@ -1,5 +1,6 @@
 package com.bankapp.model;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
@@ -50,6 +51,18 @@ public class Transaction {
     public void setCredit(boolean credit) { isCredit = credit; }
 
     public enum TransactionType {
-        deposit, withdrawal, transfer, payment, fee, interest
+        deposit, withdrawal, transfer, payment, fee, interest;
+        
+        @JsonValue
+        public String toJson() {
+            return switch (this) {
+                case deposit -> "Deposit";
+                case withdrawal -> "Withdrawal";
+                case transfer -> "Transfer";
+                case payment -> "Payment";
+                case fee -> "Fee";
+                case interest -> "Interest";
+            };
+        }
     }
 }

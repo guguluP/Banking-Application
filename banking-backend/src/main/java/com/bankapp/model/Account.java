@@ -1,5 +1,6 @@
 package com.bankapp.model;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
@@ -68,9 +69,29 @@ public class Account {
     public void setIsPrimary(Boolean isPrimary) { this.isPrimary = isPrimary; }
 
     public enum AccountType {
-        checking, savings, credit
+        checking, savings, credit;
+        
+        @JsonValue
+        public String toJson() {
+            return switch (this) {
+                case checking -> "Checking";
+                case savings -> "Savings";
+                case credit -> "Credit Card";
+            };
+        }
     }
+    
     public enum AccountStatus {
-        active, inactive, frozen, closed
+        active, inactive, frozen, closed;
+        
+        @JsonValue
+        public String toJson() {
+            return switch (this) {
+                case active -> "Active";
+                case inactive -> "Inactive";
+                case frozen -> "Frozen";
+                case closed -> "Closed";
+            };
+        }
     }
 }
