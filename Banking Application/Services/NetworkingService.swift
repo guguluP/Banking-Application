@@ -63,6 +63,9 @@ class NetworkingService {
             }
         }
         
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
         return session.dataTaskPublisher(for: urlRequest)
             .tryMap { output -> Data in
                 guard let httpResponse = output.response as? HTTPURLResponse else {
@@ -75,11 +78,7 @@ class NetworkingService {
                     throw NetworkError.serverError(httpResponse.statusCode)
                 }
             }
-            .decode(type: T.self, decoder: {
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                return decoder
-            }())
+            .decode(type: T.self, decoder: decoder)
             .mapError { error in
                 if let networkError = error as? NetworkError {
                     return networkError
