@@ -24,9 +24,10 @@ public final class AIAssistantService {
         
         if #available(iOS 26.0, *) {
             let session = LanguageModelSession()
-            let prompt = Prompt("Summarize the following text in 3 concise bullet points. Avoid extraneous commentary.\n\nText:\n\(text)")
-            let response = try await session.generateResponse(for: GenerateRequest(prompt: prompt))
-            return response.content
+            let response = try await session.respond(
+                to: "Summarize the following text in 3 concise bullet points. Avoid extraneous commentary.\n\nText:\n\(text)"
+            )
+            return response
         } else {
             throw AIAssistantError.unavailable
         }
