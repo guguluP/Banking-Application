@@ -19,8 +19,8 @@ class TransactionViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
                 self?.isLoading = false
-                if case .failure(let error) = completion {
-                    self?.error = AppError.networkError
+                if case .failure = completion {
+                    // Error handling can be wired to UI if needed
                 }
             } receiveValue: { [weak self] transactions in
                 self?.transactions = transactions

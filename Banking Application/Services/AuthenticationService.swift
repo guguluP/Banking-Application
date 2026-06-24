@@ -63,7 +63,7 @@ class AuthenticationService: ObservableObject {
     }
     
     @MainActor
-    func authenticateWithBiometrics(completion: @escaping (Bool) -> Void) {
+    func authenticateWithBiometrics(completion: @escaping @Sendable (Bool) -> Void) {
         guard canUseBiometrics else {
             completion(false)
             return
@@ -85,7 +85,7 @@ class AuthenticationService: ObservableObject {
     }
     
     @MainActor
-    func authenticateWithPasscode(completion: @escaping (Bool) -> Void) {
+    func authenticateWithPasscode(completion: @escaping @Sendable (Bool) -> Void) {
         isAuthenticating = true
 
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Enter your device passcode") { [weak self] success, error in

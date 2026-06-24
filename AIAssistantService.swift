@@ -24,9 +24,8 @@ public final class AIAssistantService {
         
         if #available(iOS 26.0, *) {
             let session = LanguageModelSession()
-            let prompt = "Summarize the following text in 3 concise bullet points. Avoid extraneous commentary.\n\nText:\n\(text)"
-            let request = LanguageModelGenerateRequest(prompt: prompt)
-            let response = try await session.generate(request: request)
+            let prompt = Prompt("Summarize the following text in 3 concise bullet points. Avoid extraneous commentary.\n\nText:\n\(text)")
+            let response = try await session.generateResponse(for: GenerateRequest(prompt: prompt))
             return response.content
         } else {
             throw AIAssistantError.unavailable
@@ -44,4 +43,3 @@ public final class AIAssistantService {
         return top.map { "• \($0)." }.joined(separator: "\n")
     }
 }
-
