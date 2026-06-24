@@ -1,0 +1,62 @@
+import XCTest
+
+final class CurrencyFormatterTests: XCTestCase {
+    func testFormatPositiveAmount() {
+        let amount = Decimal(1234.56)
+        let formatted = CurrencyFormatter.shared.string(from: amount)
+        XCTAssertFalse(formatted.isEmpty)
+    }
+    
+    func testFormatNegativeAmount() {
+        let amount = Decimal(-1234.56)
+        let formatted = CurrencyFormatter.shared.string(from: amount)
+        XCTAssertFalse(formatted.isEmpty)
+    }
+    
+    func testFormatZeroAmount() {
+        let amount = Decimal(0)
+        let formatted = CurrencyFormatter.shared.string(from: amount)
+        XCTAssertFalse(formatted.isEmpty)
+    }
+    
+    func testTransactionFormattedAmountDeposit() {
+        let transaction = Transaction(
+            id: "txn_001",
+            accountId: "acc_001",
+            type: .deposit,
+            status: .completed,
+            amount: Decimal(1000),
+            currency: "INR",
+            description: "Test Deposit",
+            counterparty: nil,
+            referenceNumber: nil,
+            transactionDate: Date(),
+            postingDate: Date(),
+            category: nil,
+            location: nil
+        )
+        let formatted = transaction.formattedAmount
+        XCTAssertTrue(formatted.hasPrefix("+"))
+    }
+    
+    func testTransactionFormattedAmountWithdrawal() {
+        let transaction = Transaction(
+            id: "txn_001",
+            accountId: "acc_001",
+            type: .withdrawal,
+            status: .completed,
+            amount: Decimal(500),
+            currency: "INR",
+            description: "Test Withdrawal",
+            counterparty: nil,
+            referenceNumber: nil,
+            transactionDate: Date(),
+            postingDate: Date(),
+            category: nil,
+            location: nil
+        )
+        let formatted = transaction.formattedAmount
+        XCTAssertFalse(formatted.hasPrefix("+"))
+    }
+}
+

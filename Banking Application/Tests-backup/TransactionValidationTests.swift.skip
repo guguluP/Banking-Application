@@ -1,0 +1,152 @@
+import Testing
+@testable import Banking_Application
+
+struct TransactionValidationTests {
+    @Test func transactionIsCreditForDeposit() async {
+        let transaction = Transaction(
+            id: "txn_001",
+            accountId: "acc_001",
+            type: .deposit,
+            status: .completed,
+            amount: Decimal(1000),
+            currency: "INR",
+            description: "Test",
+            counterparty: nil,
+            referenceNumber: nil,
+            transactionDate: Date(),
+            postingDate: Date(),
+            category: nil,
+            location: nil
+        )
+        #expect(transaction.isCredit)
+        #expect(!transaction.isDebit)
+    }
+    
+    @Test func transactionIsCreditForInterest() async {
+        let transaction = Transaction(
+            id: "txn_002",
+            accountId: "acc_001",
+            type: .interest,
+            status: .completed,
+            amount: Decimal(50),
+            currency: "INR",
+            description: "Interest",
+            counterparty: nil,
+            referenceNumber: nil,
+            transactionDate: Date(),
+            postingDate: Date(),
+            category: nil,
+            location: nil
+        )
+        #expect(transaction.isCredit)
+    }
+    
+    @Test func transactionIsDebitForWithdrawal() async {
+        let transaction = Transaction(
+            id: "txn_003",
+            accountId: "acc_001",
+            type: .withdrawal,
+            status: .completed,
+            amount: Decimal(200),
+            currency: "INR",
+            description: "Withdrawal",
+            counterparty: nil,
+            referenceNumber: nil,
+            transactionDate: Date(),
+            postingDate: Date(),
+            category: nil,
+            location: nil
+        )
+        #expect(!transaction.isCredit)
+        #expect(transaction.isDebit)
+    }
+    
+    @Test func transactionIsDebitForPayment() async {
+        let transaction = Transaction(
+            id: "txn_004",
+            accountId: "acc_001",
+            type: .payment,
+            status: .completed,
+            amount: Decimal(100),
+            currency: "INR",
+            description: "Payment",
+            counterparty: nil,
+            referenceNumber: nil,
+            transactionDate: Date(),
+            postingDate: Date(),
+            category: nil,
+            location: nil
+        )
+        #expect(!transaction.isCredit)
+        #expect(transaction.isDebit)
+    }
+    
+    @Test func accountFormattedBalance() async {
+        let account = Account(
+            id: "acc_001",
+            userId: "user_001",
+            accountNumber: "1234567890",
+            accountType: .checking,
+            accountStatus: .active,
+            balance: Decimal(5420.75),
+            availableBalance: Decimal(5420.75),
+            currency: "INR",
+            nickname: "Test Account",
+            openedDate: Date(),
+            interestRate: nil,
+            isPrimary: true
+        )
+        #expect(account.formattedBalance == account.formattedAvailableBalance)
+    }
+    
+    @Test func cardExpirationCheck() async {
+        let expiredCard = Card(
+            id: "card_001",
+            userId: "user_001",
+            cardNumber: "4111111111111111",
+            cardType: .visa,
+            cardStatus: .expired,
+            expirationMonth: 1,
+            expirationYear: 2020,
+            cardHolderName: "TEST",
+            cvv: "123",
+            issueDate: Date(),
+            dailyLimit: Decimal(1000),
+            monthlyLimit: Decimal(5000),
+            isContactlessEnabled: true,
+            isInternationalUsageEnabled: true,
+            isOnlineTransactionsEnabled: true
+        )
+        #expect(expiredCard.isExpired)
+    }
+    
+    @Test func cardNotExpired() async {
+        let validCard = Card(
+            id: "card_002",
+            userId: "user_001",
+            cardNumber: "4111111111111111",
+            cardType: .visa,
+            cardStatus: .active,
+            expirationMonth: 12,
+            expirationYear: 2030,
+            cardHolderName: "TEST",
+            cvv: "123",
+            issueDate: Date(),
+            dailyLimit: Decimal(1000),
+            monthlyLimit: Decimal(5000),
+            isContactlessEnabled: true,
+            isInternationalUsageEnabled: true,
+            isOnlineTransactionsEnabled: true
+        )
+        #expect(!validCard.isExpired)
+    }
+    
+    @Test func transferViewModelValidation() async {
+        let viewModel = TransferViewModel()
+        viewModel.recipientAccount = "12345678"
+        viewModel.amount = "1000"
+        #expect(viewModel.isRecipientValid)
+        #expect(viewModel.isAmountValid)
+        #expect(viewModel.isFormValid)
+    }
+}

@@ -1,0 +1,41 @@
+import Testing
+@testable import Banking_Application
+import Combine
+
+struct NetworkingServiceTests {
+    @Test func invalidURLError() {
+        let service = NetworkingService.shared
+        let publisher = service.request("invalid:url:with spaces")
+        #expect(!publisher.description.isEmpty)
+    }
+    
+    @Test func getAccountsReturnsPublisher() {
+        let service = NetworkingService.shared
+        let publisher = service.getAccounts()
+        #expect(!publisher.description.isEmpty)
+    }
+    
+    @Test func getAccountWithIdReturnsPublisher() {
+        let service = NetworkingService.shared
+        let publisher = service.getAccount(id: "acc_001")
+        #expect(!publisher.description.isEmpty)
+    }
+    
+    @Test func getTransactionsReturnsPublisher() {
+        let service = NetworkingService.shared
+        let publisher = service.getTransactions(accountId: "acc_001")
+        #expect(!publisher.description.isEmpty)
+    }
+    
+    @Test func transferFundsReturnsPublisher() {
+        let service = NetworkingService.shared
+        let publisher = service.transferFunds(fromAccountId: "acc_001", toAccountId: "acc_002", amount: Decimal(100), description: "Test")
+        #expect(!publisher.description.isEmpty)
+    }
+    
+    @Test func payBillReturnsPublisher() {
+        let service = NetworkingService.shared
+        let publisher = service.payBill(billerId: "bil_001", amount: Decimal(100), fromAccountId: "acc_001", date: Date())
+        #expect(!publisher.description.isEmpty)
+    }
+}
