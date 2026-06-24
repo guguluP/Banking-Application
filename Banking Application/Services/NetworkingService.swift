@@ -25,6 +25,7 @@ class NetworkingService {
     static let shared = NetworkingService()
     
     private let baseURL = "http://localhost:8080/api"
+    // For physical device testing, replace with host machine IP or ngrok URL
     private let session: URLSession
     private var cancellables = Set<AnyCancellable>()
     
