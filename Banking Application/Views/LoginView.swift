@@ -137,7 +137,7 @@ struct LoginView: View {
                         .padding(.top, AppSpacing.lg)
                 }
                 
-                if let error = authenticationService.errorMessage {
+                if authenticationService.errorMessage != nil {
                     ErrorBannerModern(error: .authenticationFailed)
                         .padding(.horizontal, AppSpacing.lg)
                         .padding(.top, AppSpacing.lg)

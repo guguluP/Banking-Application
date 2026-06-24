@@ -198,7 +198,6 @@ struct UPIPaymentEmbedded: View {
     
     private func processUPIPayment() {
         guard let amountDecimal = Decimal(string: amount) else { return }
-        guard let account = selectedAccount else { return }
         
         isProcessing = true
         
