@@ -189,7 +189,7 @@ struct BalanceCard: View {
     }
     
     var body: some View {
-        GlassCard {
+        GlassCard(reactsToTilt: true) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Total Balance")

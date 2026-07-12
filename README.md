@@ -11,8 +11,33 @@ An educational, fully offline **mobile banking client** built with SwiftUI and S
 
 ---
 
+## Screenshots
+
+| Home | Cards | Sign In |
+|---|---|---|
+| ![Home dashboard](docs/screenshots/01-home.png) | ![Metallic card management](docs/screenshots/02-cards.png) | ![Passcode sign in](docs/screenshots/03-login.png) |
+
+| Transfer | Notifications |
+|---|---|
+| ![Transfer money](docs/screenshots/04-transfer.png) | ![Notifications](docs/screenshots/05-notifications.png) |
+
+## Demo videos
+
+Two screen recordings walking through the app's flows are included in [`docs/videos`](docs/videos). GitHub doesn't autoplay video inline in a README, so click a thumbnail below to open/download the clip.
+
+[![Demo video 1](docs/screenshots/demo-1-thumb.png)](docs/videos/demo-1.mov)
+[![Demo video 2](docs/screenshots/demo-2-thumb.png)](docs/videos/demo-2.mp4)
+
+> **Repo size note:** these recordings are ~55 MB combined. That's under GitHub's 100 MB hard limit but well past its "large file" warning threshold. If you'd rather keep the repo lean, consider [Git LFS](https://git-lfs.com) for `docs/videos/`, or upload the clips to YouTube/an external host and link to them here instead.
+
+---
+
+
+
 ## Table of contents
 
+- [Screenshots](#screenshots)
+- [Demo videos](#demo-videos)
 - [Features](#features)
 - [Tech stack](#tech-stack)
 - [Project structure](#project-structure)

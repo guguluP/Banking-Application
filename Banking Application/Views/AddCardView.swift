@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import SwiftData
+import SwiftData
 
 struct AddCardView: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
@@ -43,7 +44,7 @@ struct AddCardView: View {
             ZStack {
                 ScrollView {
                     VStack(spacing: AppSpacing.xl) {
-                        CreditCardView(card: previewCard)
+                        CreditCardView(card: previewCard, reactsToTilt: false)
                             .padding(.horizontal)
                             .padding(.top, AppSpacing.sm)
                             .animation(.spring(response: 0.4, dampingFraction: 0.85), value: selectedNetwork)

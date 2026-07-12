@@ -7,10 +7,17 @@ import SwiftUI
 struct AnimatedMeshBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var motion = MotionManager.shared
 
     var body: some View {
         TimelineView(.animation(minimumInterval: reduceMotion ? 1.0 / 2.0 : 1.0 / 30.0, paused: false)) { context in
             let time = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+            // Gentle gyro parallax: blobs drift a few percent of screen size
+            // opposite the tilt direction, like distant background layers
+            // shifting as you tilt the phone. Disabled with Reduce Motion.
+            let parallaxX = reduceMotion ? 0 : motion.normalizedX * 0.025
+            let parallaxY = reduceMotion ? 0 : motion.normalizedY * 0.02
+
             Canvas { canvasContext, size in
                 // Base fill
                 canvasContext.fill(
@@ -20,8 +27,9 @@ struct AnimatedMeshBackground: View {
 
                 for blob in Self.blobSpecs {
                     let phase = time / blob.period * (.pi * 2) + blob.phaseOffset
-                    let cx = size.width * (blob.anchor.x + cos(phase) * blob.travel.x)
-                    let cy = size.height * (blob.anchor.y + sin(phase * blob.yFreq) * blob.travel.y)
+                    let parallaxDepth = blob.baseRadius / 180.0  // larger blobs read as "closer"
+                    let cx = size.width * (blob.anchor.x + cos(phase) * blob.travel.x - parallaxX * parallaxDepth)
+                    let cy = size.height * (blob.anchor.y + sin(phase * blob.yFreq) * blob.travel.y - parallaxY * parallaxDepth)
                     let scale = 1.0 + 0.08 * sin(phase * 0.7)
                     let radius = blob.baseRadius * scale
 
@@ -49,6 +57,8 @@ struct AnimatedMeshBackground: View {
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+        .onAppear { if !reduceMotion { MotionManager.shared.subscribe() } }
+        .onDisappear { if !reduceMotion { MotionManager.shared.unsubscribe() } }
     }
 
     private var baseColor: Color {

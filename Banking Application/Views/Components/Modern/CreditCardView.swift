@@ -3,6 +3,15 @@ import Combine
 
 struct CreditCardView: View {
     let card: Card
+    /// Set to false to render a static card (e.g. inside the Add Card
+    /// preview where several previews could exist off-screen, or in
+    /// contexts like Reduce Motion where tilt effects should be skipped).
+    var reactsToTilt: Bool = true
+
+    @ObservedObject private var motion = MotionManager.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var tiltEnabled: Bool { reactsToTilt && !reduceMotion }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -78,6 +87,20 @@ struct CreditCardView: View {
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         )
         .shadow(color: AppShadows.large.color, radius: AppShadows.large.radius, x: AppShadows.large.x, y: AppShadows.large.y)
+        .rotation3DEffect(
+            .degrees(tiltEnabled ? motion.normalizedY * 6 : 0),
+            axis: (x: 1, y: 0, z: 0),
+            perspective: 0.4
+        )
+        .rotation3DEffect(
+            .degrees(tiltEnabled ? -motion.normalizedX * 6 : 0),
+            axis: (x: 0, y: 1, z: 0),
+            perspective: 0.4
+        )
+        .animation(.easeOut(duration: 0.12), value: motion.normalizedX)
+        .animation(.easeOut(duration: 0.12), value: motion.normalizedY)
+        .onAppear { if tiltEnabled { MotionManager.shared.subscribe() } }
+        .onDisappear { if tiltEnabled { MotionManager.shared.unsubscribe() } }
     }
 
     // MARK: - Metallic surface
@@ -115,17 +138,27 @@ struct CreditCardView: View {
     /// light when tilted. Deliberately not real glass — the card number and
     /// name need full contrast, not translucency.
     private var specularSheen: some View {
-        LinearGradient(
+        // Sheen band slides across the card as the phone tilts, mimicking
+        // how light glances off brushed metal. Falls back to a fixed,
+        // centered band when tilt is disabled (Reduce Motion, static
+        // previews) so the card still looks intentionally lit rather than
+        // flat.
+        let sweep = tiltEnabled ? motion.normalizedX : 0
+        let center = 0.5 + sweep * 0.35
+        let intensity = tiltEnabled ? 0.16 + abs(sweep) * 0.14 : 0.22
+
+        return LinearGradient(
             stops: [
-                .init(color: .white.opacity(0), location: 0),
-                .init(color: .white.opacity(0.22), location: 0.42),
-                .init(color: .white.opacity(0.05), location: 0.5),
-                .init(color: .white.opacity(0), location: 0.62)
+                .init(color: .white.opacity(0), location: max(0, center - 0.18)),
+                .init(color: .white.opacity(intensity), location: center),
+                .init(color: .white.opacity(intensity * 0.25), location: min(1, center + 0.06)),
+                .init(color: .white.opacity(0), location: min(1, center + 0.20))
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
         .allowsHitTesting(false)
+        .animation(.easeOut(duration: 0.12), value: sweep)
     }
 
     /// Faint top edge highlight + bottom edge shadow — reinforces the sense
