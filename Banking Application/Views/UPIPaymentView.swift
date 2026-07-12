@@ -1,8 +1,12 @@
 import SwiftUI
+import Combine
+import SwiftData
 
 struct UPIPaymentView: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
+    @EnvironmentObject var transactionViewModel: TransactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedAccount: Account?
     @State private var upiId = ""
     @State private var amount = ""
@@ -11,6 +15,8 @@ struct UPIPaymentView: View {
     @State private var showingConfirmation = false
     @State private var error: AppError?
     @State private var isProcessing = false
+    @State private var showingPaymentSuccess = false
+    @State private var successAmount: String = ""
     
     private let quickAmounts: [Decimal] = [Decimal(100), Decimal(500), Decimal(1000), Decimal(2000)]
     
@@ -94,6 +100,7 @@ struct UPIPaymentView: View {
                         
                         TextField("Add remarks", text: $remarks)
                             .textFieldStyle(.roundedBorder)
+                            .autocorrectionDisabled(true)
                             .accessibilityLabel("Remarks")
                     }
                     .padding(.horizontal)
@@ -140,6 +147,11 @@ struct UPIPaymentView: View {
             } message: {
                 Text("Pay \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)?")
                     .accessibilityLabel("Confirm payment of \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)")
+            }
+        }
+        .overlay {
+            if showingPaymentSuccess {
+                PaymentSuccessOverlay(amount: successAmount, subtitle: "UPI Payment Sent", isPresented: $showingPaymentSuccess)
             }
         }
         .accessibilityElement(children: .contain)
@@ -192,13 +204,11 @@ struct UPIPaymentView: View {
         showingConfirmation = false
         
         authenticationService.authenticateWithBiometrics { success in
-            DispatchQueue.main.async {
-                if success {
-                    processUPIPayment()
-                } else {
-                    error = .authenticationFailed
-                    HapticFeedbackService.shared.errorOccurred()
-                }
+            if success {
+                processUPIPayment()
+            } else {
+                error = .authenticationFailed
+                HapticFeedbackService.shared.errorOccurred()
             }
         }
     }
@@ -206,14 +216,54 @@ struct UPIPaymentView: View {
     private func processUPIPayment() {
         guard let amountDecimal = Decimal(string: amount) else { return }
         guard let account = selectedAccount else { return }
-        
+
+        guard amountDecimal <= account.availableBalance else {
+            error = .insufficientFunds
+            HapticFeedbackService.shared.errorOccurred()
+            return
+        }
+
         isProcessing = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+
+        // Previously this only logged a standalone UPITransaction record and
+        // never actually reduced the account's balance — the money was never
+        // really "sent". Now it debits the account and writes a proper
+        // Transaction too, same as transfers and bill payments.
+        account.balance -= amountDecimal
+        account.availableBalance -= amountDecimal
+
+        let txn = Transaction(
+            accountId: account.id,
+            type: .payment,
+            amount: amountDecimal,
+            description: remarks.isEmpty ? "UPI payment to \(upiId)" : remarks,
+            counterparty: upiId,
+            transactionDate: Date(),
+            category: "UPI",
+            status: .completed
+        )
+        txn.account = account
+        modelContext.insert(txn)
+
+        do {
+            try modelContext.save()
             accountViewModel.addUPITransaction(upiId: upiId, amount: amountDecimal)
+            accountViewModel.loadAccounts()
+            transactionViewModel.loadAllTransactions()
+
             isProcessing = false
-            HapticFeedbackService.shared.success()
+            successAmount = CurrencyFormatter.shared.string(from: amountDecimal)
+            withAnimation(.easeInOut(duration: 0.25)) {
+                showingPaymentSuccess = true
+            }
             resetForm()
+        } catch {
+            account.balance += amountDecimal
+            account.availableBalance += amountDecimal
+            modelContext.delete(txn)
+            isProcessing = false
+            self.error = .transactionFailed
+            HapticFeedbackService.shared.errorOccurred()
         }
     }
     
@@ -283,8 +333,14 @@ struct UPCScannerView: View {
 
 struct UPIPaymentView_Previews: PreviewProvider {
     static var previews: some View {
-        UPIPaymentView()
-            .environmentObject(AccountViewModel(transactionViewModel: TransactionViewModel()))
+        let container = PersistenceController.preview
+        let context = container.mainContext
+        let tvm = TransactionViewModel(modelContext: context)
+        let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
+        return UPIPaymentView()
+            .environmentObject(avm)
+            .environmentObject(tvm)
             .environmentObject(AuthenticationService())
+            .modelContainer(container)
     }
 }

@@ -6,72 +6,102 @@ struct LanguageAndRegionView: View {
     let languageOptions = ["English (US)", "English (UK)", "Spanish", "French", "German"]
     @State private var regionSelection = 0
     let regionOptions = ["United States", "United Kingdom", "Canada", "Australia", "India"]
-    @State private var dateFormatSelection = 0
-    private let dateFormatOptions = ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY/MM/DD"]
-    @State private var timeFormatSelection = 0
-    private let timeFormatOptions = ["12-Hour", "24-Hour"]
+    @State private var dateFormatSelection: DateFormatOption = .dayMonthYear
+    @State private var timeFormatSelection: TimeFormatOption = .twelveHour
+    
+    enum DateFormatOption: String, CaseIterable {
+        case monthDayYear = "MM/DD/YYYY"
+        case dayMonthYear = "DD/MM/YYYY"
+        case yearMonthDay = "YYYY/MM/DD"
+    }
+    
+    enum TimeFormatOption: String, CaseIterable {
+        case twelveHour = "12-Hour"
+        case twentyFourHour = "24-Hour"
+    }
     
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: AppSpacing.lg) {
-                    SettingsSection(title: "Language") {
-                        Picker("Language", selection: $languageSelection) {
-                            ForEach(0..<languageOptions.count, id: \.self) { index in
-                                Text(languageOptions[index]).tag(index)
+                LazyVStack(alignment: .leading, spacing: AppSpacing.lg) {
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: AppSpacing.md) {
+                            Label("Language", systemImage: "globe")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            Picker("Language", selection: $languageSelection) {
+                                ForEach(0..<languageOptions.count, id: \.self) { index in
+                                    Text(languageOptions[index]).tag(index)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .onChange(of: languageSelection) {
+                                HapticFeedbackService.shared.lightImpact()
                             }
                         }
-                        .pickerStyle(.menu)
-                        .onChange(of: languageSelection) {
-                            HapticFeedbackService.shared.lightImpact()
-                        }
+                        .padding()
                     }
                     
-                    SettingsSection(title: "Region") {
-                        Picker("Region", selection: $regionSelection) {
-                            ForEach(0..<regionOptions.count, id: \.self) { index in
-                                Text(regionOptions[index]).tag(index)
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: AppSpacing.md) {
+                            Label("Region", systemImage: "map.fill")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            Picker("Region", selection: $regionSelection) {
+                                ForEach(0..<regionOptions.count, id: \.self) { index in
+                                    Text(regionOptions[index]).tag(index)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .onChange(of: regionSelection) {
+                                HapticFeedbackService.shared.lightImpact()
                             }
                         }
-                        .pickerStyle(.menu)
-                        .onChange(of: regionSelection) {
-                            HapticFeedbackService.shared.lightImpact()
-                        }
+                        .padding()
                     }
                     
-                    SettingsSection(title: "Date Format") {
-                        Picker("Date Format", selection: $dateFormatSelection) {
-                            ForEach(0..<dateFormatOptions.count, id: \.self) { index in
-                                Text(dateFormatOptions[index]).tag(index)
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: AppSpacing.md) {
+                            Label("Date Format", systemImage: "calendar")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            PillSegmentedControl(
+                                selection: $dateFormatSelection,
+                                items: DateFormatOption.allCases
+                            )
+                            .onChange(of: dateFormatSelection) {
+                                HapticFeedbackService.shared.lightImpact()
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .onChange(of: dateFormatSelection) {
-                            HapticFeedbackService.shared.lightImpact()
-                        }
+                        .padding()
                     }
                     
-                    SettingsSection(title: "Time Format") {
-                        Picker("Time Format", selection: $timeFormatSelection) {
-                            ForEach(0..<timeFormatOptions.count, id: \.self) { index in
-                                Text(timeFormatOptions[index]).tag(index)
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: AppSpacing.md) {
+                            Label("Time Format", systemImage: "clock.fill")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            PillSegmentedControl(
+                                selection: $timeFormatSelection,
+                                items: TimeFormatOption.allCases
+                            )
+                            .onChange(of: timeFormatSelection) {
+                                HapticFeedbackService.shared.lightImpact()
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .onChange(of: timeFormatSelection) {
-                            HapticFeedbackService.shared.lightImpact()
-                        }
+                        .padding()
                     }
                 }
                 .padding(.vertical)
             }
             .navigationTitle("Language & Region")
-            .toolbar {
-                Button("Close") { dismiss() }
-                    .accessibilityLabel("Close language settings")
-            }
         }
         .accessibilityElement(children: .contain)
+        .swipeDownToDismiss()
     }
 }
 

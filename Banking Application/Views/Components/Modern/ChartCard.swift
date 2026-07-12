@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import Charts
 
 struct ChartCard<Content: View>: View {

@@ -2,49 +2,70 @@ import SwiftUI
 
 struct AppearanceSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var appearanceSelection = 0
+    @State private var appearanceSelection: AppearanceMode = .system
     
-    let appearanceOptions = ["System", "Light", "Dark"]
+    enum AppearanceMode: String, CaseIterable {
+        case system = "System"
+        case light = "Light"
+        case dark = "Dark"
+        
+        var systemImage: String {
+            switch self {
+            case .system: return "gear"
+            case .light: return "sun.max.fill"
+            case .dark: return "moon.fill"
+            }
+        }
+    }
     
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: AppSpacing.lg) {
-                    SettingsSection(title: "Appearance") {
-                        Picker("Appearance", selection: $appearanceSelection) {
-                            ForEach(0..<appearanceOptions.count, id: \.self) { index in
-                                Text(appearanceOptions[index]).tag(index)
+                LazyVStack(alignment: .leading, spacing: AppSpacing.lg) {
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: AppSpacing.md) {
+                            Label("Appearance", systemImage: "paintbrush.fill")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            PillSegmentedControl(
+                                selection: $appearanceSelection,
+                                items: AppearanceMode.allCases,
+                                icon: { $0.systemImage }
+                            )
+                            .onChange(of: appearanceSelection) {
+                                HapticFeedbackService.shared.lightImpact()
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .onChange(of: appearanceSelection) {
-                            HapticFeedbackService.shared.lightImpact()
-                        }
+                        .padding()
                     }
                     
-                    SettingsSection(title: "App Icon") {
+                    GlassCard {
                         HStack(spacing: AppSpacing.md) {
                             Image(systemName: "app.fill")
                                 .font(.system(size: 30))
                                 .foregroundColor(Color.bankPrimary)
                                 .symbolRenderingMode(.hierarchical)
-                                .accessibilityHidden(true)
                             
-                            Text("BankSecure")
-                                .font(.headline)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("App Icon")
+                                    .font(.headline)
+                                Text("BankSecure")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
                         }
-                        .padding(.vertical, 8)
+                        .padding()
                     }
                 }
                 .padding(.vertical)
             }
             .navigationTitle("Appearance")
-            .toolbar {
-                Button("Close") { dismiss() }
-                    .accessibilityLabel("Close appearance settings")
-            }
         }
         .accessibilityElement(children: .contain)
+        .swipeDownToDismiss()
     }
 }
 

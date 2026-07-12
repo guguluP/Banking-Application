@@ -1,8 +1,24 @@
-/.DS_Store
-/.github
-/.kilo
-/DeadCodeReport.md
-/banking-backend/target/
+.DS_Store
+.github
+.kilo
+DeadCodeReport.md
+banking-backend/target/
 *.swift.skip
 *.xcuserstate
 *.xcscmblueprint
+*.xcuserdatad/
+
+# Secrets & local env (never commit)
+.env
+.env.*
+!.env.example
+**/application-local.properties
+**/secrets.properties
+
+# Build / IDE
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+.idea/
+*.iml

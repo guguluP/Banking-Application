@@ -1,15 +1,26 @@
 import SwiftUI
+import Combine
+import SwiftData
 
 struct TransferView: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
+    @EnvironmentObject var transactionViewModel: TransactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Beneficiary.nickname) private var allBeneficiaries: [Beneficiary]
     @StateObject private var viewModel = TransferViewModel()
     @State private var selectedFromAccount: Account?
     @State private var description: String = ""
     @State private var showingConfirmation = false
-    @State private var showingBiometric = false
+    @State private var showingSuccess = false
+    @State private var showingAddBeneficiary = false
     
     private let quickAmounts: [Decimal] = [Decimal(100), Decimal(500), Decimal(1000), Decimal(5000)]
+    
+    private var myBeneficiaries: [Beneficiary] {
+        guard let userId = authenticationService.user?.id else { return [] }
+        return allBeneficiaries.filter { $0.userId == userId }
+    }
     
     var body: some View {
         NavigationStack {
@@ -23,6 +34,79 @@ struct TransferView: View {
                         AccountPicker(selection: $selectedFromAccount, accounts: accountViewModel.accounts)
                     }
                     .padding(.horizontal)
+                    
+                    if !myBeneficiaries.isEmpty {
+                        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                            Text("Saved Payees")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(myBeneficiaries) { beneficiary in
+                                        Button(action: {
+                                            viewModel.recipientAccount = beneficiary.accountNumber
+                                            HapticFeedbackService.shared.lightImpact()
+                                        }) {
+                                            VStack(spacing: 4) {
+                                                Circle()
+                                                    .fill(Color.bankPrimary.opacity(0.15))
+                                                    .frame(width: 44, height: 44)
+                                                    .overlay(
+                                                        Text(String(beneficiary.nickname.prefix(1)).uppercased())
+                                                            .font(.headline)
+                                                            .foregroundColor(Color.bankPrimary)
+                                                    )
+                                                Text(beneficiary.nickname)
+                                                    .font(.caption2)
+                                                    .foregroundColor(.primary)
+                                                    .lineLimit(1)
+                                                    .frame(width: 60)
+                                            }
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                        .accessibilityLabel("Send to \(beneficiary.nickname)")
+                                    }
+                                    
+                                    Button(action: { showingAddBeneficiary = true }) {
+                                        VStack(spacing: 4) {
+                                            Color.clear
+                                                .frame(width: 44, height: 44)
+                                                .glassControl(cornerRadius: 22)
+                                                .overlay(
+                                                    Image(systemName: "plus")
+                                                        .font(.headline)
+                                                        .foregroundColor(Color.bankPrimary)
+                                                )
+                                            Text("Add")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 60)
+                                        }
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    .accessibilityLabel("Add a new payee")
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    } else {
+                        Button(action: { showingAddBeneficiary = true }) {
+                            HStack {
+                                Image(systemName: "person.badge.plus")
+                                Text("Add a payee to save them for next time")
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(Color.bankPrimary)
+                            .padding()
+                            .glassControl(cornerRadius: AppTheme.CornerRadius.medium)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.horizontal)
+                    }
                     
                     VStack(alignment: .leading, spacing: AppSpacing.sm) {
                         Text("Recipient Account")
@@ -81,6 +165,7 @@ struct TransferView: View {
                         
                         TextField("Description", text: $description)
                             .textFieldStyle(.roundedBorder)
+                            .autocorrectionDisabled(true)
                             .submitLabel(.done)
                             .accessibilityLabel("Description")
                     }
@@ -103,8 +188,16 @@ struct TransferView: View {
                 }
                 .padding(.vertical)
             }
+            .overlay {
+                if showingSuccess {
+                    TransferSuccessOverlay(isPresented: $showingSuccess)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+            }
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.isProcessing)
             .navigationTitle("Transfer Money")
             .searchable(text: $viewModel.searchText, prompt: "Search accounts")
+            .autocorrectionDisabled(true)
             .toolbar {
                 ToolbarItem(placement: .keyboard) {
                     Button("Done") {
@@ -123,15 +216,8 @@ struct TransferView: View {
                 Text("Transfer \(amountText) to \(viewModel.recipientAccount)?")
                     .accessibilityLabel("Confirm transfer of \(amountText) to account ending in \(viewModel.recipientAccount.suffix(4))")
             }
-            .alert("Face ID Required", isPresented: $showingBiometric) {
-                Button("OK", role: .cancel) { }
-                Button("Settings") {
-                    if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(settingsUrl)
-                    }
-                }
-            } message: {
-                Text("Biometric authentication is required for transfers. Enable Face ID or Touch ID in Settings.")
+            .sheet(isPresented: $showingAddBeneficiary) {
+                AddBeneficiaryView()
             }
         }
         .accessibilityElement(children: .contain)
@@ -184,42 +270,48 @@ struct TransferView: View {
     }
     
     private func requestBiometricAuth() {
-        guard authenticationService.canUseBiometrics else {
-            viewModel.error = .biometricFailed
-            HapticFeedbackService.shared.errorOccurred()
-            showingBiometric = true
-            return
-        }
-        
         showingConfirmation = false
-        
-        authenticationService.authenticateWithBiometrics { success in
-            Task { @MainActor in
-                if success {
-                    processTransfer()
-                } else {
-                    viewModel.error = .authenticationFailed
-                    HapticFeedbackService.shared.errorOccurred()
+
+        if authenticationService.canUseBiometrics {
+            authenticationService.authenticateWithBiometrics { success in
+                Task { @MainActor in
+                    if success {
+                        processTransfer()
+                    } else {
+                        viewModel.error = .authenticationFailed
+                        HapticFeedbackService.shared.errorOccurred()
+                    }
+                }
+            }
+        } else {
+            // No biometrics enrolled on this device — fall back to the
+            // device passcode rather than blocking the transfer outright.
+            authenticationService.authenticateWithPasscode { success in
+                Task { @MainActor in
+                    if success {
+                        processTransfer()
+                    } else {
+                        viewModel.error = .authenticationFailed
+                        HapticFeedbackService.shared.errorOccurred()
+                    }
                 }
             }
         }
     }
     
     private func processTransfer() {
-        guard Decimal(string: viewModel.amount) ?? 0 > 0 else { return }
-        
-        viewModel.isProcessing = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            viewModel.isProcessing = false
-            HapticFeedbackService.shared.success()
-            
+        guard let from = selectedFromAccount else { return }
+
+        let succeeded = viewModel.performTransfer(from: from, description: description, in: modelContext)
+
+        if succeeded {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                showingSuccess = true
+            }
             selectedFromAccount = nil
-            viewModel.recipientAccount = ""
-            viewModel.amount = ""
             description = ""
-            
             accountViewModel.loadAccounts()
+            transactionViewModel.loadAllTransactions()
         }
     }
     
@@ -274,10 +366,66 @@ struct AccountPicker: View {
     }
 }
 
+struct TransferSuccessOverlay: View {
+    @Binding var isPresented: Bool
+    @State private var checkmarkScale: CGFloat = 0.4
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture { dismiss() }
+
+            VStack(spacing: AppSpacing.md) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.green)
+                    .scaleEffect(checkmarkScale)
+                    .onAppear {
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
+                            checkmarkScale = 1.0
+                        }
+                    }
+
+                Text("Transfer Complete")
+                    .font(.headline)
+
+                Text("Your money is on its way.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                ModernButton(title: "Done", systemImage: nil, variant: .filled) {
+                    dismiss()
+                }
+                .padding(.top, AppSpacing.sm)
+            }
+            .padding(AppSpacing.xl)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large))
+            .padding(.horizontal, AppSpacing.xxl)
+        }
+        .task {
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            dismiss()
+        }
+    }
+
+    private func dismiss() {
+        withAnimation(.easeOut(duration: 0.25)) {
+            isPresented = false
+        }
+    }
+}
+
 struct TransferView_Previews: PreviewProvider {
     static var previews: some View {
-        TransferView()
-            .environmentObject(AccountViewModel(transactionViewModel: TransactionViewModel()))
+        let container = PersistenceController.preview
+        let context = container.mainContext
+        let tvm = TransactionViewModel(modelContext: context)
+        let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
+        return TransferView()
+            .environmentObject(avm)
+            .environmentObject(tvm)
             .environmentObject(AuthenticationService())
+            .modelContainer(container)
     }
 }

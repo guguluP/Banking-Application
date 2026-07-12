@@ -22,51 +22,56 @@ struct ModernButton: View {
             HapticFeedbackService.shared.lightImpact()
             action()
         }) {
-            HStack(spacing: AppSpacing.sm) {
-                if let systemImage = systemImage {
-                    Image(systemName: systemImage)
-                }
-                Text(title)
-            }
-            .font(.headline)
-            .foregroundColor(foregroundColor)
-            .padding(.vertical, AppSpacing.md)
-            .padding(.horizontal, AppSpacing.lg)
-            .background(backgroundColor)
-            .cornerRadius(AppTheme.CornerRadius.pill)
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.pill)
-                    .stroke(borderColor, lineWidth: 1)
-            )
+            label
         }
         .buttonStyle(PlainButtonStyle())
     }
-    
+
+    @ViewBuilder
+    private var label: some View {
+        let core = HStack(spacing: AppSpacing.sm) {
+            if let systemImage = systemImage {
+                Image(systemName: systemImage)
+            }
+            Text(title)
+        }
+        .font(.headline)
+        .foregroundColor(foregroundColor)
+        .padding(.vertical, AppSpacing.md)
+        .padding(.horizontal, AppSpacing.lg)
+
+        switch variant {
+        case .filled:
+            core
+                .background(Color.bankPrimary)
+                .cornerRadius(AppTheme.CornerRadius.pill)
+        case .outlined:
+            core
+                .background(Color.clear)
+                .cornerRadius(AppTheme.CornerRadius.pill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.pill)
+                        .stroke(Color.bankPrimary.opacity(0.3), lineWidth: 1)
+                )
+        case .glass:
+            // Real Liquid Glass on iOS 26+, Material fallback below it.
+            core.glassControl(cornerRadius: AppTheme.CornerRadius.pill, tint: Color.bankPrimary)
+        case .icon:
+            core
+                .background(Color(UIColor.systemBackground).opacity(0.7))
+                .cornerRadius(AppTheme.CornerRadius.pill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.pill)
+                        .stroke(Color.bankPrimary.opacity(0.3), lineWidth: 1)
+                )
+        }
+    }
+
     private var foregroundColor: Color {
         switch variant {
         case .filled: return .white
         case .outlined, .glass: return Color.bankPrimary
         case .icon: return Color.primary
-        }
-    }
-    
-    private var backgroundColor: some View {
-        switch variant {
-        case .filled:
-            return Color.bankPrimary
-        case .outlined:
-            return Color.clear
-        case .glass:
-            return Color.glassBackground
-        case .icon:
-            return Color(UIColor.systemBackground).opacity(0.7)
-        }
-    }
-    
-    private var borderColor: Color {
-        switch variant {
-        case .filled: return .clear
-        case .outlined, .glass, .icon: return Color.bankPrimary.opacity(0.3)
         }
     }
 }
@@ -84,8 +89,7 @@ struct ModernIconButton: View {
                 .font(.title3)
                 .foregroundColor(Color.bankPrimary)
                 .frame(width: 44, height: 44)
-                .background(Color.glassBackground)
-                .cornerRadius(AppTheme.CornerRadius.pill)
+                .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
         }
         .buttonStyle(PlainButtonStyle())
     }

@@ -22,19 +22,3 @@ struct SummarizeTextIntent: AppIntent {
         }
     }
 }
-
-@preconcurrency
-struct MyAppShortcuts: AppShortcutsProvider {
-    static let appShortcuts: [AppShortcut] = [
-        AppShortcut(
-            intent: SummarizeTextIntent(),
-            phrases: [
-                "Summarize with \(.applicationName)",
-                "Summarize text in \(.applicationName)",
-                "Make a summary with \(.applicationName)"
-            ],
-            shortTitle: "Summarize Text",
-            systemImageName: "sparkles"
-        )
-    ]
-}

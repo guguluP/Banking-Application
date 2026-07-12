@@ -203,6 +203,7 @@ struct SearchBar: View {
             
             TextField("Search locations", text: $text)
                 .textFieldStyle(.plain)
+                .autocorrectionDisabled(true)
             
             if !text.isEmpty {
                 Button(action: { text = "" }) {
@@ -262,12 +263,9 @@ struct LocationDetailView: View {
                 .padding(.vertical)
             }
             .navigationTitle(location.name)
-            .toolbar {
-                Button("Close") { dismiss() }
-                    .accessibilityLabel("Close location details")
-            }
         }
         .accessibilityElement(children: .contain)
+        .swipeDownToDismiss()
     }
     
     private func serviceIcon(_ service: ServiceType) -> String {

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 enum TransactionType: String, Codable {
     case deposit = "Deposit"
@@ -16,80 +17,83 @@ enum TransactionStatus: String, Codable {
     case cancelled = "Cancelled"
 }
 
-struct Transaction: Identifiable, Codable {
-    let id: String
-    let accountId: String
-    let type: TransactionType
-    let amount: Decimal
-    let currency: String
-    let description: String
-    let counterparty: String?
-    let referenceNumber: String?
-    let transactionDate: Date
-    let category: String?
-    let location: String?
-    var status: TransactionStatus = .completed
+@Model
+nonisolated final class Transaction {
+    var id: String = UUID().uuidString
+    var accountId: String = ""
+    var typeRaw: String = TransactionType.payment.rawValue
+    var amount: Decimal = 0
+    var currency: String = "INR"
+    var transactionDescription: String = ""
+    var counterparty: String?
+    var referenceNumber: String?
+    var transactionDate: Date = Date()
+    var category: String?
+    var location: String?
+    var statusRaw: String = TransactionStatus.completed.rawValue
     var postingDate: Date?
-    
-    enum CodingKeys: String, CodingKey {
-        case id
-        case accountId
-        case type = "transactionType"
-        case amount
-        case currency
-        case description
-        case counterparty
-        case referenceNumber
-        case transactionDate
-        case category
-        case location
-        case status
-        case postingDate
+
+    // Inverse of Account.transactions. Optional, as CloudKit-backed SwiftData
+    // relationships must not be required.
+    var account: Account?
+
+    var type: TransactionType {
+        get { TransactionType(rawValue: typeRaw) ?? .payment }
+        set { typeRaw = newValue.rawValue }
     }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        accountId = try container.decode(String.self, forKey: .accountId)
-        type = try container.decode(TransactionType.self, forKey: .type)
-        amount = try container.decode(Decimal.self, forKey: .amount)
-        description = try container.decode(String.self, forKey: .description)
-        transactionDate = try container.decode(Date.self, forKey: .transactionDate)
-        currency = try container.decodeIfPresent(String.self, forKey: .currency) ?? "INR"
-        counterparty = try container.decodeIfPresent(String.self, forKey: .counterparty)
-        referenceNumber = try container.decodeIfPresent(String.self, forKey: .referenceNumber)
-        category = try container.decodeIfPresent(String.self, forKey: .category)
-        location = try container.decodeIfPresent(String.self, forKey: .location)
-        status = try container.decodeIfPresent(TransactionStatus.self, forKey: .status) ?? .completed
-        postingDate = try container.decodeIfPresent(Date.self, forKey: .postingDate)
+
+    var status: TransactionStatus {
+        get { TransactionStatus(rawValue: statusRaw) ?? .completed }
+        set { statusRaw = newValue.rawValue }
     }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(accountId, forKey: .accountId)
-        try container.encode(type, forKey: .type)
-        try container.encode(amount, forKey: .amount)
-        try container.encode(currency, forKey: .currency)
-        try container.encode(description, forKey: .description)
-        try container.encode(counterparty, forKey: .counterparty)
-        try container.encode(referenceNumber, forKey: .referenceNumber)
-        try container.encode(transactionDate, forKey: .transactionDate)
-        try container.encode(category, forKey: .category)
-        try container.encode(location, forKey: .location)
-        try container.encode(status, forKey: .status)
-        try container.encodeIfPresent(postingDate, forKey: .postingDate)
+
+    /// Kept as `description` at the call site via this computed alias, since
+    /// `description` is reserved by `CustomStringConvertible` on NSObject-adjacent
+    /// types; the stored property above avoids that collision.
+    var description: String {
+        get { transactionDescription }
+        set { transactionDescription = newValue }
     }
-    
+
+    init(
+        id: String = UUID().uuidString,
+        accountId: String,
+        type: TransactionType,
+        amount: Decimal,
+        currency: String = "INR",
+        description: String,
+        counterparty: String? = nil,
+        referenceNumber: String? = nil,
+        transactionDate: Date = Date(),
+        category: String? = nil,
+        location: String? = nil,
+        status: TransactionStatus = .completed,
+        postingDate: Date? = nil
+    ) {
+        self.id = id
+        self.accountId = accountId
+        self.typeRaw = type.rawValue
+        self.amount = amount
+        self.currency = currency
+        self.transactionDescription = description
+        self.counterparty = counterparty
+        self.referenceNumber = referenceNumber
+        self.transactionDate = transactionDate
+        self.category = category
+        self.location = location
+        self.statusRaw = status.rawValue
+        self.postingDate = postingDate
+    }
+
     var formattedAmount: String {
         CurrencyFormatter.shared.string(from: amount, showSign: true, for: type)
     }
-    
+
     var isCredit: Bool {
-        return type == .deposit || type == .interest
+        type == .deposit || type == .interest
     }
-    
+
     var isDebit: Bool {
-        return type == .withdrawal || type == .payment || type == .fee || (type == .transfer && amount.sign == .minus)
+        type == .withdrawal || type == .payment || type == .fee || (type == .transfer && amount.sign == .minus)
     }
 }

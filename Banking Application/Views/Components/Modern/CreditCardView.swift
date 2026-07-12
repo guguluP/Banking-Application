@@ -1,7 +1,8 @@
 import SwiftUI
+import Combine
 
 struct CreditCardView: View {
-    @Binding var card: Card
+    let card: Card
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -28,9 +29,7 @@ struct CreditCardView: View {
             
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.3))
-                        .frame(width: 40, height: 30)
+                    chip
                     
                     Spacer()
                     
@@ -61,8 +60,50 @@ struct CreditCardView: View {
         .padding(.vertical, AppSpacing.lg)
         .frame(height: 180)
         .background(cardBackground)
-        .cornerRadius(AppTheme.CornerRadius.medium)
-        .shadow(color: AppShadows.card.color, radius: AppShadows.card.radius, x: AppShadows.card.x, y: AppShadows.card.y)
+        .overlay(specularSheen)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: AppShadows.large.color, radius: AppShadows.large.radius, x: AppShadows.large.x, y: AppShadows.large.y)
+    }
+    
+    /// A faint diagonal band of light simulating how a glossy card catches
+    /// light in hand. Deliberately not real glass (`.glassEffect()`) — the
+    /// card number and name need full contrast, not translucency, so this
+    /// stays a plain gradient overlay instead.
+    private var specularSheen: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .white.opacity(0), location: 0),
+                .init(color: .white.opacity(0.16), location: 0.45),
+                .init(color: .white.opacity(0), location: 0.6)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .allowsHitTesting(false)
+    }
+    
+    private var chip: some View {
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [Color(white: 0.85), Color(white: 0.6), Color(white: 0.85)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 40, height: 30)
+            .overlay(
+                VStack(spacing: 3) {
+                    ForEach(0..<2, id: \.self) { _ in
+                        Rectangle().fill(Color.black.opacity(0.25)).frame(height: 1)
+                    }
+                }
+                .padding(.horizontal, 4)
+            )
     }
     
     private var cardBackground: some View {

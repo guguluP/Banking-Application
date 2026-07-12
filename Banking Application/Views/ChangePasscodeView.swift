@@ -1,6 +1,8 @@
 import SwiftUI
+import Combine
 
 struct ChangePasscodeView: View {
+    @EnvironmentObject var authenticationService: AuthenticationService
     @Environment(\.dismiss) private var dismiss
     @State private var currentPasscode: String = ""
     @State private var newPasscode: String = ""
@@ -110,8 +112,7 @@ struct ChangePasscodeView: View {
         
         switch currentStep {
         case .current:
-            let storedPasscode = UserDefaults.standard.string(forKey: "userPasscode") ?? ""
-            guard currentPasscode == storedPasscode else {
+            guard authenticationService.verifyPasscode(currentPasscode) else {
                 error = .authenticationFailed
                 HapticFeedbackService.shared.errorOccurred()
                 currentPasscode = ""
@@ -124,6 +125,12 @@ struct ChangePasscodeView: View {
                 HapticFeedbackService.shared.errorOccurred()
                 return
             }
+            guard newPasscode != currentPasscode else {
+                error = .unknownError("New passcode must be different from your current one")
+                HapticFeedbackService.shared.errorOccurred()
+                newPasscode = ""
+                return
+            }
             currentStep = .confirm
         case .confirm:
             guard newPasscode == confirmPasscode else {
@@ -132,7 +139,11 @@ struct ChangePasscodeView: View {
                 confirmPasscode = ""
                 return
             }
-            UserDefaults.standard.set(newPasscode, forKey: "userPasscode")
+            guard authenticationService.setPasscode(newPasscode) else {
+                error = .unknownError("Couldn't save your new passcode. Please try again.")
+                HapticFeedbackService.shared.errorOccurred()
+                return
+            }
             HapticFeedbackService.shared.success()
             dismiss()
         }
@@ -169,59 +180,58 @@ struct PasscodeKeypad: View {
     let buttonSize: CGFloat = 70
     
     var body: some View {
-        VStack(spacing: 12) {
-            ForEach(0..<3) { row in
-                HStack(spacing: 12) {
-                    ForEach(1..<4) { column in
-                        let number = row * 3 + column
-                        Button(action: {
-                            if passcode.count < 4 {
-                                passcode.append(String(number))
-                                HapticFeedbackService.shared.lightImpact()
+        LiquidGlass.container(spacing: 12) {
+            VStack(spacing: 12) {
+                ForEach(0..<3) { row in
+                    HStack(spacing: 12) {
+                        ForEach(1..<4) { column in
+                            let number = row * 3 + column
+                            Button(action: {
+                                if passcode.count < 4 {
+                                    passcode.append(String(number))
+                                    HapticFeedbackService.shared.lightImpact()
+                                }
+                            }) {
+                                Text("\(number)")
+                                    .font(.title)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                    .frame(width: buttonSize, height: buttonSize)
+                                    .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
                             }
-                        }) {
-                            Text("\(number)")
-                                .font(.title)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                                .frame(width: buttonSize, height: buttonSize)
-                                .background(Color(UIColor.systemGroupedBackground))
-                                .cornerRadius(35)
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(passcode.count >= 4)
                         }
-                        .buttonStyle(PlainButtonStyle())
-                        .disabled(passcode.count >= 4)
                     }
                 }
-            }
-            
-            HStack(spacing: 12) {
-                Button(action: onDelete) {
-                    Image(systemName: "delete.backward")
-                        .font(.title3)
-                        .foregroundColor(.primary)
-                        .frame(width: buttonSize, height: buttonSize)
-                        .background(Color(UIColor.systemGroupedBackground))
-                        .cornerRadius(35)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(passcode.isEmpty)
                 
-                Button(action: {
-                    if passcode.count < 4 {
-                        passcode.append("0")
-                        HapticFeedbackService.shared.lightImpact()
+                HStack(spacing: 12) {
+                    Button(action: onDelete) {
+                        Image(systemName: "delete.backward")
+                            .font(.title3)
+                            .foregroundColor(.primary)
+                            .frame(width: buttonSize, height: buttonSize)
+                            .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
                     }
-                }) {
-                    Text("0")
-                        .font(.title)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                        .frame(width: buttonSize, height: buttonSize)
-                        .background(Color(UIColor.systemGroupedBackground))
-                        .cornerRadius(35)
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(passcode.isEmpty)
+                    
+                    Button(action: {
+                        if passcode.count < 4 {
+                            passcode.append("0")
+                            HapticFeedbackService.shared.lightImpact()
+                        }
+                    }) {
+                        Text("0")
+                            .font(.title)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                            .frame(width: buttonSize, height: buttonSize)
+                            .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(passcode.count >= 4)
                 }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(passcode.count >= 4)
             }
         }
     }
@@ -230,5 +240,6 @@ struct PasscodeKeypad: View {
 struct ChangePasscodeView_Previews: PreviewProvider {
     static var previews: some View {
         ChangePasscodeView()
+            .environmentObject(AuthenticationService())
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftData
 import SwiftUI
 
 @MainActor
@@ -10,71 +11,80 @@ class AccountViewModel: ObservableObject {
     @Published var categoryBreakdown: [CategorySpending] = []
     @Published var isLoading: Bool = false
     @Published var error: AppError?
-    
-    private var cancellables = Set<AnyCancellable>()
+
+    /// Natural-language spending summary generated on-device by Apple
+    /// Intelligence (Foundation Models). `nil` until `refreshAIInsight()` has
+    /// completed, or if the feature is unavailable on this device/OS.
+    @Published var aiInsight: String?
+    @Published var isGeneratingInsight: Bool = false
+
+    private let modelContext: ModelContext
     private let transactionViewModel: TransactionViewModel
-    
-    init(transactionViewModel: TransactionViewModel) {
+
+    init(modelContext: ModelContext, transactionViewModel: TransactionViewModel) {
+        self.modelContext = modelContext
         self.transactionViewModel = transactionViewModel
         loadAccounts()
     }
-    
+
     var totalBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.balance } }
     var totalAvailableBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.availableBalance } }
-    
-    func loadAccounts() {
-        loadAccounts(userId: "user_001")
-    }
-    
-    func loadAccounts(userId: String) {
+
+    func loadAccounts(userId: String = "user_001") {
         isLoading = true
-        NetworkingService.shared.getAccounts(userId: userId)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] completion in
-                self?.isLoading = false
-                if case .failure = completion {
-                    // Error handling can be wired to UI if needed
-                }
-            } receiveValue: { [weak self] accounts in
-                self?.accounts = accounts
-                self?.loadAnalytics()
-            }
-            .store(in: &cancellables)
-    }
-    
-    func getAccount(id: String) -> Account? {
-        return accounts.first { $0.id == id }
-    }
-    
-    func addUPITransaction(upiId: String, amount: Decimal) {
-        let txn = UPITransaction(
-            id: "upi_\(UUID().uuidString)",
-            upiId: upiId,
-            amount: amount,
-            date: Date()
+        error = nil
+
+        let descriptor = FetchDescriptor<Account>(
+            predicate: #Predicate<Account> { $0.userId == userId },
+            sortBy: [SortDescriptor(\.openedDate)]
         )
-        upiTransactions.insert(txn, at: 0)
-        loadAnalytics()
+
+        do {
+            accounts = try modelContext.fetch(descriptor)
+            loadAnalytics()
+        } catch {
+            // Previously this branch was a no-op comment — failures were
+            // silently swallowed and the UI never learned a load had failed.
+            self.error = .unknownError("We couldn't load your accounts. Please try again.")
+        }
+
+        isLoading = false
     }
-    
+
+    func getAccount(id: String) -> Account? {
+        accounts.first { $0.id == id }
+    }
+
+    func addUPITransaction(upiId: String, amount: Decimal) {
+        let txn = UPITransaction(upiId: upiId, amount: amount, date: Date())
+        modelContext.insert(txn)
+        do {
+            try modelContext.save()
+            upiTransactions.insert(txn, at: 0)
+            loadAnalytics()
+        } catch {
+            self.error = .transactionFailed
+        }
+    }
+
     func loadAnalytics() {
         weeklySpending = calculateWeeklySpending()
         categoryBreakdown = calculateCategoryBreakdown()
     }
-    
+
     func clearError() {
         error = nil
     }
-    
+
     private func calculateWeeklySpending() -> [SpendingDataPoint] {
         let sevenDaysAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
         let recentTransactions = transactionViewModel.recentTransactions.filter { $0.transactionDate >= sevenDaysAgo && !$0.isCredit }
-        
+
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: recentTransactions) { transaction in
             calendar.startOfDay(for: transaction.transactionDate)
         }
-        
+
         var dataPoints: [SpendingDataPoint] = []
         for i in 0..<7 {
             if let date = calendar.date(byAdding: .day, value: -i, to: Date()) {
@@ -84,15 +94,15 @@ class AccountViewModel: ObservableObject {
                 dataPoints.append(SpendingDataPoint(day: dayString, amount: amount))
             }
         }
-        
+
         return dataPoints.reversed()
     }
-    
+
     private func calculateCategoryBreakdown() -> [CategorySpending] {
         let expenseTransactions = transactionViewModel.recentTransactions.filter { !$0.isCredit }
-        
+
         let grouped = Dictionary(grouping: expenseTransactions) { $0.category ?? "Uncategorized" }
-        
+
         let categoryColors: [String: Color] = [
             "Groceries": .green,
             "Dining": .orange,
@@ -102,14 +112,34 @@ class AccountViewModel: ObservableObject {
             "Transfer": .yellow,
             "Payment": .pink
         ]
-        
+
         var categorySpending: [CategorySpending] = []
         for (category, transactions) in grouped {
             let totalAmount = transactions.reduce(Decimal(0)) { $0 + $1.amount }
             let color = categoryColors[category] ?? .gray
             categorySpending.append(CategorySpending(name: category, amount: totalAmount, color: color))
         }
-        
+
         return categorySpending.sorted { $0.amount > $1.amount }
+    }
+
+    /// Asks the on-device Apple Intelligence model (Foundation Models) to turn
+    /// this week's transactions into a short, friendly summary. Runs entirely
+    /// on-device — no transaction data leaves the phone for this feature.
+    func refreshAIInsight() async {
+        guard !categoryBreakdown.isEmpty else { return }
+        isGeneratingInsight = true
+        defer { isGeneratingInsight = false }
+
+        do {
+            aiInsight = try await AIAssistantService.shared.spendingInsight(
+                categories: categoryBreakdown,
+                totalAvailableBalance: totalAvailableBalance
+            )
+        } catch {
+            // Non-fatal: the insight card just stays hidden if Apple
+            // Intelligence isn't available on this device.
+            aiInsight = nil
+        }
     }
 }

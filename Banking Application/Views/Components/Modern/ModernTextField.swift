@@ -30,10 +30,13 @@ struct ModernTextField: View {
                     SecureField(placeholder, text: $text)
                         .keyboardType(keyboardType)
                         .focused($isFocused)
+                        .autocorrectionDisabled(true)
+                        .textInputAutocapitalization(.never)
                 } else {
                     TextField(placeholder, text: $text)
                         .keyboardType(keyboardType)
                         .focused($isFocused)
+                        .autocorrectionDisabled(true)
                 }
                 
                 if !isValid {

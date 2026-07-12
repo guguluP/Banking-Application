@@ -45,7 +45,7 @@ enum AppError: Identifiable {
     
     var message: String {
         switch self {
-        case .networkError: return "Please check your internet connection and try again."
+        case .networkError: return "This action could not be completed with the local demo data. Please try again."
         case .invalidInput: return "Please check your input and try again."
         case .biometricFailed: return "Could not authenticate. Please try again or use your passcode."
         case .insufficientFunds: return "Your account doesn't have enough funds for this transaction."

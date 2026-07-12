@@ -1,89 +1,121 @@
 import SwiftUI
+import Combine
+import SwiftData
 
 struct CardManagementView: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
-    @State private var cards: [Card] = [
-        Card(id: "card_001", userId: "user_001", cardNumber: "4111111111111111", cardType: .visa, cardStatus: .active, expirationMonth: 12, expirationYear: 2025, cardHolderName: "JOHN DOE", cvv: "123", issueDate: Date(timeIntervalSinceNow: -31536000), dailyLimit: Decimal(1000), monthlyLimit: Decimal(5000), isContactlessEnabled: true, isInternationalUsageEnabled: true, isOnlineTransactionsEnabled: true),
-        Card(id: "card_002", userId: "user_001", cardNumber: "5555555555554444", cardType: .mastercard, cardStatus: .active, expirationMonth: 8, expirationYear: 2024, cardHolderName: "JOHN DOE", cvv: "456", issueDate: Date(timeIntervalSinceNow: -180*86400), dailyLimit: Decimal(500), monthlyLimit: Decimal(3000), isContactlessEnabled: true, isInternationalUsageEnabled: false, isOnlineTransactionsEnabled: true)
-    ]
-    
+    @Query private var cards: [Card]
+    @State private var appeared = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: AppSpacing.md) {
-                    ForEach($cards) { $card in
-                        GlassCard {
-                            CreditCardView(card: $card)
+                LazyVStack(spacing: AppSpacing.lg) {
+                    DemoModeBanner()
+                        .padding(.horizontal)
+
+                    if cards.isEmpty {
+                        ErrorStateView(
+                            imageName: "creditcard",
+                            title: "No Cards Yet",
+                            message: "Demo cards will appear after the first data seed. Pull to refresh, or reinstall the app to reset sample data.",
+                            actionTitle: nil,
+                            action: nil
+                        )
+                        .padding()
+                    } else {
+                        ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
+                            VStack(spacing: AppSpacing.md) {
+                                CreditCardView(card: card)
+                                    .padding(.horizontal)
+                                    .scaleEffect(appeared ? 1 : 0.94)
+                                    .opacity(appeared ? 1 : 0)
+                                    .animation(
+                                        .spring(response: 0.5, dampingFraction: 0.82)
+                                            .delay(Double(index) * 0.08),
+                                        value: appeared
+                                    )
+                                    .accessibilityElement(children: .combine)
+                                    .accessibilityLabel("\(card.cardType.rawValue) card ending \(card.lastFourDigits)")
+
+                                CardControlsView(card: card)
+                                    .padding(.horizontal)
+                                    .opacity(appeared ? 1 : 0)
+                                    .animation(
+                                        .easeOut(duration: 0.35).delay(0.12 + Double(index) * 0.08),
+                                        value: appeared
+                                    )
+                            }
                         }
-                        .accessibilityElement(children: .combine)
-                        
-                        CardControlsView(card: $card)
                     }
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("My Cards")
+            .transparentChrome()
+            .navigationTitle("Cards")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                        .accessibilityLabel("Edit cards")
+                    Label("\(cards.count)", systemImage: "creditcard.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(Color.bankPrimary)
+                        .accessibilityLabel("\(cards.count) cards")
                 }
             }
             .accessibilityElement(children: .contain)
+            .onAppear {
+                withAnimation { appeared = true }
+            }
         }
     }
 }
 
 struct CardControlsView: View {
-    @Binding var card: Card
-    
+    @Bindable var card: Card
+
     var body: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: AppSpacing.md) {
                 Toggle("Contactless Payments", isOn: $card.isContactlessEnabled)
                     .toggleStyle(SwitchToggleStyle(tint: .green))
                     .accessibilityLabel("Contactless Payments")
-                
+                    .onChange(of: card.isContactlessEnabled) { _, _ in
+                        HapticFeedbackService.shared.lightImpact()
+                    }
+
                 Toggle("International Usage", isOn: $card.isInternationalUsageEnabled)
                     .toggleStyle(SwitchToggleStyle(tint: .blue))
                     .accessibilityLabel("International Usage")
-                
+                    .onChange(of: card.isInternationalUsageEnabled) { _, _ in
+                        HapticFeedbackService.shared.lightImpact()
+                    }
+
                 Toggle("Online Transactions", isOn: $card.isOnlineTransactionsEnabled)
                     .toggleStyle(SwitchToggleStyle(tint: .orange))
                     .accessibilityLabel("Online Transactions")
-                
+                    .onChange(of: card.isOnlineTransactionsEnabled) { _, _ in
+                        HapticFeedbackService.shared.lightImpact()
+                    }
+
                 Divider()
                     .background(Color.secondary.opacity(0.2))
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Limits")
+
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    Text("Spending limits")
                         .font(.subheadline.weight(.medium))
-                    
-                    HStack(spacing: 8) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Daily")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(CurrencyFormatter.shared.string(from: card.dailyLimit))
-                                .font(.caption.weight(.medium))
-                        }
-                        
-                        Spacer()
-                        
-                        ProgressView(value: 0.3)
-                            .progressViewStyle(LinearProgressViewStyle(tint: Color.bankPrimary))
-                            .frame(width: 80)
-                        
-                        Spacer()
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Monthly")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(CurrencyFormatter.shared.string(from: card.monthlyLimit))
-                                .font(.caption.weight(.medium))
-                        }
-                    }
+
+                    LimitProgressRow(
+                        title: "Daily",
+                        spent: card.dailySpent,
+                        limit: card.dailyLimit,
+                        progress: card.dailyLimitProgress
+                    )
+
+                    LimitProgressRow(
+                        title: "Monthly",
+                        spent: card.monthlySpent,
+                        limit: card.monthlyLimit,
+                        progress: card.monthlyLimitProgress
+                    )
                 }
             }
             .padding()
@@ -91,9 +123,45 @@ struct CardControlsView: View {
     }
 }
 
+private struct LimitProgressRow: View {
+    let title: String
+    let spent: Decimal
+    let limit: Decimal
+    let progress: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("\(CurrencyFormatter.shared.string(from: spent)) / \(CurrencyFormatter.shared.string(from: limit))")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(.primary)
+            }
+            ProgressView(value: progress)
+                .progressViewStyle(LinearProgressViewStyle(tint: progressTint))
+                .accessibilityLabel("\(title) spend \(Int(progress * 100)) percent of limit")
+        }
+    }
+
+    private var progressTint: Color {
+        if progress >= 0.9 { return Color.bankDanger }
+        if progress >= 0.7 { return Color.bankWarning }
+        return Color.bankPrimary
+    }
+}
+
 struct CardManagementView_Previews: PreviewProvider {
     static var previews: some View {
-        CardManagementView()
-            .environmentObject(AccountViewModel(transactionViewModel: TransactionViewModel()))
+        let container = PersistenceController.preview
+        let context = container.mainContext
+        let tvm = TransactionViewModel(modelContext: context)
+        let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
+        return CardManagementView()
+            .environmentObject(avm)
+            .modelContainer(container)
+            .animatedAppBackground()
     }
 }

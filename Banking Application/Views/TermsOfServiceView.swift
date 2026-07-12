@@ -18,14 +18,10 @@ struct TermsOfServiceView: View {
             }
             .navigationTitle("Terms of Service")
             .searchable(text: $searchText, prompt: "Search terms")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Close") { dismiss() }
-                        .accessibilityLabel("Close terms of service")
-                }
-            }
+            .autocorrectionDisabled(true)
         }
         .accessibilityElement(children: .contain)
+        .swipeDownToDismiss()
     }
 }
 

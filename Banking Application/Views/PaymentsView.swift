@@ -1,4 +1,6 @@
 import SwiftUI
+import Combine
+import SwiftData
 
 struct PaymentsView: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
@@ -9,16 +11,11 @@ struct PaymentsView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("Payment Type", selection: $selectedPaymentType) {
-                    ForEach(PaymentType.allCases, id: \.self) { type in
-                        HStack(spacing: 4) {
-                            Image(systemName: type.systemImage)
-                            Text(type.rawValue)
-                        }
-                        .tag(type)
-                    }
-                }
-                .pickerStyle(.segmented)
+                PillSegmentedControl(
+                    selection: $selectedPaymentType,
+                    items: PaymentType.allCases,
+                    icon: { $0.systemImage }
+                )
                 .padding()
                 .accessibilityLabel("Select payment type")
                 
@@ -33,6 +30,7 @@ struct PaymentsView: View {
             }
             .navigationTitle("Payments")
             .searchable(text: $searchText, prompt: "Search payments")
+            .autocorrectionDisabled(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
@@ -65,10 +63,16 @@ enum PaymentType: String, CaseIterable {
 
 struct PaymentsView_Previews: PreviewProvider {
     static var previews: some View {
-        NavigationStack {
+        let container = PersistenceController.preview
+        let context = container.mainContext
+        let tvm = TransactionViewModel(modelContext: context)
+        let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
+        return NavigationStack {
             PaymentsView()
-                .environmentObject(AccountViewModel(transactionViewModel: TransactionViewModel()))
+                .environmentObject(avm)
+                .environmentObject(tvm)
                 .environmentObject(AuthenticationService())
         }
+        .modelContainer(container)
     }
 }

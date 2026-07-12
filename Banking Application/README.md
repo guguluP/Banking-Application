@@ -1,89 +1,75 @@
-# BankSecure iOS App
+# BankSecure (Demo)
 
-A comprehensive banking application built with Swift and SwiftUI.
+Educational iOS banking client built with **SwiftUI**, **SwiftData**, and optional **CloudKit** sync. It is **not** a licensed bank app and does **not** move real money.
 
-## Features
+## What this app is
 
-- Biometric authentication (Face ID/Touch ID)
-- Account overview with balances and transaction history
-- Fund transfers between accounts
-- Bill payment functionality
-- Card management (debit/credit cards)
-- ATM and branch locator with MapKit
-- Profile and settings management
-- Secure data storage with Core Data
-- Networking layer for API communication
+- A full-featured **demo** of mobile banking UX: accounts, transfers, UPI-style pay, bill pay, cards, FDs, loans, map locator, profile, and an on-device assistant.
+- Data lives **on device** (SwiftData). Optional private CloudKit sync for the same iCloud user.
+- Passcode is hashed (SHA-256 + salt) in the **Keychain**; biometrics and inactivity lock are supported.
+- UI shows a persistent **Demo mode** banner so users never confuse sample balances with real funds.
 
-## Project Structure
+## What this app is not
 
-```
-BankApp/
-├── Models/                 # Data models
-│   ├── User.swift
-│   ├── Account.swift
-│   ├── Transaction.swift
-│   ├── Beneficiary.swift
-│   ├── Biller.swift
-│   ├── Card.swift
-│   └── BankLocation.swift
-├── Views/                  # SwiftUI views
-│   ├── LoginView.swift
-│   ├── MainTabView.swift
-│   ├── AccountOverviewView.swift
-│   ├── TransferView.swift
-│   ├── BillPayView.swift
-│   ├── CardManagementView.swift
-│   ├── LocationView.swift
-│   └── ProfileView.swift
-├── ViewModels/             # Business logic and state management
-│   ├── AccountViewModel.swift
-│   └── TransactionViewModel.swift
-├── Services/               # Networking, authentication, etc.
-│   ├── AuthenticationService.swift
-│   └── NetworkingService.swift
-├── Managers/               # Core Data, managers
-│   ├── CoreDataManager.swift
-│   ├── CDAccount.swift
-│   ├── CDTransaction.swift
-│   └── ModelExtensions.swift
-├── Resources/              # Assets, localizations (placeholder)
-├── Utilities/              # Helper functions, extensions (placeholder)
-└── Tests/                  # Unit and UI tests (placeholder)
-```
+- Not connected to a core banking system, UPI/NPCI, or card networks.
+- Not PCI-DSS certified. Cards store **last four digits only** (never full PAN/CVV).
+- No backend or network dependency: `NetworkingService` was removed, and there is no server component in this repo.
 
 ## Requirements
 
-- iOS 16.0+
-- Xcode 14.0+
-- Swift 5.7+
+- Xcode 16+ recommended
+- iOS 17+ (Liquid Glass helpers target iOS 26 with Material fallback)
+- Apple Developer account if enabling CloudKit (`iCloud` capability + container)
 
-## Implementation Notes
+## Project layout
 
-This is a simplified implementation focusing on the core architecture and UI. In a production app, you would need to:
+```
+Banking Application/
+├── BankApp.swift                 # App entry, onboarding → passcode → login → tabs
+├── Models/                       # SwiftData models (Account, Transaction, Card, …)
+├── Views/                        # SwiftUI screens + DesignSystem + Components
+├── ViewModels/                   # MVVM state for accounts, transfers, bills, …
+├── Services/                     # Auth, Keychain, Crypto, Persistence, Settings, AI
+├── Utilities/                    # CurrencyFormatter (INR)
+```
 
-1. Implement actual API endpoints
-2. Add proper error handling and validation
-3. Implement secure storage for sensitive data (Keychain)
-4. Add comprehensive unit and UI tests
-5. Implement proper data synchronization
-6. Add accessibility support
-7. Follow Apple's Human Interface Guidelines closely
-8. Add proper loading states and error views
-9. Implement offline capabilities
-10. Add proper analytics and crash reporting
+Unit tests live in the sibling folder `Banking ApplicationTests/` (outside the app target so XCTest is not linked into the app binary).
 
-## Key Components
+## Key features
 
-### Authentication
-Uses LocalAuthentication framework for biometric login with fallback to passcode.
+| Area | Behavior |
+|------|----------|
+| Auth | 4-digit passcode (Keychain hash), Face ID/Touch ID (user toggle), lockout, background + inactivity lock |
+| Home | Balance (hide/show), charts, quick actions, AI insight, demo banner |
+| Transfer / bills / UPI | Local balance updates + transaction records |
+| Cards | Masked last4, real daily/monthly spend vs limit progress |
+| Settings | Preferences persisted via `AppSettings` |
 
-### Data Management
-Combines Core Data for local storage with a networking service for API communication.
+## Security notes (demo)
 
-### UI
-Built entirely with SwiftUI following MVVM architecture.
+- Passcode hash + salt + session token: Keychain, `WhenUnlockedThisDeviceOnly`
+- CVV: `@Transient` only
+- Card number field: last four digits only
+- Preferences (biometrics on/off, notification toggles, hide balances): `UserDefaults` via `AppSettings`
 
-### Security
-- Biometric authentication
-- Secure network communication (HTTPS)
-- Data modeling best practices (no sensitive data stored in plaintext)
+## Running
+
+1. Open `Banking Application.xcodeproj` in Xcode.
+2. Select a simulator or device.
+3. Build & run. First launch: onboarding → create passcode → demo data is seeded automatically.
+4. Optional: enable iCloud → CloudKit and set a real container ID in Signing & Capabilities.
+
+## Tests
+
+Pure unit tests live under `../Banking ApplicationTests/`:
+
+- `CryptoServiceTests` — hash + constant-time compare
+- `CardModelTests` — last-four normalization + limit progress
+- `CurrencyFormatterTests` — INR formatting
+- `TransferValidationTests` — form validation
+
+In Xcode: **File → New → Target → Unit Testing Bundle**, name it `Banking ApplicationTests`, add those Swift files, set `@testable import Banking_Application`, then **Product → Test**.
+
+## Disclaimer
+
+BankSecure is for learning, portfolios, and UI/architecture experimentation only. Do not use it to store real banking credentials or card data.

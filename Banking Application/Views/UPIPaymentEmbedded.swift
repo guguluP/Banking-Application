@@ -1,8 +1,12 @@
 import SwiftUI
+import Combine
+import SwiftData
 
 struct UPIPaymentEmbedded: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
+    @EnvironmentObject var transactionViewModel: TransactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedAccount: Account?
     @State private var upiId = ""
     @State private var amount = ""
@@ -12,6 +16,8 @@ struct UPIPaymentEmbedded: View {
     @State private var showingError = false
     @State private var errorMessage = ""
     @State private var errorCode: PaymentError?
+    @State private var showingPaymentSuccess = false
+    @State private var successAmount: String = ""
     @State private var isProcessing = false
     
     private let quickAmounts: [Decimal] = [Decimal(100), Decimal(500), Decimal(1000), Decimal(2000)]
@@ -91,6 +97,7 @@ struct UPIPaymentEmbedded: View {
                     
                     TextField("Add remarks", text: $remarks)
                         .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled(true)
                 }
                 .padding(.horizontal)
                 
@@ -130,6 +137,11 @@ struct UPIPaymentEmbedded: View {
             }
         } message: {
             Text("Pay \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)?")
+        }
+        .overlay {
+            if showingPaymentSuccess {
+                PaymentSuccessOverlay(amount: successAmount, subtitle: "UPI Payment Sent", isPresented: $showingPaymentSuccess)
+            }
         }
     }
     
@@ -183,29 +195,70 @@ struct UPIPaymentEmbedded: View {
         showingConfirmation = false
         
         authenticationService.authenticateWithBiometrics { success in
-            DispatchQueue.main.async {
-                if success {
-                    processUPIPayment()
-                } else {
-                    errorCode = .authenticationFailed
-                    errorMessage = "Authentication failed. Please try again."
-                    HapticFeedbackService.shared.errorOccurred()
-                    showingError = true
-                }
+            if success {
+                processUPIPayment()
+            } else {
+                errorCode = .authenticationFailed
+                errorMessage = "Authentication failed. Please try again."
+                HapticFeedbackService.shared.errorOccurred()
+                showingError = true
             }
         }
     }
     
     private func processUPIPayment() {
         guard let amountDecimal = Decimal(string: amount) else { return }
-        
+        guard let account = selectedAccount else { return }
+
+        guard amountDecimal <= account.availableBalance else {
+            errorCode = .insufficientBalance
+            errorMessage = "Insufficient balance. Available: \(account.formattedAvailableBalance)"
+            HapticFeedbackService.shared.errorOccurred()
+            showingError = true
+            return
+        }
+
         isProcessing = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+
+        account.balance -= amountDecimal
+        account.availableBalance -= amountDecimal
+
+        let txn = Transaction(
+            accountId: account.id,
+            type: .payment,
+            amount: amountDecimal,
+            description: remarks.isEmpty ? "UPI payment to \(upiId)" : remarks,
+            counterparty: upiId,
+            transactionDate: Date(),
+            category: "UPI",
+            status: .completed
+        )
+        txn.account = account
+        modelContext.insert(txn)
+
+        do {
+            try modelContext.save()
             accountViewModel.addUPITransaction(upiId: upiId, amount: amountDecimal)
+            accountViewModel.loadAccounts()
+            transactionViewModel.loadAllTransactions()
+
             isProcessing = false
-            HapticFeedbackService.shared.success()
-            errorMessage = "UPI payment of \(CurrencyFormatter.shared.string(from: amountDecimal)) to \(upiId) successful!"
+            successAmount = CurrencyFormatter.shared.string(from: amountDecimal)
+            withAnimation(.easeInOut(duration: 0.25)) {
+                showingPaymentSuccess = true
+            }
+            selectedAccount = nil
+            upiId = ""
+            amount = ""
+            remarks = ""
+        } catch {
+            account.balance += amountDecimal
+            account.availableBalance += amountDecimal
+            modelContext.delete(txn)
+            isProcessing = false
+            errorCode = .authenticationFailed
+            errorMessage = "The payment could not be completed. Please try again."
+            HapticFeedbackService.shared.errorOccurred()
             showingError = true
         }
     }

@@ -1,15 +1,19 @@
 import SwiftUI
+import Combine
 
 struct ProfileView: View {
     @EnvironmentObject var authenticationService: AuthenticationService
+    @ObservedObject private var settings = AppSettings.shared
     @State private var showingEditProfile = false
     @State private var showingSettings = false
-    @State private var isUsingBiometrics = true
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppSpacing.lg) {
+                    DemoModeBanner()
+                        .padding(.horizontal)
+
                     ProfileHeaderView(
                         name: authenticationService.user?.fullName ?? "John Doe",
                         email: authenticationService.user?.email ?? "john.doe@example.com"
@@ -26,12 +30,15 @@ struct ProfileView: View {
                             SettingsRow(icon: "key", title: "Change Passcode")
                         }
                         
-                        Toggle(useBiometricsText, isOn: $isUsingBiometrics)
-                            .toggleStyle(SwitchToggleStyle(tint: .blue))
-                            .onChange(of: isUsingBiometrics) { _, newValue in
+                        Toggle(useBiometricsText, isOn: $settings.isBiometricsEnabled)
+                            .toggleStyle(SwitchToggleStyle(tint: Color.bankPrimary))
+                            .disabled(!authenticationService.canUseBiometrics)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 8)
+                            .onChange(of: settings.isBiometricsEnabled) { _, _ in
                                 HapticFeedbackService.shared.lightImpact()
-                                UserDefaults.standard.set(newValue, forKey: "useBiometrics")
                             }
+                            .accessibilityLabel("\(useBiometricsText) unlock enabled")
                         
                         NavigationLink(destination: PrivacyAndSecurityView()) {
                             SettingsRow(icon: "lock.shield", title: "Privacy & Security")
@@ -84,9 +91,6 @@ struct ProfileView: View {
                     }
                     .accessibilityLabel("Settings")
                 }
-            }
-            .onAppear {
-                isUsingBiometrics = UserDefaults.standard.bool(forKey: "useBiometrics")
             }
         }
         .accessibilityElement(children: .contain)

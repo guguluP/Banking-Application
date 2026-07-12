@@ -16,6 +16,7 @@ struct FormFieldView: View {
             
             TextField(placeholder, text: $text)
                 .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled(true)
                 .padding(12)
                 .background(Color(.systemGray6))
                 .cornerRadius(8)

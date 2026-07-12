@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct LoginView: View {
     @EnvironmentObject var authenticationService: AuthenticationService
@@ -11,12 +12,8 @@ struct LoginView: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.bankPrimary.opacity(0.05), Color(UIColor.systemBackground)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            AnimatedMeshBackground()
+                .ignoresSafeArea()
             
             Color.clear
                 .contentShape(Rectangle())
@@ -93,12 +90,14 @@ struct LoginView: View {
                                         HapticFeedbackService.shared.lightImpact()
                                     }
                                 })
+                                .disabled(isLockedOut)
+                                .opacity(isLockedOut ? 0.4 : 1)
                         }
                         .padding(.vertical, AppSpacing.xl)
                         .padding(.horizontal, AppSpacing.lg)
                     }
                     
-                    if authenticationService.canUseBiometrics {
+                    if authenticationService.isBiometricsLoginEnabled {
                         Button(action: {
                             hideKeyboard()
                             authenticationService.authenticateWithBiometrics { success in
@@ -119,9 +118,13 @@ struct LoginView: View {
                             }
                             .foregroundColor(Color.bankPrimary)
                         }
-                        .disabled(authenticationService.isAuthenticating)
+                        .disabled(authenticationService.isAuthenticating || isLockedOut)
+                        .opacity(isLockedOut ? 0.4 : 1)
                         .accessibilityLabel("Sign in with \(authenticationService.biometryTypeString)")
                     }
+                    
+                    DemoModeBanner(compact: true)
+                        .padding(.top, AppSpacing.sm)
                     
                     if authenticationService.isAuthenticating {
                         ProgressView()
@@ -137,10 +140,18 @@ struct LoginView: View {
                         .padding(.top, AppSpacing.lg)
                 }
                 
-                if authenticationService.errorMessage != nil {
-                    ErrorBannerModern(error: .authenticationFailed)
+                if isLockedOut {
+                    LockoutBanner(secondsRemaining: authenticationService.lockoutRemainingSeconds)
                         .padding(.horizontal, AppSpacing.lg)
                         .padding(.top, AppSpacing.lg)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                } else if let message = authenticationService.errorMessage {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                        .padding(.horizontal, AppSpacing.lg)
+                        .padding(.top, AppSpacing.sm)
+                        .transition(.opacity)
                 }
                 
                 Spacer()
@@ -153,6 +164,8 @@ struct LoginView: View {
         }
         .offset(x: shakeTrigger ? 10 : 0)
         .animation(shakeTrigger ? .easeInOut(duration: 0.1).repeatCount(5) : .default, value: shakeTrigger)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: authenticationService.lockoutRemainingSeconds)
+        .animation(.easeInOut(duration: 0.2), value: authenticationService.errorMessage)
         .onAppear {
             isTextFieldFocused = true
         }
@@ -165,6 +178,7 @@ struct LoginView: View {
             if newValue.count == maxPasscodeLength {
                 isTextFieldFocused = false
                 hideKeyboard()
+                attemptLogin()
             }
         }
         .toolbar {
@@ -178,11 +192,14 @@ struct LoginView: View {
     }
     
     private var isFormValid: Bool { !passcode.isEmpty && passcode.count >= 4 }
+    private var isLockedOut: Bool { authenticationService.lockoutRemainingSeconds > 0 }
     
     private func attemptLogin() {
+        guard !isLockedOut else { return }
         error = nil
         hideKeyboard()
         authenticationService.login(passcode: passcode)
+        passcode = ""
     }
     
     private func hideKeyboard() {
@@ -199,60 +216,77 @@ struct KeypadView: View {
     let buttonSize: CGFloat = 70
     
     var body: some View {
-        VStack(spacing: 12) {
-            ForEach(0..<3) { row in
-                HStack(spacing: 12) {
-                    ForEach(1..<4) { column in
-                        let number = row * 3 + column
-                        Button(action: {
-                            if passcode.count < 4 {
-                                passcode.append(String(number))
-                                HapticFeedbackService.shared.lightImpact()
+        LiquidGlass.container(spacing: 12) {
+            VStack(spacing: 12) {
+                ForEach(0..<3) { row in
+                    HStack(spacing: 12) {
+                        ForEach(1..<4) { column in
+                            let number = row * 3 + column
+                            Button(action: {
+                                if passcode.count < 4 {
+                                    passcode.append(String(number))
+                                    HapticFeedbackService.shared.lightImpact()
+                                }
+                            }) {
+                                Text("\(number)")
+                                    .font(.title)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                    .frame(width: buttonSize, height: buttonSize)
+                                    .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
                             }
-                        }) {
-                            Text("\(number)")
-                                .font(.title)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                                .frame(width: buttonSize, height: buttonSize)
-                                .background(Color(UIColor.systemGroupedBackground))
-                                .cornerRadius(AppTheme.CornerRadius.pill)
+                            .buttonStyle(PlainButtonStyle())
+                            .disabled(passcode.count >= 4)
                         }
-                        .buttonStyle(PlainButtonStyle())
-                        .disabled(passcode.count >= 4)
                     }
                 }
-            }
-            
-            HStack(spacing: 12) {
-                Button(action: onDelete) {
-                    Image(systemName: "delete.backward")
-                        .font(.title3)
-                        .foregroundColor(.primary)
-                        .frame(width: buttonSize, height: buttonSize)
-                        .background(Color(UIColor.systemGroupedBackground))
-                        .cornerRadius(AppTheme.CornerRadius.pill)
-                }
-                .buttonStyle(PlainButtonStyle())
                 
-                Button(action: {
-                    if passcode.count < 4 {
-                        passcode.append("0")
-                        HapticFeedbackService.shared.lightImpact()
+                HStack(spacing: 12) {
+                    Button(action: onDelete) {
+                        Image(systemName: "delete.backward")
+                            .font(.title3)
+                            .foregroundColor(.primary)
+                            .frame(width: buttonSize, height: buttonSize)
+                            .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
                     }
-                }) {
-                    Text("0")
-                        .font(.title)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                        .frame(width: buttonSize, height: buttonSize)
-                        .background(Color(UIColor.systemGroupedBackground))
-                        .cornerRadius(AppTheme.CornerRadius.pill)
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Button(action: {
+                        if passcode.count < 4 {
+                            passcode.append("0")
+                            HapticFeedbackService.shared.lightImpact()
+                        }
+                    }) {
+                        Text("0")
+                            .font(.title)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                            .frame(width: buttonSize, height: buttonSize)
+                            .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(passcode.count >= 4)
                 }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(passcode.count >= 4)
             }
         }
+    }
+}
+
+struct LockoutBanner: View {
+    let secondsRemaining: Int
+
+    var body: some View {
+        HStack(spacing: AppSpacing.sm) {
+            Image(systemName: "lock.trianglebadge.exclamationmark.fill")
+                .foregroundColor(.orange)
+            Text("Too many attempts. Try again in \(secondsRemaining)s.")
+                .font(.footnote.weight(.medium))
+                .foregroundColor(.primary)
+            Spacer()
+        }
+        .padding(AppSpacing.md)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small))
+        .accessibilityElement(children: .combine)
     }
 }
 

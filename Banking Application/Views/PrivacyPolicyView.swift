@@ -26,12 +26,9 @@ struct PrivacyPolicyView: View {
                 .padding()
             }
             .navigationTitle("Privacy Policy")
-            .toolbar {
-                Button("Close") { dismiss() }
-                    .accessibilityLabel("Close privacy policy")
-            }
         }
         .accessibilityElement(children: .contain)
+        .swipeDownToDismiss()
     }
 }
 

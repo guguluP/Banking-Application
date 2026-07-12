@@ -1,27 +1,35 @@
 import SwiftUI
+import Combine
+import SwiftData
 
 @main
 struct BankApp: App {
     @StateObject private var authenticationService = AuthenticationService()
     @StateObject private var transactionViewModel: TransactionViewModel
     @StateObject private var accountViewModel: AccountViewModel
-    
+
+    private let container: ModelContainer
+
     init() {
-        let tvm = TransactionViewModel()
-        let avm = AccountViewModel(transactionViewModel: tvm)
+        let container = PersistenceController.shared
+        self.container = container
+
+        let context = container.mainContext
+        let tvm = TransactionViewModel(modelContext: context)
+        let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         _transactionViewModel = StateObject(wrappedValue: tvm)
         _accountViewModel = StateObject(wrappedValue: avm)
-        
+
         // Configure navigation bar appearance
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
     }
-    
+
     @State private var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     @State private var showSplash = true
-    
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -31,6 +39,12 @@ struct BankApp: App {
                     }
                 } else if !hasCompletedOnboarding {
                     OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                } else if !authenticationService.hasPasscodeConfigured {
+                    // First run on this device: no passcode hash exists in the
+                    // Keychain yet, so the person must create one before they
+                    // can reach any account data.
+                    PasscodeSetupView()
+                        .environmentObject(authenticationService)
                 } else if authenticationService.isAuthenticated {
                     MainTabView()
                         .environmentObject(authenticationService)
@@ -41,18 +55,23 @@ struct BankApp: App {
                         .environmentObject(authenticationService)
                 }
             }
+            .modelContainer(container)
             .onChange(of: hasCompletedOnboarding) { _, completed in
                 UserDefaults.standard.set(completed, forKey: "hasCompletedOnboarding")
             }
+            .onChange(of: authenticationService.isAuthenticated) { _, isAuthenticated in
+                if isAuthenticated {
+                    authenticationService.loadUser(from: container)
+                }
+            }
             .onAppear {
-                // Index accounts and billers for Spotlight search
+                // Index accounts and billers for Spotlight search using the
+                // real, persisted data instead of a hardcoded duplicate list.
                 SpotlightIndexManager.shared.indexAllAccounts(accountViewModel.accounts)
-                SpotlightIndexManager.shared.indexAllBillers([
-                    Biller(id: "bil_001", userId: "user_001", name: "Electric Company", accountNumber: "123456789", nickname: "Electric Bill"),
-                    Biller(id: "bil_002", userId: "user_001", name: "Water Services", accountNumber: "987654321", nickname: "Water Bill"),
-                    Biller(id: "bil_003", userId: "user_001", name: "Internet Provider", accountNumber: "555555555", nickname: "Internet Bill"),
-                    Biller(id: "bil_004", userId: "user_001", name: "Phone Carrier", accountNumber: "111111111", nickname: "Mobile Phone")
-                ])
+                let billerDescriptor = FetchDescriptor<Biller>()
+                if let billers = try? container.mainContext.fetch(billerDescriptor) {
+                    SpotlightIndexManager.shared.indexAllBillers(billers)
+                }
             }
         }
     }

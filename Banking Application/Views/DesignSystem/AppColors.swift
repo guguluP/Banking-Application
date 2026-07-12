@@ -7,9 +7,6 @@ extension Color {
     static let bankSuccess = Color(red: 0.32, green: 0.82, blue: 0.41)
     static let bankWarning = Color(red: 1.0, green: 0.76, blue: 0.12)
     static let bankDanger = Color(red: 1.0, green: 0.32, blue: 0.27)
-    
-    static let glassBackground = Color(uiColor: UIColor.systemBackground).opacity(0.7)
-    static let glassBorder = Color.white.opacity(0.2)
 }
 
 extension ShapeStyle where Self == Color {

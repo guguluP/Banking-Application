@@ -1,8 +1,13 @@
 import SwiftUI
+import Combine
+import SwiftData
 
 struct BillPayEmbedded: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
+    @EnvironmentObject var transactionViewModel: TransactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Biller.name) private var billers: [Biller]
     @State private var selectedBiller: Biller?
     @State private var selectedAccount: Account?
     @State private var amount: String = ""
@@ -13,13 +18,6 @@ struct BillPayEmbedded: View {
     @State private var isProcessing = false
     
     private let quickAmounts: [Decimal] = [Decimal(100), Decimal(500), Decimal(1000), Decimal(2000)]
-    
-    private let billers: [Biller] = [
-        Biller(id: "bil_001", userId: "user_001", name: "Electric Company", accountNumber: "123456789", nickname: "Electric Bill"),
-        Biller(id: "bil_002", userId: "user_001", name: "Water Services", accountNumber: "987654321", nickname: "Water Bill"),
-        Biller(id: "bil_003", userId: "user_001", name: "Internet Provider", accountNumber: "555555555", nickname: "Internet Bill"),
-        Biller(id: "bil_004", userId: "user_001", name: "Phone Carrier", accountNumber: "111111111", nickname: "Mobile Phone")
-    ]
     
     var body: some View {
         ScrollView {
@@ -129,33 +127,71 @@ struct BillPayEmbedded: View {
         showingConfirmation = false
         
         authenticationService.authenticateWithBiometrics { success in
-            DispatchQueue.main.async {
-                if success {
-                    processPayment()
-                } else {
-                    errorCode = .authenticationFailed
-                    errorMessage = "Authentication failed. Please try again."
-                    HapticFeedbackService.shared.errorOccurred()
-                    showingError = true
-                }
+            if success {
+                processPayment()
+            } else {
+                errorCode = .authenticationFailed
+                errorMessage = "Authentication failed. Please try again."
+                HapticFeedbackService.shared.errorOccurred()
+                showingError = true
             }
         }
     }
     
     private func processPayment() {
+        guard let biller = selectedBiller, let account = selectedAccount,
+              let amountDecimal = Decimal(string: amount) else { return }
+
         isProcessing = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+
+        guard amountDecimal <= account.availableBalance else {
             isProcessing = false
+            errorCode = .insufficientBalance
+            errorMessage = "Insufficient balance. Available: \(account.formattedAvailableBalance)"
+            HapticFeedbackService.shared.errorOccurred()
+            showingError = true
+            return
+        }
+
+        account.balance -= amountDecimal
+        account.availableBalance -= amountDecimal
+
+        let txn = Transaction(
+            accountId: account.id,
+            type: .payment,
+            amount: amountDecimal,
+            description: biller.displayName,
+            counterparty: biller.name,
+            transactionDate: Date(),
+            category: "Payment",
+            status: .completed
+        )
+        txn.account = account
+        modelContext.insert(txn)
+
+        do {
+            try modelContext.save()
+            isProcessing = false
+            errorCode = nil
             errorMessage = "Payment successful!"
             HapticFeedbackService.shared.success()
             showingError = true
-            
+
             selectedBiller = nil
             selectedAccount = nil
             amount = ""
-            
+
             accountViewModel.loadAccounts()
+            transactionViewModel.loadAllTransactions()
+        } catch {
+            account.balance += amountDecimal
+            account.availableBalance += amountDecimal
+            modelContext.delete(txn)
+            isProcessing = false
+            errorCode = .authenticationFailed
+            errorMessage = "The payment could not be completed. Please try again."
+            HapticFeedbackService.shared.errorOccurred()
+            showingError = true
         }
     }
 }

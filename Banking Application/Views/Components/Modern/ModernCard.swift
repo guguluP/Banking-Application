@@ -21,18 +21,27 @@ struct ModernCard<Content: View>: View {
 
 struct GlassCard<Content: View>: View {
     let content: Content
-    
-    init(@ViewBuilder content: () -> Content) {
+    let cornerRadius: CGFloat
+
+    init(cornerRadius: CGFloat = AppTheme.CornerRadius.large, @ViewBuilder content: () -> Content) {
         self.content = content()
+        self.cornerRadius = cornerRadius
     }
-    
+
     var body: some View {
         content
-            .background(Color.glassBackground)
-            .cornerRadius(AppTheme.CornerRadius.medium)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium)
-                    .stroke(Color.glassBorder, lineWidth: 1)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.55), Color.white.opacity(0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             )
             .shadow(color: AppShadows.card.color, radius: AppShadows.card.radius, x: AppShadows.card.x, y: AppShadows.card.y)
     }
