@@ -2,10 +2,17 @@ import SwiftUI
 import Combine
 import SwiftData
 
+// Optional refresh hooks to avoid ObjC runtime reflection
+@objc protocol Refreshing {
+    @objc optional func refresh()
+    @objc optional func refreshIfNeeded()
+}
+
 struct CardManagementView: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
     @Query private var cards: [Card]
     @State private var appeared = false
+    @State private var showingAddCard = false
 
     var body: some View {
         NavigationStack {
@@ -18,9 +25,12 @@ struct CardManagementView: View {
                         ErrorStateView(
                             imageName: "creditcard",
                             title: "No Cards Yet",
-                            message: "Demo cards will appear after the first data seed. Pull to refresh, or reinstall the app to reset sample data.",
-                            actionTitle: nil,
-                            action: nil
+                            message: "Apply for a Visa, Mastercard, or RuPay card to get started.",
+                            actionTitle: "Add a Card",
+                            action: {
+                                HapticFeedbackService.shared.lightImpact()
+                                showingAddCard = true
+                            }
                         )
                         .padding()
                     } else {
@@ -47,6 +57,12 @@ struct CardManagementView: View {
                                     )
                             }
                         }
+
+                        ModernButton(title: "Add a Card", systemImage: "plus.circle.fill", variant: .outlined) {
+                            showingAddCard = true
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, AppSpacing.sm)
                     }
                 }
                 .padding(.vertical)
@@ -55,15 +71,29 @@ struct CardManagementView: View {
             .navigationTitle("Cards")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Label("\(cards.count)", systemImage: "creditcard.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(Color.bankPrimary)
-                        .accessibilityLabel("\(cards.count) cards")
+                    HStack(spacing: AppSpacing.md) {
+                        Label("\(cards.count)", systemImage: "creditcard.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(Color.bankPrimary)
+                            .accessibilityLabel("\(cards.count) cards")
+
+                        Button {
+                            showingAddCard = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(Color.bankPrimary)
+                        }
+                        .accessibilityLabel("Add a card")
+                    }
                 }
             }
             .accessibilityElement(children: .contain)
             .onAppear {
                 withAnimation { appeared = true }
+            }
+            .sheet(isPresented: $showingAddCard) {
+                AddCardView()
+                    .environmentObject(accountViewModel)
             }
         }
     }
@@ -165,3 +195,4 @@ struct CardManagementView_Previews: PreviewProvider {
             .animatedAppBackground()
     }
 }
+

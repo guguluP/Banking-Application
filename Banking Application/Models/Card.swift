@@ -4,6 +4,7 @@ import SwiftData
 enum CardType: String, Codable, CaseIterable {
     case visa = "Visa"
     case mastercard = "Mastercard"
+    case rupay = "RuPay"
     case amex = "American Express"
     case discover = "Discover"
     case debit = "Debit"

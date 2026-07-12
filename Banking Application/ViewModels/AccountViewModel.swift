@@ -72,6 +72,41 @@ class AccountViewModel: ObservableObject {
         categoryBreakdown = calculateCategoryBreakdown()
     }
 
+    /// Applies for / issues a new card for the given user. The CVV is
+    /// generated locally for the demo card face only — it is `@Transient`
+    /// on `Card` and is never persisted (see `Card.cvv`).
+    @discardableResult
+    func addCard(
+        userId: String,
+        cardType: CardType,
+        cardHolderName: String,
+        dailyLimit: Decimal,
+        monthlyLimit: Decimal
+    ) -> Card? {
+        let generatedNumber = String((0..<16).map { _ in String(Int.random(in: 0...9)) }.joined().suffix(4))
+        let expiry = Calendar.current.date(byAdding: .year, value: 4, to: Date()) ?? Date()
+        let card = Card(
+            userId: userId,
+            cardNumber: generatedNumber,
+            cardType: cardType,
+            cardStatus: .active,
+            expirationMonth: Calendar.current.component(.month, from: expiry),
+            expirationYear: Calendar.current.component(.year, from: expiry),
+            cardHolderName: cardHolderName,
+            cvv: String(Int.random(in: 100...999)),
+            dailyLimit: dailyLimit,
+            monthlyLimit: monthlyLimit
+        )
+        modelContext.insert(card)
+        do {
+            try modelContext.save()
+            return card
+        } catch {
+            self.error = .transactionFailed
+            return nil
+        }
+    }
+
     func clearError() {
         error = nil
     }
