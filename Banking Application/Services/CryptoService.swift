@@ -4,8 +4,12 @@ import Security
 
 /// Handles one-way hashing for the app passcode. The passcode itself is never
 /// stored anywhere — only a salted SHA-256 digest is persisted (in the Keychain,
-/// via `AuthenticationService`). This means even a full device-storage extraction
-/// cannot recover the original passcode.
+/// via `AuthenticationService`).
+///
+/// SHA-256 is not a password KDF (no stretching). That is acceptable here because
+/// the secret is a 4-digit PIN whose real defense is exponential lockout in
+/// `AuthenticationService`, not hash strength. Do not reuse this for arbitrary
+/// passwords.
 enum CryptoService {
 
     /// Generates a new random 32-byte salt, base64-encoded for storage.

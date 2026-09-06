@@ -1,12 +1,16 @@
 import SwiftUI
 import Combine
 import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @main
 struct BankApp: App {
     @StateObject private var authenticationService = AuthenticationService()
     @StateObject private var transactionViewModel: TransactionViewModel
     @StateObject private var accountViewModel: AccountViewModel
+    @ObservedObject private var settings = AppSettings.shared
 
     private let container: ModelContainer
 
@@ -20,11 +24,7 @@ struct BankApp: App {
         _transactionViewModel = StateObject(wrappedValue: tvm)
         _accountViewModel = StateObject(wrappedValue: avm)
 
-        // Configure navigation bar appearance
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        Self.configureChrome()
     }
 
     @State private var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
@@ -40,9 +40,6 @@ struct BankApp: App {
                 } else if !hasCompletedOnboarding {
                     OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
                 } else if !authenticationService.hasPasscodeConfigured {
-                    // First run on this device: no passcode hash exists in the
-                    // Keychain yet, so the person must create one before they
-                    // can reach any account data.
                     PasscodeSetupView()
                         .environmentObject(authenticationService)
                 } else if authenticationService.isAuthenticated {
@@ -56,6 +53,8 @@ struct BankApp: App {
                 }
             }
             .modelContainer(container)
+            .tint(Color.bankPrimary)
+            .preferredColorScheme(settings.appearanceMode.colorScheme)
             .onChange(of: hasCompletedOnboarding) { _, completed in
                 UserDefaults.standard.set(completed, forKey: "hasCompletedOnboarding")
             }
@@ -65,8 +64,6 @@ struct BankApp: App {
                 }
             }
             .onAppear {
-                // Index accounts and billers for Spotlight search using the
-                // real, persisted data instead of a hardcoded duplicate list.
                 SpotlightIndexManager.shared.indexAllAccounts(accountViewModel.accounts)
                 let billerDescriptor = FetchDescriptor<Biller>()
                 if let billers = try? container.mainContext.fetch(billerDescriptor) {
@@ -74,5 +71,33 @@ struct BankApp: App {
                 }
             }
         }
+        #if os(macOS)
+        .defaultSize(width: 1100, height: 740)
+        .windowResizability(.contentMinSize)
+        #endif
+    }
+
+    private static func configureChrome() {
+        #if canImport(UIKit) && os(iOS)
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+        appearance.titleTextAttributes = [
+            .foregroundColor: UIColor.label
+        ]
+        appearance.largeTitleTextAttributes = [
+            .foregroundColor: UIColor.label
+        ]
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        UINavigationBar.appearance().compactAppearance = appearance
+        UINavigationBar.appearance().tintColor = UIColor(Color.bankPrimary)
+
+        let tab = UITabBarAppearance()
+        tab.configureWithDefaultBackground()
+        UITabBar.appearance().standardAppearance = tab
+        UITabBar.appearance().scrollEdgeAppearance = tab
+        UITabBar.appearance().tintColor = UIColor(Color.bankPrimary)
+        #endif
     }
 }

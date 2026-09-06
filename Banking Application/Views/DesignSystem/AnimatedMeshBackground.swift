@@ -131,10 +131,22 @@ extension View {
 
     /// Makes navigation / scroll surfaces transparent so the animated
     /// background shows through on tab roots and sheets.
+    @ViewBuilder
     func transparentChrome() -> some View {
-        self
-            .scrollContentBackground(.hidden)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .background(Color.clear)
+        // iOS-on-Mac draws the window titlebar over a hidden navigation bar,
+        // which swallows large titles (e.g. "Track"). Keep a real bar there.
+        if PlatformUI.isMac {
+            self
+                .scrollContentBackground(.hidden)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+                .bankInlineNavigationTitle()
+                .background(Color.clear)
+        } else {
+            self
+                .scrollContentBackground(.hidden)
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .background(Color.clear)
+        }
     }
 }

@@ -1,28 +1,38 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 
 @MainActor
 final class HapticFeedbackService {
     static let shared = HapticFeedbackService()
     private init() {}
-    
+
     func errorOccurred() {
-        let notificationFeedback = UINotificationFeedbackGenerator()
-        notificationFeedback.notificationOccurred(.error)
+        #if canImport(UIKit) && !targetEnvironment(macCatalyst)
+        guard !PlatformUI.isMac else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+        #endif
     }
-    
+
     func success() {
-        let notificationFeedback = UINotificationFeedbackGenerator()
-        notificationFeedback.notificationOccurred(.success)
+        #if canImport(UIKit) && !targetEnvironment(macCatalyst)
+        guard !PlatformUI.isMac else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
     }
-    
+
     func warning() {
-        let notificationFeedback = UINotificationFeedbackGenerator()
-        notificationFeedback.notificationOccurred(.warning)
+        #if canImport(UIKit) && !targetEnvironment(macCatalyst)
+        guard !PlatformUI.isMac else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        #endif
     }
-    
+
     func lightImpact() {
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        #if canImport(UIKit) && !targetEnvironment(macCatalyst)
+        guard !PlatformUI.isMac else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
     }
 }

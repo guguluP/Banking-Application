@@ -23,12 +23,8 @@ struct PasscodeSetupView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.bankPrimary.opacity(0.05), Color(UIColor.systemBackground)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            AnimatedMeshBackground()
+                .ignoresSafeArea()
 
             VStack(spacing: AppSpacing.xl) {
                 Spacer().frame(height: AppSpacing.xxxl)

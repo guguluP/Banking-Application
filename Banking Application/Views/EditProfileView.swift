@@ -59,12 +59,12 @@ struct EditProfileView: View {
             }
             .navigationTitle("Edit Profile")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .accessibilityLabel("Cancel editing")
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Save") {
                         saveProfile()
                     }

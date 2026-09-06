@@ -8,11 +8,10 @@ struct NotificationsSettingsView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: AppSpacing.lg) {
-                    Text("Preferences are saved on this device. Push delivery is not wired in demo mode.")
+                    Text("Alerts are delivered as on-device notifications. Enable them in System Settings if you are not prompted. Live Activities appear on iPhone Lock Screen and Dynamic Island while a payment is processing; on Mac an in-app banner is used instead.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
-
                     GlassCard {
                         VStack(alignment: .leading, spacing: AppSpacing.md) {
                             Label("Transaction Alerts", systemImage: "bell.badge.fill")
@@ -29,7 +28,7 @@ struct NotificationsSettingsView: View {
                                             .foregroundColor(.secondary)
                                     }
                                 }
-                                .toggleStyle(SwitchToggleStyle(tint: Color.bankPrimary))
+                                .toggleStyle(BouncyToggleStyle(onTint: Color.bankPrimary))
                                 .onChange(of: settings.isTransactionNotificationsEnabled) {
                                     HapticFeedbackService.shared.lightImpact()
                                 }
@@ -45,7 +44,7 @@ struct NotificationsSettingsView: View {
                                             .foregroundColor(.secondary)
                                     }
                                 }
-                                .toggleStyle(SwitchToggleStyle(tint: Color(red: 1, green: 0.65, blue: 0)))
+                                .toggleStyle(BouncyToggleStyle(onTint: Color(red: 1, green: 0.65, blue: 0)))
                                 .onChange(of: settings.isLowBalanceAlertsEnabled) {
                                     HapticFeedbackService.shared.lightImpact()
                                 }
@@ -61,7 +60,7 @@ struct NotificationsSettingsView: View {
                                             .foregroundColor(.secondary)
                                     }
                                 }
-                                .toggleStyle(SwitchToggleStyle(tint: Color.bankDanger))
+                                .toggleStyle(BouncyToggleStyle(onTint: Color.bankDanger))
                                 .onChange(of: settings.isLargeTransactionAlertsEnabled) {
                                     HapticFeedbackService.shared.lightImpact()
                                 }
@@ -85,7 +84,7 @@ struct NotificationsSettingsView: View {
                                         .foregroundColor(.secondary)
                                 }
                             }
-                            .toggleStyle(SwitchToggleStyle(tint: Color.bankPrimary))
+                            .toggleStyle(BouncyToggleStyle(onTint: Color.bankPrimary))
                             .onChange(of: settings.isWeeklySummaryEnabled) {
                                 HapticFeedbackService.shared.lightImpact()
                             }
@@ -108,7 +107,7 @@ struct NotificationsSettingsView: View {
                                         .foregroundColor(.secondary)
                                 }
                             }
-                            .toggleStyle(SwitchToggleStyle(tint: .green))
+                            .toggleStyle(BouncyToggleStyle(onTint: .green))
                             .onChange(of: settings.isMarketingNotificationsEnabled) {
                                 HapticFeedbackService.shared.lightImpact()
                             }
@@ -119,6 +118,17 @@ struct NotificationsSettingsView: View {
                 .padding(.vertical)
             }
             .navigationTitle("Notifications")
+            .task {
+                await NotificationService.shared.requestAuthorizationIfNeeded()
+            }
+            .onChange(of: settings.isWeeklySummaryEnabled) {
+                NotificationService.shared.rescheduleWeeklySummary()
+            }
+            .onChange(of: settings.isTransactionNotificationsEnabled) { _, enabled in
+                if enabled {
+                    Task { await NotificationService.shared.requestAuthorizationIfNeeded() }
+                }
+            }
         }
         .accessibilityElement(children: .contain)
         .swipeDownToDismiss()

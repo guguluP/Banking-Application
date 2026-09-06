@@ -12,7 +12,14 @@ class TransactionViewModel: ObservableObject {
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
-        loadAllTransactions()
+        // Defer the initial load: mutating @Published state synchronously
+        // inside init can run during a SwiftUI view update (e.g. when this
+        // object is constructed inside another init that's itself building
+        // a @StateObject), which triggers "Publishing changes from within
+        // view updates is not allowed."
+        Task { @MainActor [weak self] in
+            self?.loadAllTransactions()
+        }
     }
 
     /// Loads every transaction for the signed-in user's accounts. Kept simple
@@ -35,24 +42,9 @@ class TransactionViewModel: ObservableObject {
         isLoading = false
     }
 
-    func loadTransactions(for accountId: String) {
-        loadAllTransactions()
-    }
-
-    func getTransactions(for accountId: String) -> [Transaction] {
-        transactions.filter { $0.accountId == accountId }
-    }
-
+    /// Already fetched newest-first in `loadAllTransactions()`.
     var recentTransactions: [Transaction] {
-        transactions.sorted { $0.transactionDate > $1.transactionDate }
-    }
-
-    func getTotalDeposits() -> Decimal {
-        transactions.filter { $0.isCredit }.reduce(Decimal(0)) { $0 + $1.amount }
-    }
-
-    func getTotalWithdrawals() -> Decimal {
-        transactions.filter { !$0.isCredit }.reduce(Decimal(0)) { $0 + $1.amount }
+        transactions
     }
 
     func clearError() {

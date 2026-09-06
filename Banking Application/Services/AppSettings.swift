@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 /// Single source of truth for user-facing preferences that are not credentials.
 /// Sensitive values (passcode hash, session token) stay in `KeychainService`.
@@ -19,6 +20,7 @@ final class AppSettings: ObservableObject {
         static let largeTransactionAlerts = "settings.largeTransactionAlerts"
         static let weeklySummary = "settings.weeklySummary"
         static let hideBalances = "settings.hideBalances"
+        static let appearanceMode = "settings.appearanceMode"
         /// Legacy key used by ProfileView before this service existed.
         static let legacyUseBiometrics = "useBiometrics"
     }
@@ -56,6 +58,12 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(hideBalances, forKey: Key.hideBalances) }
     }
 
+    /// Light / Dark / follow-System appearance override, applied at the app
+    /// root via `.preferredColorScheme`.
+    @Published var appearanceMode: AppearanceMode {
+        didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: Key.appearanceMode) }
+    }
+
     private init() {
         let defaults = UserDefaults.standard
 
@@ -85,5 +93,37 @@ final class AppSettings: ObservableObject {
             : defaults.bool(forKey: Key.largeTransactionAlerts)
         isWeeklySummaryEnabled = defaults.bool(forKey: Key.weeklySummary)
         hideBalances = defaults.bool(forKey: Key.hideBalances)
+
+        if let raw = defaults.string(forKey: Key.appearanceMode), let mode = AppearanceMode(rawValue: raw) {
+            appearanceMode = mode
+        } else {
+            appearanceMode = .system
+        }
+    }
+}
+
+/// User-selectable appearance override. `.system` means "no override" —
+/// the app follows the device's own light/dark setting.
+enum AppearanceMode: String, CaseIterable {
+    case system = "System"
+    case light = "Light"
+    case dark = "Dark"
+
+    var systemImage: String {
+        switch self {
+        case .system: return "gear"
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        }
+    }
+
+    /// Maps to the SwiftUI `.preferredColorScheme(_:)` value; `nil` for
+    /// `.system` tells SwiftUI to defer to the device setting.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
     }
 }

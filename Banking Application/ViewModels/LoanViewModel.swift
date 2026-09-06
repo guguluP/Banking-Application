@@ -90,6 +90,12 @@ class LoanViewModel: ObservableObject {
             reset()
             return true
         } catch {
+            // Roll back the disbursement credit and remove the inserted
+            // objects if persistence failed, mirroring FixedDepositViewModel.
+            account.balance -= principal
+            account.availableBalance -= principal
+            context.delete(loan)
+            context.delete(creditTransaction)
             self.error = .unknownError("Couldn't process the loan. Please try again.")
             return false
         }
@@ -116,6 +122,12 @@ class LoanViewModel: ObservableObject {
         account.balance -= loan.emiAmount
         account.availableBalance -= loan.emiAmount
 
+        // Captured so a failed save can restore the loan to exactly where it was.
+        let previousOutstandingPrincipal = loan.outstandingPrincipal
+        let previousEmisPaid = loan.emisPaid
+        let previousNextDueDate = loan.nextDueDate
+        let previousStatus = loan.status
+
         loan.outstandingPrincipal = max(0, loan.outstandingPrincipal - principalPortion)
         loan.emisPaid += 1
         if loan.remainingEMIs > 0 {
@@ -140,6 +152,15 @@ class LoanViewModel: ObservableObject {
             try context.save()
             return true
         } catch {
+            // Roll back the debit and the loan schedule mutation if
+            // persistence failed, so the EMI never appears paid when it wasn't saved.
+            account.balance += loan.emiAmount
+            account.availableBalance += loan.emiAmount
+            loan.outstandingPrincipal = previousOutstandingPrincipal
+            loan.emisPaid = previousEmisPaid
+            loan.nextDueDate = previousNextDueDate
+            loan.status = previousStatus
+            context.delete(debitTransaction)
             self.error = .unknownError("Couldn't process the EMI payment. Please try again.")
             return false
         }
@@ -163,6 +184,11 @@ class LoanViewModel: ObservableObject {
 
         account.balance -= amount
         account.availableBalance -= amount
+
+        // Captured so a failed save can restore the loan to exactly where it was.
+        let previousOutstandingPrincipal = loan.outstandingPrincipal
+        let previousStatus = loan.status
+
         loan.outstandingPrincipal -= amount
 
         if loan.outstandingPrincipal <= 0 {
@@ -184,6 +210,13 @@ class LoanViewModel: ObservableObject {
             try context.save()
             return true
         } catch {
+            // Roll back the debit and the loan mutation if persistence
+            // failed, so the prepayment never appears applied when it wasn't saved.
+            account.balance += amount
+            account.availableBalance += amount
+            loan.outstandingPrincipal = previousOutstandingPrincipal
+            loan.status = previousStatus
+            context.delete(debitTransaction)
             self.error = .unknownError("Couldn't process the prepayment. Please try again.")
             return false
         }

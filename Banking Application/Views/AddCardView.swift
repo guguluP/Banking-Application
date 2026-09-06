@@ -86,7 +86,7 @@ struct AddCardView: View {
                                         .keyboardType(.numberPad)
                                         .textFieldStyle(.roundedBorder)
                                         .padding(12)
-                                        .background(Color(.systemGray6))
+                                        .background(Color.bankGroupedBackground)
                                         .cornerRadius(8)
                                 }
 
@@ -97,7 +97,7 @@ struct AddCardView: View {
                                         .keyboardType(.numberPad)
                                         .textFieldStyle(.roundedBorder)
                                         .padding(12)
-                                        .background(Color(.systemGray6))
+                                        .background(Color.bankGroupedBackground)
                                         .cornerRadius(8)
                                 }
                             }
@@ -125,7 +125,7 @@ struct AddCardView: View {
                 .navigationTitle("Add a Card")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
+                    ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { dismiss() }
                     }
                 }
@@ -180,7 +180,7 @@ private struct NetworkChoiceChip: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
-                    .fill(isSelected ? Color.bankPrimary : Color(.systemGray6))
+                    .fill(isSelected ? Color.bankPrimary : Color.bankGroupedBackground)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)

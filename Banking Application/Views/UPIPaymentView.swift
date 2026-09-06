@@ -2,7 +2,27 @@ import SwiftUI
 import Combine
 import SwiftData
 
+/// Sheet-presented UPI payment flow (used from Home's QR action). Thin
+/// wrapper around `UPIPaymentContent` that just adds the navigation chrome
+/// appropriate for a modal — see `UPIPaymentContent` for the actual form,
+/// which is also embedded directly (no navigation wrapper) inside the
+/// Payments tab.
 struct UPIPaymentView: View {
+    var body: some View {
+        NavigationStack {
+            UPIPaymentContent()
+                .navigationTitle("UPI Payment")
+        }
+    }
+}
+
+/// The UPI payment form and logic, shared by both the sheet-presented
+/// `UPIPaymentView` (Home tab's QR action) and the inline `PaymentsView`
+/// tab. Previously these were two separately maintained near-duplicates
+/// that had already started drifting (different error banners, different
+/// error-enum types, inconsistent alert-triggering) — this is the single
+/// source of truth now.
+struct UPIPaymentContent: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
     @EnvironmentObject var transactionViewModel: TransactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
@@ -21,133 +41,134 @@ struct UPIPaymentView: View {
     private let quickAmounts: [Decimal] = [Decimal(100), Decimal(500), Decimal(1000), Decimal(2000)]
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: AppSpacing.lg) {
-                    VStack(alignment: .leading, spacing: AppSpacing.md) {
-                        Text("From Account")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        AccountPicker(selection: $selectedAccount, accounts: accountViewModel.accounts)
-                    }
-                    .padding(.horizontal)
+        ScrollView {
+            VStack(spacing: AppSpacing.lg) {
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    Text("From Account")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     
-                    VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                        Text("UPI ID")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        HStack(spacing: 8) {
-                            ModernTextField(
-                                label: "UPI ID",
-                                placeholder: "name@upi",
-                                text: $upiId,
-                                systemImage: "person.crop.circle",
-                                keyboardType: .emailAddress
-                            )
-                            
-                            Button(action: { showingScanner = true }) {
-                                Image(systemName: "qrcode.viewfinder")
-                                    .font(.title3)
-                                    .foregroundColor(Color.bankPrimary)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color(UIColor.systemGroupedBackground))
-                                    .cornerRadius(AppTheme.CornerRadius.pill)
-                            }
-                            .accessibilityLabel("Scan QR Code")
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                    }
-                    .padding(.horizontal)
+                    AccountPicker(selection: $selectedAccount, accounts: accountViewModel.accounts)
+                }
+                .padding(.horizontal)
+                
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    Text("UPI ID")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     
-                    VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                        Text("Amount")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
+                    HStack(spacing: 8) {
                         ModernTextField(
-                            label: "Amount",
-                            placeholder: "0.00",
-                            text: $amount,
-                            systemImage: "indianrupee.sign",
-                            keyboardType: .decimalPad
+                            label: "UPI ID",
+                            placeholder: "name@upi",
+                            text: $upiId,
+                            isValid: isValidUPIId,
+                            errorMessage: "Enter a valid UPI ID (e.g., name@upi)",
+                            systemImage: "person.crop.circle",
+                            keyboardType: .emailAddress
                         )
                         
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(quickAmounts, id: \.self) { quickAmount in
-                                    Button(CurrencyFormatter.shared.string(from: quickAmount)) {
-                                        amount = NSDecimalNumber(decimal: quickAmount).stringValue
-                                        HapticFeedbackService.shared.lightImpact()
-                                    }
-                                    .font(.caption)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color(UIColor.systemGroupedBackground))
-                                    .cornerRadius(AppTheme.CornerRadius.pill)
-                                    .accessibilityLabel("Quick amount: \(CurrencyFormatter.shared.string(from: quickAmount))")
+                        Button(action: { showingScanner = true }) {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.title3)
+                                .foregroundColor(Color.bankPrimary)
+                                .frame(width: 44, height: 44)
+                                .background(Color.bankGroupedBackground)
+                                .cornerRadius(AppTheme.CornerRadius.pill)
+                        }
+                        .accessibilityLabel("Scan QR Code")
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding(.horizontal)
+                
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    Text("Amount")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    ModernTextField(
+                        label: "Amount",
+                        placeholder: "0.00",
+                        text: $amount,
+                        isValid: isValidAmount,
+                        errorMessage: amountErrorMessage,
+                        systemImage: "indianrupee.sign",
+                        keyboardType: .decimalPad
+                    )
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(quickAmounts, id: \.self) { quickAmount in
+                                Button(CurrencyFormatter.shared.string(from: quickAmount)) {
+                                    amount = NSDecimalNumber(decimal: quickAmount).stringValue
+                                    HapticFeedbackService.shared.lightImpact()
                                 }
+                                .font(.caption)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.bankGroupedBackground)
+                                .cornerRadius(AppTheme.CornerRadius.pill)
+                                .accessibilityLabel("Quick amount: \(CurrencyFormatter.shared.string(from: quickAmount))")
                             }
                         }
                     }
-                    .padding(.horizontal)
+                }
+                .padding(.horizontal)
+                
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    Text("Remarks (Optional)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     
-                    VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                        Text("Remarks (Optional)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        TextField("Add remarks", text: $remarks)
-                            .textFieldStyle(.roundedBorder)
-                            .autocorrectionDisabled(true)
-                            .accessibilityLabel("Remarks")
-                    }
-                    .padding(.horizontal)
-                    
-                    if let error = error {
-                        ErrorBannerModern(error: error)
-                            .padding(.horizontal)
-                    }
-                    
-                    ModernButton(
-                        title: isProcessing ? "Processing..." : "Pay via UPI with Face ID",
-                        systemImage: isProcessing ? nil : "faceid",
-                        variant: isFormValid && !isProcessing ? .filled : .glass
-                    ) {
-                        initiateUPIPayment()
-                    }
-                    .disabled(!isFormValid || isProcessing)
-                    .padding(.horizontal)
-                    
-                    if !accountViewModel.upiTransactions.isEmpty {
-                        VStack(alignment: .leading, spacing: AppSpacing.md) {
-                            Text("Recent Transactions")
-                                .font(.headline)
-                                .accessibilityAddTraits(.isHeader)
-                            
-                            ForEach(accountViewModel.upiTransactions.prefix(3)) { txn in
-                                UPITransactionRow(transaction: txn)
-                            }
-                        }
+                    TextField("Add remarks", text: $remarks)
+                        .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled(true)
+                        .accessibilityLabel("Remarks")
+                }
+                .padding(.horizontal)
+                
+                if let error = error {
+                    ErrorBannerModern(error: error)
                         .padding(.horizontal)
+                }
+                
+                ModernButton(
+                    title: isProcessing ? "Processing..." : "Pay via UPI with Face ID",
+                    systemImage: isProcessing ? nil : "faceid",
+                    variant: isFormValid && !isProcessing ? .filled : .glass
+                ) {
+                    initiateUPIPayment()
+                }
+                .disabled(!isFormValid || isProcessing)
+                .padding(.horizontal)
+                
+                if !accountViewModel.upiTransactions.isEmpty {
+                    VStack(alignment: .leading, spacing: AppSpacing.md) {
+                        Text("Recent Transactions")
+                            .font(.headline)
+                            .accessibilityAddTraits(.isHeader)
+                        
+                        ForEach(accountViewModel.upiTransactions.prefix(3)) { txn in
+                            UPITransactionRow(transaction: txn)
+                        }
                     }
+                    .padding(.horizontal)
                 }
-                .padding(.vertical)
             }
-            .navigationTitle("UPI Payment")
-            .sheet(isPresented: $showingScanner) {
-                UPCScannerView(upiId: $upiId)
+            .padding(.vertical)
+        }
+        .sheet(isPresented: $showingScanner) {
+            UPCScannerView(upiId: $upiId)
+        }
+        .alert("Confirm UPI Payment", isPresented: $showingConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Authorize") {
+                requestBiometricAuth()
             }
-            .alert("Confirm UPI Payment", isPresented: $showingConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Authorize", role: .destructive) {
-                    requestBiometricAuth()
-                }
-            } message: {
-                Text("Pay \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)?")
-                    .accessibilityLabel("Confirm payment of \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)")
-            }
+        } message: {
+            Text("Pay \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)?")
+                .accessibilityLabel("Confirm payment of \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)")
         }
         .overlay {
             if showingPaymentSuccess {
@@ -168,6 +189,22 @@ struct UPIPaymentView: View {
     
     private var isValidUPIId: Bool {
         upiId.contains("@")
+    }
+
+    private var isValidAmount: Bool {
+        guard let amountDecimal = Decimal(string: amount), amountDecimal > 0 else { return false }
+        if let account = selectedAccount, amountDecimal > account.availableBalance { return false }
+        return true
+    }
+
+    private var amountErrorMessage: String {
+        guard let amountDecimal = Decimal(string: amount), amountDecimal > 0 else {
+            return "Enter a valid amount"
+        }
+        if let account = selectedAccount, amountDecimal > account.availableBalance {
+            return "Insufficient balance"
+        }
+        return ""
     }
     
     private func initiateUPIPayment() {
@@ -224,11 +261,15 @@ struct UPIPaymentView: View {
         }
 
         isProcessing = true
+        LiveActivityManager.shared.startPayment(
+            kind: "UPI",
+            counterparty: upiId,
+            amount: amountDecimal
+        )
 
-        // Previously this only logged a standalone UPITransaction record and
-        // never actually reduced the account's balance — the money was never
-        // really "sent". Now it debits the account and writes a proper
-        // Transaction too, same as transfers and bill payments.
+        // Debits the account and writes a proper Transaction, same as
+        // transfers and bill payments, rather than only logging a
+        // standalone UPITransaction record.
         account.balance -= amountDecimal
         account.availableBalance -= amountDecimal
 
@@ -253,6 +294,13 @@ struct UPIPaymentView: View {
 
             isProcessing = false
             successAmount = CurrencyFormatter.shared.string(from: amountDecimal)
+            NotificationService.shared.notifyTransaction(
+                amount: amountDecimal,
+                title: "UPI payment sent",
+                body: "\(successAmount) sent to \(upiId).",
+                remainingBalance: account.availableBalance
+            )
+            LiveActivityManager.shared.completePayment()
             withAnimation(.easeInOut(duration: 0.25)) {
                 showingPaymentSuccess = true
             }
@@ -264,6 +312,7 @@ struct UPIPaymentView: View {
             isProcessing = false
             self.error = .transactionFailed
             HapticFeedbackService.shared.errorOccurred()
+            LiveActivityManager.shared.failPayment()
         }
     }
     

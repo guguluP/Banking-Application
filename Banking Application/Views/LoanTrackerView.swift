@@ -123,8 +123,8 @@ struct LoanCard: View {
                             .font(.caption2.bold())
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.green.opacity(0.15))
-                            .foregroundColor(.green)
+                            .background(statusColor.opacity(0.15))
+                            .foregroundColor(statusColor)
                             .clipShape(Capsule())
                     }
                 }
@@ -157,6 +157,17 @@ struct LoanCard: View {
                 }
             }
             .padding()
+        }
+    }
+
+    /// Closed (paid off on schedule) reads as a success; foreclosed (paid
+    /// off early, but not the normal path) reads as neutral/informational
+    /// rather than implying anything is wrong.
+    private var statusColor: Color {
+        switch loan.status {
+        case .active: return Color.bankPrimary
+        case .closed: return .green
+        case .foreclosed: return .secondary
         }
     }
 }

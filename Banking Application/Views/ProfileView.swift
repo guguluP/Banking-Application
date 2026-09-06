@@ -6,7 +6,7 @@ struct ProfileView: View {
     @ObservedObject private var settings = AppSettings.shared
     @State private var showingEditProfile = false
     @State private var showingSettings = false
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -18,88 +18,105 @@ struct ProfileView: View {
                         name: authenticationService.user?.fullName ?? "John Doe",
                         email: authenticationService.user?.email ?? "john.doe@example.com"
                     )
-                    
+
                     SettingsSection(title: "Account") {
                         NavigationLink(destination: EditProfileView()) {
-                            SettingsRow(icon: "person", title: "Edit Profile")
+                            SettingsRow(icon: "person.fill", title: "Edit Profile")
                         }
+                        .buttonStyle(.plain)
                     }
-                    
+
                     SettingsSection(title: "Security") {
                         NavigationLink(destination: ChangePasscodeView()) {
-                            SettingsRow(icon: "key", title: "Change Passcode")
+                            SettingsRow(icon: "key.fill", title: "Change Passcode")
                         }
-                        
-                        Toggle(useBiometricsText, isOn: $settings.isBiometricsEnabled)
-                            .toggleStyle(SwitchToggleStyle(tint: Color.bankPrimary))
-                            .disabled(!authenticationService.canUseBiometrics)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 8)
-                            .onChange(of: settings.isBiometricsEnabled) { _, _ in
-                                HapticFeedbackService.shared.lightImpact()
-                            }
-                            .accessibilityLabel("\(useBiometricsText) unlock enabled")
-                        
+                        .buttonStyle(.plain)
+
+                        Toggle(isOn: $settings.isBiometricsEnabled) {
+                            SettingsRow(
+                                icon: authenticationService.biometryTypeString == "Face ID" ? "faceid" : "touchid",
+                                title: useBiometricsText,
+                                showsChevron: false
+                            )
+                        }
+                        .toggleStyle(SwitchToggleStyle(tint: Color.bankPrimary))
+                        .disabled(!authenticationService.canUseBiometrics)
+                        .padding(.trailing, 8)
+                        .onChange(of: settings.isBiometricsEnabled) { _, _ in
+                            HapticFeedbackService.shared.lightImpact()
+                        }
+                        .accessibilityLabel("\(useBiometricsText) unlock enabled")
+
                         NavigationLink(destination: PrivacyAndSecurityView()) {
-                            SettingsRow(icon: "lock.shield", title: "Privacy & Security")
+                            SettingsRow(icon: "lock.shield.fill", title: "Privacy & Security")
                         }
+                        .buttonStyle(.plain)
                     }
-                    
+
                     SettingsSection(title: "Preferences") {
                         NavigationLink(destination: NotificationsSettingsView()) {
-                            SettingsRow(icon: "bell", title: "Notifications")
+                            SettingsRow(icon: "bell.fill", title: "Notifications")
                         }
-                        
+                        .buttonStyle(.plain)
+
                         NavigationLink(destination: AppearanceSettingsView()) {
-                            SettingsRow(icon: "paintbrush", title: "Appearance")
+                            SettingsRow(icon: "paintbrush.fill", title: "Appearance")
                         }
-                        
+                        .buttonStyle(.plain)
+
                         NavigationLink(destination: LanguageAndRegionView()) {
                             SettingsRow(icon: "globe", title: "Language & Region")
                         }
+                        .buttonStyle(.plain)
                     }
-                    
+
                     SettingsSection(title: "Legal") {
                         NavigationLink(destination: TermsOfServiceView()) {
-                            SettingsRow(icon: "doc.text", title: "Terms of Service")
+                            SettingsRow(icon: "doc.text.fill", title: "Terms of Service")
                         }
-                        
+                        .buttonStyle(.plain)
+
                         NavigationLink(destination: PrivacyPolicyView()) {
-                            SettingsRow(icon: "hand.raised", title: "Privacy Policy")
+                            SettingsRow(icon: "hand.raised.fill", title: "Privacy Policy")
                         }
+                        .buttonStyle(.plain)
                     }
-                    
+
                     ModernButton(
                         title: "Sign Out",
                         systemImage: "rectangle.portrait.and.arrow.right",
-                        variant: .glass
+                        variant: .outlined,
+                        tint: Color.bankDanger
                     ) {
                         logout()
                     }
-                    .foregroundColor(Color.bankDanger)
                     .padding(.horizontal)
-                    .padding(.top, AppSpacing.lg)
+                    .padding(.top, AppSpacing.sm)
+                    .padding(.bottom, AppSpacing.lg)
                 }
                 .padding(.vertical)
+                .adaptiveContentWidth()
             }
             .navigationTitle("Profile")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: { showingSettings = true }) {
-                        Image(systemName: "gear")
+                        Image(systemName: "gearshape.fill")
                             .symbolRenderingMode(.hierarchical)
                     }
                     .accessibilityLabel("Settings")
                 }
             }
         }
+        // Scoped to the NavigationStack itself -- see AccountOverviewView for why.
+        .transparentChrome()
         .accessibilityElement(children: .contain)
     }
-    
+
     private var useBiometricsText: String {
         authenticationService.biometryTypeString.isEmpty ? "Face ID" : authenticationService.biometryTypeString
     }
-    
+
     private func logout() {
         authenticationService.logout()
     }
@@ -108,55 +125,68 @@ struct ProfileView: View {
 struct ProfileHeaderView: View {
     let name: String
     let email: String
-    
+
     var body: some View {
-        GlassCard {
+        GlassCard(tint: Color.bankPrimary) {
             HStack(spacing: AppSpacing.md) {
-                Image(systemName: "person.circle.fill")
-                    .font(.system(size: 60))
-                    .foregroundColor(Color.bankPrimary)
-                    .symbolRenderingMode(.hierarchical)
-                    .accessibilityHidden(true)
-                
+                ZStack {
+                    Circle()
+                        .fill(Color.bankPrimaryGradient)
+                        .frame(width: 68, height: 68)
+                    Text(initials)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                }
+                .accessibilityHidden(true)
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(.title3.weight(.bold))
                         .accessibilityLabel("Name: \(name)")
-                    
+
                     Text(email)
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .accessibilityLabel("Email: \(email)")
                 }
+
+                Spacer(minLength: 0)
             }
-            .padding()
+            .padding(AppSpacing.lg)
         }
         .padding(.horizontal)
+    }
+
+    private var initials: String {
+        let parts = name.split(separator: " ")
+        let letters = parts.prefix(2).compactMap { $0.first.map(String.init) }
+        return letters.joined().uppercased().isEmpty ? "BS" : letters.joined().uppercased()
     }
 }
 
 struct SettingsSection<Content: View>: View {
     let title: String
     let content: Content
-    
+
     init(title: String, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
-            
+            Text(title.uppercased())
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .tracking(0.6)
+                .padding(.horizontal, AppSpacing.lg)
+
             GlassCard {
                 VStack(spacing: 0) {
                     content
                 }
                 .padding(.vertical, 4)
+                .padding(.horizontal, 8)
             }
             .padding(.horizontal)
         }
@@ -166,37 +196,43 @@ struct SettingsSection<Content: View>: View {
 struct SettingsRow: View {
     let icon: String
     let title: String
-    let subtitle: String? = nil
-    
+    var subtitle: String? = nil
+    var showsChevron: Bool = true
+
     var body: some View {
         HStack(spacing: AppSpacing.md) {
             Image(systemName: icon)
-                .font(.subheadline)
-                .foregroundColor(Color.bankPrimary)
-                .frame(width: 30, height: 30)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.bankPrimary)
+                .frame(width: 32, height: 32)
+                .background(Color.bankPrimary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .accessibilityHidden(true)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.subheadline)
-                    .foregroundColor(.primary)
-                
-                if let subtitle = subtitle {
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+
+                if let subtitle {
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                 }
             }
-            
+
             Spacer()
-            
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .accessibilityHidden(true)
+
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 11)
         .padding(.horizontal, 4)
+        .contentShape(Rectangle())
+        .bankHoverHighlight(AppTheme.CornerRadius.small)
     }
 }
 

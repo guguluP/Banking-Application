@@ -33,7 +33,7 @@ final class AIAssistantService {
             }
             let session = LanguageModelSession()
             let response = try await session.respond(
-                to: "Summarize the following text in 3 concise bullet points. Avoid extraneous commentary.\n\nText:\n\(text)"
+                to: AIPromptBuilder().summarizePrompt(for: text)
             )
             return response.content
         } else {

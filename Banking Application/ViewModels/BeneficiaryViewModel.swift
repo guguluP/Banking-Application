@@ -32,6 +32,11 @@ class BeneficiaryViewModel: ObservableObject {
     @Published var isLookingUp = false
     @Published var lookupError: String?
     @Published var error: AppError?
+    /// Whether this payee should be marked favorite on save. Previously
+    /// `Beneficiary.isFavorite` existed on the model with a working
+    /// `toggleFavorite` method but no UI ever set it — this is the first
+    /// real entry point for it.
+    @Published var isFavorite = false
 
     // MARK: - Validation
 
@@ -99,7 +104,8 @@ class BeneficiaryViewModel: ObservableObject {
             accountNumber: accountNumber.trimmingCharacters(in: .whitespaces),
             bankName: bankName,
             bankCode: ifscCode.trimmingCharacters(in: .whitespaces).uppercased(),
-            accountType: .checking
+            accountType: .checking,
+            isFavorite: isFavorite
         )
 
         context.insert(beneficiary)

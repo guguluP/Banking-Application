@@ -10,40 +10,46 @@ struct PillSegmentedControl<T: CaseIterable & Hashable & RawRepresentable>: View
         HStack(spacing: 4) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(AppTheme.Animation.standard) {
                         selection = item
                     }
                     HapticFeedbackService.shared.lightImpact()
                 }) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         if let icon = icon?(item) {
                             Image(systemName: icon)
+                                .font(.subheadline.weight(.semibold))
                         }
                         Text(item.rawValue)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(isSelected(item) ? .white : .primary)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .frame(maxWidth: .infinity)
-                        .background {
-                            if isSelected(item) {
-                                // Real Liquid Glass on iOS 26+, tinted with the
-                                // brand color; Material fallback below that.
-                                Color.clear
-                                    .glassControl(cornerRadius: AppTheme.CornerRadius.pill, tint: Color.bankPrimary)
-                                    .matchedGeometryEffect(id: "selectedSegment", in: namespace)
-                            }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isSelected(item) ? .white : .primary)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity)
+                    .background {
+                        if isSelected(item) {
+                            Capsule(style: .continuous)
+                                .fill(Color.bankPrimaryGradient)
+                                .matchedGeometryEffect(id: "selectedSegment", in: namespace)
+                                .shadow(color: Color.bankPrimary.opacity(0.28), radius: 8, x: 0, y: 3)
                         }
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
+                .buttonStyle(ScalePressButtonStyle())
+                .accessibilityAddTraits(isSelected(item) ? [.isSelected, .isButton] : .isButton)
             }
         }
-        .padding(4)
-        .background(Color(UIColor.systemGroupedBackground))
-        .clipShape(Capsule())
+        .padding(5)
+        .background(Color.bankGroupedBackground.opacity(0.9), in: Capsule(style: .continuous))
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(Color.bankSeparator, lineWidth: 1)
+        )
     }
-    
+
     private func isSelected(_ item: T) -> Bool {
         selection == item
     }

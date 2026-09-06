@@ -6,22 +6,40 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
 		7F0F064C2FDE951100868AF8 /* AIAssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */; };
 		7F0F064E2FDE954700868AF8 /* SummarizeTextIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */; };
-		7F0F06502FDE957600868AF8 /* AIPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064F2FDE957600868AF8 /* AIPromptBuilder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantService.swift; sourceTree = "<group>"; };
 		7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummarizeTextIntent.swift; sourceTree = "<group>"; };
-		7F0F064F2FDE957600868AF8 /* AIPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIPromptBuilder.swift; sourceTree = "<group>"; };
 		7FC33B1C2FCA7747004CB335 /* Banking Application.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Banking Application.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7FBA10012FCA900100LIVE01 /* BankingLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BankingLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7FBA100E2FCA900100LIVE0E /* Exceptions for "BankingLiveActivity" folder in "BankingLiveActivity" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7FBA10022FCA900100LIVE02 /* BankingLiveActivity */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7FC33B1E2FCA7747004CB335 /* Banking Application */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Banking Application";
+			sourceTree = "<group>";
+		};
+		7FBA10032FCA900100LIVE03 /* BankingLiveActivity */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7FBA100E2FCA900100LIVE0E /* Exceptions for "BankingLiveActivity" folder in "BankingLiveActivity" target */,
+			);
+			path = BankingLiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -34,24 +52,32 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7FBA10042FCA900100LIVE04 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		7FC33B132FCA7747004CB335 = {
 			isa = PBXGroup;
-		children = (
-			7FC33B1E2FCA7747004CB335 /* Banking Application */,
-			7FC33B1D2FCA7747004CB335 /* Products */,
-			7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */,
-			7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */,
-			7F0F064F2FDE957600868AF8 /* AIPromptBuilder.swift */,
-		);
+			children = (
+				7FC33B1E2FCA7747004CB335 /* Banking Application */,
+				7FBA10032FCA900100LIVE03 /* BankingLiveActivity */,
+				7FC33B1D2FCA7747004CB335 /* Products */,
+				7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */,
+				7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */,
+			);
 			sourceTree = "<group>";
 		};
 		7FC33B1D2FCA7747004CB335 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				7FC33B1C2FCA7747004CB335 /* Banking Application.app */,
+				7FBA10012FCA900100LIVE01 /* BankingLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -66,10 +92,12 @@
 				7FC33B182FCA7747004CB335 /* Sources */,
 				7FC33B192FCA7747004CB335 /* Frameworks */,
 				7FC33B1A2FCA7747004CB335 /* Resources */,
+				7FBA100D2FCA900100LIVE0D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7FBA100B2FCA900100LIVE0B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7FC33B1E2FCA7747004CB335 /* Banking Application */,
@@ -80,6 +108,26 @@
 			productName = "Banking Application";
 			productReference = 7FC33B1C2FCA7747004CB335 /* Banking Application.app */;
 			productType = "com.apple.product-type.application";
+		};
+		7FBA10022FCA900100LIVE02 /* BankingLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7FBA10092FCA900100LIVE09 /* Build configuration list for PBXNativeTarget "BankingLiveActivity" */;
+			buildPhases = (
+				7FBA10052FCA900100LIVE05 /* Sources */,
+				7FBA10042FCA900100LIVE04 /* Frameworks */,
+				7FBA10062FCA900100LIVE06 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7FBA10032FCA900100LIVE03 /* BankingLiveActivity */,
+			);
+			name = BankingLiveActivity;
+			productName = BankingLiveActivity;
+			productReference = 7FBA10012FCA900100LIVE01 /* BankingLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -92,6 +140,9 @@
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					7FC33B1B2FCA7747004CB335 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					7FBA10022FCA900100LIVE02 = {
 						CreatedOnToolsVersion = 26.5;
 					};
 				};
@@ -111,6 +162,7 @@
 			projectRoot = "";
 			targets = (
 				7FC33B1B2FCA7747004CB335 /* Banking Application */,
+				7FBA10022FCA900100LIVE02 /* BankingLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -119,8 +171,15 @@
 		7FC33B1A2FCA7747004CB335 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-		files = (
-		);
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7FBA10062FCA900100LIVE06 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
@@ -132,11 +191,50 @@
 			files = (
 				7F0F064C2FDE951100868AF8 /* AIAssistantService.swift in Sources */,
 				7F0F064E2FDE954700868AF8 /* SummarizeTextIntent.swift in Sources */,
-				7F0F06502FDE957600868AF8 /* AIPromptBuilder.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7FBA10052FCA900100LIVE05 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+
+/* Begin PBXTargetDependency section */
+		7FBA100B2FCA900100LIVE0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7FBA10022FCA900100LIVE02 /* BankingLiveActivity */;
+			targetProxy = 7FBA100A2FCA900100LIVE0A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		7FBA100A2FCA900100LIVE0A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7FC33B142FCA7747004CB335 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7FBA10022FCA900100LIVE02;
+			remoteInfo = BankingLiveActivity;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7FBA100D2FCA900100LIVE0D /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7FBA100C2FCA900100LIVE0C /* BankingLiveActivity.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
 		7FC33B252FCA7748004CB335 /* Debug */ = {
@@ -267,15 +365,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U65M73K349;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				INFOPLIST_KEY_NSCameraUsageDescription = "BankSecure uses your camera to scan receipts so expenses can be logged automatically.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to securely access your banking app and authorize transactions";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -286,48 +389,108 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.piyushpatnaik.Banking-Application";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-			SWIFT_APPROACHABLE_CONCURRENCY = YES;
-			SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-			SWIFT_EMIT_LOC_STRINGS = YES;
-			SWIFT_STRICT_CONCURRENCY = minimal;
-			SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-			SWIFT_VERSION = 6.0;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
 		};
-		name = Debug;
-	};
-	7FC33B292FCA7748004CB335 /* Release */ = {
-		isa = XCBuildConfiguration;
-		buildSettings = {
-			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 1;
-			ENABLE_PREVIEWS = YES;
-			GENERATE_INFOPLIST_FILE = YES;
-			INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
-			INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to securely access your banking app and authorize transactions";
-			INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-			INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-			INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-			INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-			INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-			LD_RUNPATH_SEARCH_PATHS = (
-				"$(inherited)",
-				"@executable_path/Frameworks",
-			);
-			MARKETING_VERSION = 1.0;
-			PRODUCT_BUNDLE_IDENTIFIER = "com.piyushpatnaik.Banking-Application";
-			PRODUCT_NAME = "$(TARGET_NAME)";
-			STRING_CATALOG_GENERATE_SYMBOLS = YES;
-			SWIFT_APPROACHABLE_CONCURRENCY = YES;
-			SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-			SWIFT_EMIT_LOC_STRINGS = YES;
-			SWIFT_STRICT_CONCURRENCY = minimal;
-			SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-			SWIFT_VERSION = 6.0;
+		7FC33B292FCA7748004CB335 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U65M73K349;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				INFOPLIST_KEY_NSCameraUsageDescription = "BankSecure uses your camera to scan receipts so expenses can be logged automatically.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to securely access your banking app and authorize transactions";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = "";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.piyushpatnaik.Banking-Application";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
 		};
-		name = Release;
-	};
+
+		7FBA10072FCA900100LIVE07 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U65M73K349;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BankingLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "BankSecure Live Activity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.piyushpatnaik.Banking-Application.BankingLiveActivity";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7FBA10082FCA900100LIVE08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U65M73K349;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BankingLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "BankSecure Live Activity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.piyushpatnaik.Banking-Application.BankingLiveActivity";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -345,6 +508,15 @@
 			buildConfigurations = (
 				7FC33B282FCA7748004CB335 /* Debug */,
 				7FC33B292FCA7748004CB335 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7FBA10092FCA900100LIVE09 /* Build configuration list for PBXNativeTarget "BankingLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7FBA10072FCA900100LIVE07 /* Debug */,
+				7FBA10082FCA900100LIVE08 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

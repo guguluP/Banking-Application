@@ -2,12 +2,14 @@ import SwiftUI
 
 struct SkeletonView: View {
     @State private var phase: CGFloat = 0
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small)
             .fill(Color.secondary.opacity(0.2))
             .modifier(ShimmerModifier(phase: phase))
             .onAppear {
+                guard !reduceMotion else { return }
                 withAnimation(.linear(duration: 1.5).repeatForever()) {
                     phase = 1
                 }
@@ -27,7 +29,7 @@ struct SkeletonCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(Color(UIColor.systemBackground))
+        .background(Color.bankBackground)
         .cornerRadius(AppTheme.CornerRadius.medium)
         .shadow(color: AppShadows.small.color, radius: AppShadows.small.radius, x: AppShadows.small.x, y: AppShadows.small.y)
     }

@@ -4,60 +4,83 @@ import Combine
 struct AccountCard: View {
     let account: Account
     let action: () -> Void
-    
+
+    @State private var isAnimating = false
+
     var body: some View {
         Button(action: {
             HapticFeedbackService.shared.lightImpact()
             action()
         }) {
-            GlassCard {
+            GlassCard(tint: Color.bankPrimary) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(account.accountType.rawValue)
-                                .font(.caption)
+                                .font(.caption.weight(.semibold))
                                 .textCase(.uppercase)
-                                .foregroundColor(.secondary)
-                            
+                                .foregroundStyle(.secondary)
+                                .tracking(0.6)
+
                             Text(account.nickname ?? "Account")
                                 .font(.headline)
-                                .foregroundColor(.primary)
+                                .foregroundStyle(.primary)
                         }
-                        
+
                         Spacer()
-                        
+
                         Image(systemName: accountStatusIcon)
-                            .foregroundColor(accountStatusColor)
+                            .font(.title3)
+                            .foregroundStyle(accountStatusColor)
+                            .symbolRenderingMode(.hierarchical)
                     }
-                    
-                    Text(account.formattedBalance)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
+
+                    AnimatedDigitText(
+                        text: account.formattedBalance,
+                        isAnimating: isAnimating,
+                        font: AppTheme.Typography.monospacedAmount(),
+                        color: .primary,
+                        distance: 6,
+                        stagger: 0.05
+                    )
+                    .onAppear { replay() }
+                    .onChange(of: account.formattedBalance) { replay() }
+
                     HStack {
                         Text("Available: \(account.formattedAvailableBalance)")
                             .font(.caption)
-                            .foregroundColor(.secondary)
-                        
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+
                         Spacer()
-                        
+
                         Text("•••• \(account.accountNumber.suffix(4))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.bankGroupedBackground, in: Capsule())
                     }
                 }
-                .padding()
+                .padding(AppSpacing.lg)
             }
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(ScalePressButtonStyle())
+        .bankHoverHighlight(AppTheme.CornerRadius.card)
     }
-    
+
+    private func replay() {
+        isAnimating = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
+            isAnimating = true
+        }
+    }
+
     private var accountStatusIcon: String {
         account.accountStatus == .active ? "checkmark.circle.fill" : "xmark.circle.fill"
     }
-    
+
     private var accountStatusColor: Color {
-        account.accountStatus == .active ? .green : .gray
+        account.accountStatus == .active ? .bankSuccess : .secondary
     }
 }

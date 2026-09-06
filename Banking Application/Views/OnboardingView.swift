@@ -31,13 +31,9 @@ struct OnboardingView: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.bankPrimary.opacity(0.05), Color(UIColor.systemBackground)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
+            AnimatedMeshBackground()
+                .ignoresSafeArea()
+
             VStack {
                 TabView(selection: $currentStep) {
                     ForEach(0..<onboardingSteps.count, id: \.self) { index in
@@ -47,7 +43,7 @@ struct OnboardingView: View {
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
                 .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
-                
+
                 ModernButton(
                     title: currentStep == onboardingSteps.count - 1 ? "Get Started" : "Next",
                     systemImage: currentStep == onboardingSteps.count - 1 ? "arrow.right.circle.fill" : nil,
@@ -57,15 +53,15 @@ struct OnboardingView: View {
                 }
                 .padding(.horizontal, AppSpacing.xl)
                 .padding(.bottom, AppSpacing.xxl)
+                .adaptiveContentWidth(420)
             }
             .onAppear {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                withAnimation(AppTheme.Animation.gentle) {
                     logoScale = 1
                     logoOpacity = 1
                 }
             }
         }
-        .background(Color(UIColor.systemBackground))
     }
     
     private func completeOnboarding() {
@@ -88,7 +84,8 @@ struct OnboardingStep {
 
 struct OnboardingStepView: View {
     let step: OnboardingStep
-    
+    @State private var isTextShown = false
+
     var body: some View {
         VStack(spacing: AppSpacing.xxl) {
             Spacer()
@@ -99,22 +96,30 @@ struct OnboardingStepView: View {
                 .accessibilityHidden(true)
                 .symbolRenderingMode(.hierarchical)
             
-            VStack(spacing: AppSpacing.md) {
+            StaggeredTextReveal(isShown: isTextShown) {
                 Text(step.title)
                     .font(.title2)
                     .fontWeight(.bold)
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
-                
+
                 Text(step.description)
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, AppSpacing.xxl)
             }
+            .frame(maxWidth: .infinity)
             
             Spacer()
         }
         .padding(.top, AppSpacing.xxl)
+        .onAppear { isTextShown = true }
+        .onChange(of: step.title) {
+            isTextShown = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                isTextShown = true
+            }
+        }
     }
 }

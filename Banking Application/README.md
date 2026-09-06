@@ -13,12 +13,12 @@ Educational iOS banking client built with **SwiftUI**, **SwiftData**, and option
 
 - Not connected to a core banking system, UPI/NPCI, or card networks.
 - Not PCI-DSS certified. Cards store **last four digits only** (never full PAN/CVV).
-- No backend or network dependency: `NetworkingService` was removed, and there is no server component in this repo.
+- No backend server component in this repo yet, but **not fully offline**: `IFSCLookupService` sends the IFSC code you enter to Razorpay's public bank-branch-lookup API (`ifsc.razorpay.com`) to resolve branch details. No account numbers, balances, or other banking data are sent — only the IFSC code itself.
 
 ## Requirements
 
-- Xcode 16+ recommended
-- iOS 17+ (Liquid Glass helpers target iOS 26 with Material fallback)
+- Xcode 26+ recommended
+- iOS 26+ (matches the project's actual `IPHONEOS_DEPLOYMENT_TARGET`; some Material-style fallback code for earlier OS versions exists but is currently unreachable and unverified at this target)
 - Apple Developer account if enabling CloudKit (`iCloud` capability + container)
 
 ## Project layout
@@ -47,7 +47,7 @@ Unit tests live in the sibling folder `Banking ApplicationTests/` (outside the a
 
 ## Security notes (demo)
 
-- Passcode hash + salt + session token: Keychain, `WhenUnlockedThisDeviceOnly`
+- Passcode hash + salt + session token: Keychain, `WhenUnlockedThisDeviceOnly`. Salted SHA-256 is not a stretching KDF; the 4-digit PIN is protected by exponential lockout, not hash cost.
 - CVV: `@Transient` only
 - Card number field: last four digits only
 - Preferences (biometrics on/off, notification toggles, hide balances): `UserDefaults` via `AppSettings`

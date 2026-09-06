@@ -123,10 +123,23 @@ import SwiftData
         txn.account = account
         context.insert(txn)
 
+        LiveActivityManager.shared.startPayment(
+            kind: "Transfer",
+            counterparty: recipient,
+            amount: amountDecimal
+        )
+
         do {
             try context.save()
             isProcessing = false
             HapticFeedbackService.shared.success()
+            NotificationService.shared.notifyTransaction(
+                amount: amountDecimal,
+                title: "Transfer sent",
+                body: "\(CurrencyFormatter.shared.string(from: amountDecimal)) sent to account ending \(recipient.suffix(4)).",
+                remainingBalance: account.availableBalance
+            )
+            LiveActivityManager.shared.completePayment()
             recipientAccount = ""
             amount = ""
             description = ""
@@ -140,6 +153,7 @@ import SwiftData
             isProcessing = false
             self.error = .transactionFailed
             HapticFeedbackService.shared.errorOccurred()
+            LiveActivityManager.shared.failPayment()
             return false
         }
     }

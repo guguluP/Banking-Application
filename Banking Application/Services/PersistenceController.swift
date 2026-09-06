@@ -28,7 +28,9 @@ enum PersistenceController {
             Biller.self,
             UPITransaction.self,
             FixedDeposit.self,
-            Loan.self
+            Loan.self,
+            ExpenseCategory.self,
+            Budget.self
         ])
     }
 
@@ -46,6 +48,7 @@ enum PersistenceController {
         do {
             let container = try ModelContainer(for: schema, configurations: [configuration])
             seedIfNeeded(container: container)
+            seedDefaultCategoriesIfNeeded(container: container)
             sanitizeStoredCards(container: container)
             return container
         } catch {
@@ -56,6 +59,7 @@ enum PersistenceController {
                 fatalError("Unable to create ModelContainer: \(error)")
             }
             seedIfNeeded(container: fallback)
+            seedDefaultCategoriesIfNeeded(container: fallback)
             sanitizeStoredCards(container: fallback)
             return fallback
         }
@@ -66,6 +70,7 @@ enum PersistenceController {
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])
         seedIfNeeded(container: container, force: true)
+        seedDefaultCategoriesIfNeeded(container: container)
         return container
     }()
 
@@ -172,8 +177,36 @@ enum PersistenceController {
         try? context.save()
     }
 
+    /// Seeds the built-in expense categories on first run. Idempotent and
+    /// additive: if the user already has categories (including if they've
+    /// deleted/hidden some built-ins), this is a no-op, so it's safe to call
+    /// on every launch.
+    private static func seedDefaultCategoriesIfNeeded(container: ModelContainer) {
+        let context = container.mainContext
+        let descriptor = FetchDescriptor<ExpenseCategory>()
+        let existingCount = (try? context.fetchCount(descriptor)) ?? 0
+        guard existingCount == 0 else { return }
+
+        for (index, seed) in ExpenseCategory.defaultSeedSet.enumerated() {
+            let category = ExpenseCategory(
+                name: seed.name,
+                systemImage: seed.systemImage,
+                colorHex: seed.colorHex,
+                isBuiltIn: true,
+                sortOrder: index
+            )
+            context.insert(category)
+        }
+
+        try? context.save()
+    }
+
     /// Migrates any legacy rows that still hold a full PAN down to last-four only.
+    /// Runs at most once per install after a successful scan.
     private static func sanitizeStoredCards(container: ModelContainer) {
+        let flagKey = "persistence.didSanitizeCardPANs"
+        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+
         let context = container.mainContext
         let descriptor = FetchDescriptor<Card>()
         guard let cards = try? context.fetch(descriptor) else { return }
@@ -188,5 +221,6 @@ enum PersistenceController {
         if changed {
             try? context.save()
         }
+        UserDefaults.standard.set(true, forKey: flagKey)
     }
 }

@@ -17,24 +17,26 @@ struct PaymentsView: View {
                     icon: { $0.systemImage }
                 )
                 .padding()
+                .adaptiveContentWidth()
                 .accessibilityLabel("Select payment type")
-                
+
                 Group {
                     switch selectedPaymentType {
                     case .upi:
-                        UPIPaymentEmbedded()
+                        UPIPaymentContent()
                     case .bills:
-                        BillPayEmbedded()
+                        BillPayContent(enableSearch: false, externalSearchText: searchText)
                     }
                 }
+                .adaptiveContentWidth()
             }
             .navigationTitle("Payments")
             .searchable(text: $searchText, prompt: "Search payments")
             .autocorrectionDisabled(true)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: {
-                        withAnimation {
+                        withAnimation(AppTheme.Animation.standard) {
                             selectedPaymentType = selectedPaymentType == .upi ? .bills : .upi
                         }
                     }) {
@@ -46,6 +48,8 @@ struct PaymentsView: View {
             }
             .accessibilityElement(children: .contain)
         }
+        // Scoped to the NavigationStack itself -- see AccountOverviewView for why.
+        .transparentChrome()
     }
 }
 

@@ -24,7 +24,11 @@ class AccountViewModel: ObservableObject {
     init(modelContext: ModelContext, transactionViewModel: TransactionViewModel) {
         self.modelContext = modelContext
         self.transactionViewModel = transactionViewModel
-        loadAccounts()
+        // Deferred for the same reason as TransactionViewModel.init — see
+        // that file's comment.
+        Task { @MainActor [weak self] in
+            self?.loadAccounts()
+        }
     }
 
     var totalBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.balance } }
@@ -113,7 +117,7 @@ class AccountViewModel: ObservableObject {
 
     private func calculateWeeklySpending() -> [SpendingDataPoint] {
         let sevenDaysAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
-        let recentTransactions = transactionViewModel.recentTransactions.filter { $0.transactionDate >= sevenDaysAgo && !$0.isCredit }
+        let recentTransactions = transactionViewModel.recentTransactions.filter { $0.transactionDate >= sevenDaysAgo && $0.isDebit }
 
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: recentTransactions) { transaction in
@@ -134,7 +138,7 @@ class AccountViewModel: ObservableObject {
     }
 
     private func calculateCategoryBreakdown() -> [CategorySpending] {
-        let expenseTransactions = transactionViewModel.recentTransactions.filter { !$0.isCredit }
+        let expenseTransactions = transactionViewModel.recentTransactions.filter { $0.isDebit }
 
         let grouped = Dictionary(grouping: expenseTransactions) { $0.category ?? "Uncategorized" }
 

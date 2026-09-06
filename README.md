@@ -1,11 +1,11 @@
 # BankSecure
 
-[![Platform](https://img.shields.io/badge/platform-iOS%2017%2B-lightgrey)](#requirements)
-[![Swift](https://img.shields.io/badge/Swift-5-orange)](#requirements)
+[![Platform](https://img.shields.io/badge/platform-iOS%2026%2B-lightgrey)](#requirements)
+[![Swift](https://img.shields.io/badge/Swift-6-orange)](#requirements)
 [![UI](https://img.shields.io/badge/UI-SwiftUI-blue)](#tech-stack)
 [![Status](https://img.shields.io/badge/status-demo%20%2F%20educational-yellow)](#disclaimer)
 
-An educational, fully offline **mobile banking client** built with SwiftUI and SwiftData. BankSecure demonstrates production-style architecture, security patterns, and polish for a consumer banking app — accounts, transfers, UPI-style payments, bill pay, cards, fixed deposits, loans, and an on-device AI assistant — without connecting to any real bank, card network, or payment rail.
+An educational **mobile banking client** built with SwiftUI and SwiftData. Data lives on-device with no backend server, though it isn't fully offline — see the network note below. BankSecure demonstrates production-style architecture, security patterns, and polish for a consumer banking app — accounts, transfers, UPI-style payments, bill pay, cards, fixed deposits, loans, and an on-device AI assistant — without connecting to any real bank, card network, or payment rail.
 
 > **This is a demo app.** It does not move real money, is not PCI-DSS certified, and is not affiliated with any financial institution. See [Disclaimer](#disclaimer).
 
@@ -75,7 +75,7 @@ Two screen recordings walking through the app's flows are included in [`docs/vid
 - **App Intents** — Siri shortcuts and Spotlight indexing
 - **Foundation Models / Apple Intelligence** — on-device AI assistant, with fallback for unsupported devices/OS versions
 
-No third-party networking, analytics, or ad SDKs are included. There is no backend server in this repository — the app is fully self-contained.
+No analytics or ad SDKs are included, and there is no backend server in this repository. The one exception is `IFSCLookupService`, which calls a free public third-party API (Razorpay's IFSC directory) to resolve bank branch details — see [What this app is not](Banking%20Application/README.md) for exactly what it sends.
 
 ## Project structure
 
@@ -100,8 +100,8 @@ Banking Application/
 
 ## Requirements
 
-- **Xcode 16** or later
-- **iOS 17+** target device or simulator (AI assistant and Liquid Glass UI features use iOS 26 APIs where available, with Material-based fallback on earlier versions)
+- **Xcode 26** or later
+- **iOS 26+** target device or simulator (the project's `IPHONEOS_DEPLOYMENT_TARGET` is 26.0; earlier-OS Material-style fallback code exists in a few places like `LiquidGlass.swift` and `AIChatbotService` but is currently unreachable at this deployment target — lower it only after confirming those paths still build and behave correctly)
 - An Apple Developer account **only if** you plan to enable CloudKit sync
 
 ## Getting started
@@ -129,12 +129,12 @@ Only the signed-in user's own private CloudKit database is used — there is no 
 
 BankSecure follows realistic mobile banking security patterns, scoped appropriately for a demo:
 
-- **Passcode** — 4-digit passcode, salted and hashed (SHA-256), stored in the Keychain with `WhenUnlockedThisDeviceOnly` accessibility
+- **Passcode** — 4-digit passcode, salted SHA-256 in the Keychain (`WhenUnlockedThisDeviceOnly`). SHA-256 is not a stretching KDF; brute-force resistance comes from exponential lockout in `AuthenticationService`, not from the hash.
 - **Biometrics** — optional Face ID / Touch ID, user-toggleable
 - **Session handling** — background lock and inactivity timeout, governed by the "App Passcode Lock" setting
 - **Lockout** — failed passcode attempts trigger a temporary lockout
 - **Card data** — only the last four digits of a card number are ever stored; the CVV field is marked `@Transient` and is never persisted
-- **No network layer** — there is no HTTP client and no backend; data never leaves the device except via the user's own private CloudKit sync
+- **Minimal network surface** — no general-purpose HTTP client and no backend; the only outbound call is `IFSCLookupService`'s IFSC-code lookup against a public third-party API (see Tech stack above). Everything else, including banking data, never leaves the device except via the user's own private CloudKit sync.
 
 This is a portfolio/architecture demonstration, **not** a PCI-DSS or SOC 2 certified system, and should not be used to store real card numbers, CVVs, or banking credentials.
 

@@ -90,7 +90,10 @@ struct AddBeneficiaryView: View {
                     if let error = viewModel.error {
                         ErrorBannerModern(error: error)
                     }
-                    
+
+                    LikeButton(isLiked: $viewModel.isFavorite, label: "Save as favorite payee")
+                        .padding(.horizontal, 4)
+
                     ModernButton(
                         title: "Save Payee",
                         systemImage: "checkmark.circle.fill",

@@ -7,6 +7,7 @@ struct AccountOverviewView: View {
     @EnvironmentObject var transactionViewModel: TransactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var bannerStack = BannerStackManager.shared
     @State private var showUPITapPay = false
     @State private var showingError = false
     @State private var showAllTransactions = false
@@ -14,7 +15,12 @@ struct AccountOverviewView: View {
     @State private var showBillPay = false
     @State private var showFixedDeposits = false
     @State private var showLoans = false
-    
+    /// Tracks the most recent transaction already seen, so a completed
+    /// payment/transfer/bill-pay (from any sheet above) surfaces a banner
+    /// here on Home exactly once — without each payment flow needing its
+    /// own direct call into `BannerStackManager`.
+    @State private var lastSeenTransactionId: String?
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -23,8 +29,12 @@ struct AccountOverviewView: View {
 
                     DemoModeBanner()
                         .padding(.horizontal)
-                    
-                    if !accountViewModel.accounts.isEmpty {
+
+                    if accountViewModel.isLoading && accountViewModel.accounts.isEmpty {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, AppSpacing.xl)
+                    } else if !accountViewModel.accounts.isEmpty {
                         VStack(spacing: AppSpacing.md) {
                             BalanceCard(
                                 totalBalance: accountViewModel.totalBalance,
@@ -35,7 +45,7 @@ struct AccountOverviewView: View {
                                     HapticFeedbackService.shared.lightImpact()
                                 }
                             )
-                            
+
                             QuickActionsView(showUPITapPay: $showUPITapPay, showTransfer: $showTransfer, showBillPay: $showBillPay, showFixedDeposits: $showFixedDeposits, showLoans: $showLoans)
 
                             AIInsightCard()
@@ -56,28 +66,28 @@ struct AccountOverviewView: View {
                         )
                         .padding()
                     }
-                    
+
                     if !accountViewModel.accounts.isEmpty {
                         AccountsCarousel(accounts: accountViewModel.accounts, hideBalances: settings.hideBalances)
                     }
-                    
+
                     VStack(alignment: .leading, spacing: AppSpacing.md) {
                         HStack {
                             Text("Recent Transactions")
                                 .font(.headline)
                                 .accessibilityAddTraits(.isHeader)
-                            
+
                             Spacer()
-                            
+
                             Button("See All") {
                                 showAllTransactions = true
                             }
-                            .font(.subheadline)
-                            .foregroundColor(Color.bankPrimary)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.bankPrimary)
                             .accessibilityLabel("See all transactions")
                         }
                         .padding(.horizontal)
-                        
+
                         if transactionViewModel.recentTransactions.isEmpty {
                             ErrorStateView(
                                 imageName: "doc.text",
@@ -90,22 +100,37 @@ struct AccountOverviewView: View {
                             )
                             .padding(.vertical)
                         } else {
-                            ForEach(Array(transactionViewModel.recentTransactions.prefix(5).enumerated()), id: \.element.id) { index, transaction in
-                                ModernTransactionRow(transaction: transaction)
-                                    .padding(.horizontal)
-                                    .accessibilityElement(children: .combine)
-                                    .transition(.opacity.combined(with: .move(edge: .leading)))
-                                    .animation(.spring(response: 0.4, dampingFraction: 0.85).delay(Double(index) * 0.03), value: transactionViewModel.recentTransactions.count)
+                            GlassCard {
+                                VStack(spacing: 0) {
+                                    ForEach(Array(transactionViewModel.recentTransactions.prefix(5).enumerated()), id: \.element.id) { index, transaction in
+                                        ModernTransactionRow(transaction: transaction)
+                                            .padding(.horizontal, AppSpacing.sm)
+                                            .accessibilityElement(children: .combine)
+                                            .transition(.opacity.combined(with: .move(edge: .leading)))
+                                            .animation(
+                                                AppTheme.Animation.entrance.delay(Double(index) * 0.03),
+                                                value: transactionViewModel.recentTransactions.count
+                                            )
+
+                                        if index < min(4, transactionViewModel.recentTransactions.count - 1) {
+                                            Divider()
+                                                .padding(.leading, 62)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 4)
                             }
+                            .padding(.horizontal)
                         }
                     }
                 }
                 .padding(.vertical)
+                .adaptiveContentWidth(PlatformUI.dashboardMaxWidth)
             }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Home")
+            .bankInlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: { showUPITapPay = true }) {
                         Image(systemName: "qrcode.viewfinder")
                             .symbolRenderingMode(.hierarchical)
@@ -141,6 +166,41 @@ struct AccountOverviewView: View {
             }
             .accessibilityElement(children: .contain)
         }
+        // Scoped to the NavigationStack itself, not the inner ScrollView --
+        // .scrollContentBackground(.hidden) on a bare ScrollView doesn't
+        // reliably clear its background inside a NavigationStack/TabView
+        // hierarchy, so the ambient mesh background gets fully obscured.
+        .transparentChrome()
+        .overlay(alignment: .bottom) {
+            BannerStackView(manager: bannerStack)
+                .padding(.bottom, AppSpacing.sm)
+                .allowsHitTesting(!bannerStack.items.isEmpty)
+        }
+        .onAppear {
+            lastSeenTransactionId = transactionViewModel.recentTransactions.first?.id
+        }
+        .onChange(of: transactionViewModel.recentTransactions.first?.id) { _, newId in
+            announceIfNewTransaction(newId)
+        }
+    }
+
+    /// Fires a banner exactly once per genuinely new transaction — covers
+    /// transfers, UPI payments, and bill pay alike, since all of them route
+    /// through `transactionViewModel.loadAllTransactions()` on completion,
+    /// which is what updates `recentTransactions.first`.
+    private func announceIfNewTransaction(_ newId: String?) {
+        guard let newId, newId != lastSeenTransactionId else { return }
+        lastSeenTransactionId = newId
+        guard let transaction = transactionViewModel.recentTransactions.first(where: { $0.id == newId }) else { return }
+
+        bannerStack.push(
+            BannerItem(
+                title: transaction.isCredit ? "Money received" : "Payment sent",
+                message: "\(transaction.formattedAmount) · \(transaction.transactionDescription)",
+                icon: transaction.isCredit ? "arrow.down.circle.fill" : "checkmark.circle.fill",
+                tint: transaction.isCredit ? .bankSuccess : .bankPrimary
+            )
+        )
     }
 }
 
@@ -155,22 +215,28 @@ struct HeroHeaderView: View {
     }
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("\(greeting), \(greetingName)")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(.title2.weight(.bold))
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityLabel("\(greeting), \(greetingName)")
-                
+
                 Text("Here's your financial overview")
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .accessibilityLabel("Financial overview")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
+
+            Image(systemName: "building.columns.fill")
+                .font(.title2)
+                .foregroundStyle(Color.bankPrimary.opacity(0.35))
+                .symbolRenderingMode(.hierarchical)
+                .accessibilityHidden(true)
         }
+        .padding(.horizontal)
+        .padding(.top, 4)
     }
 }
 
@@ -179,6 +245,9 @@ struct BalanceCard: View {
     let availableBalance: Decimal
     var hideBalances: Bool = false
     var onToggleHide: (() -> Void)? = nil
+
+    @State private var isTotalAnimating = false
+    @State private var isAvailableAnimating = false
 
     private var totalText: String {
         hideBalances ? "••••••" : CurrencyFormatter.shared.string(from: totalBalance)
@@ -189,39 +258,75 @@ struct BalanceCard: View {
     }
     
     var body: some View {
-        GlassCard(reactsToTilt: true) {
-            VStack(alignment: .leading, spacing: 8) {
+        GlassCard(reactsToTilt: true, tint: Color.bankPrimary) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Total Balance")
-                        .font(.headline)
-                    
+                    Label("Total Balance", systemImage: "indianrupee.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .labelStyle(.titleAndIcon)
+
                     Spacer()
 
                     Button {
                         onToggleHide?()
                     } label: {
                         Image(systemName: hideBalances ? "eye.slash.fill" : "eye.fill")
-                            .font(.subheadline)
-                            .foregroundColor(Color.bankPrimary)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.bankPrimary)
+                            .frame(width: 36, height: 36)
+                            .background(Color.bankPrimary.opacity(0.1), in: Circle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScalePressButtonStyle())
                     .accessibilityLabel(hideBalances ? "Show balances" : "Hide balances")
                 }
-                
-                Text(totalText)
-                    .font(.largeTitle.weight(.bold))
-                    .foregroundColor(.primary)
-                    .monospacedDigit()
-                    .accessibilityLabel(hideBalances
-                        ? "Total balance hidden"
-                        : "Total balance: \(CurrencyFormatter.shared.string(from: totalBalance))")
-                
-                Text("Available: \(availableText)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .monospacedDigit()
+
+                // Ported from the "Transitions.dev — Number pop-in" CSS
+                // snippet: each character animates in with a staggered
+                // offset/opacity/blur pop instead of the plain fade
+                // `.contentTransition(.numericText())` gave before.
+                AnimatedDigitText(
+                    text: totalText,
+                    isAnimating: isTotalAnimating,
+                    font: AppTheme.Typography.monospacedHero(),
+                    color: .primary
+                )
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(hideBalances
+                    ? "Total balance hidden"
+                    : "Total balance: \(CurrencyFormatter.shared.string(from: totalBalance))")
+
+                HStack {
+                    Text("Available")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    AnimatedDigitText(
+                        text: availableText,
+                        isAnimating: isAvailableAnimating,
+                        font: .caption.weight(.semibold).monospacedDigit(),
+                        color: .secondary,
+                        distance: 4,
+                        stagger: 0.04,
+                        blurRadius: 1
+                    )
+                    Spacer()
+                }
             }
-            .padding()
+            .padding(AppSpacing.lg)
+        }
+        .onAppear { replay() }
+        .onChange(of: totalText) { replay() }
+    }
+
+    /// Mirrors the CSS replay recipe: drop the "is-animating" state, wait a
+    /// beat for the reset to commit, then turn it back on so the keyframes
+    /// run again from their 0% state.
+    private func replay() {
+        isTotalAnimating = false
+        isAvailableAnimating = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
+            isTotalAnimating = true
+            isAvailableAnimating = true
         }
     }
 }
@@ -263,22 +368,33 @@ struct QuickActionsView: View {
                                 break
                             }
                         }) {
-                            VStack(spacing: 8) {
+                            VStack(spacing: 10) {
                                 Image(systemName: action.systemImage)
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                                    .frame(width: 44, height: 44)
-                                    .glassControl(cornerRadius: AppTheme.CornerRadius.pill, tint: action.color)
-                                
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 52, height: 52)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [action.color, action.color.opacity(0.75)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        in: Circle()
+                                    )
+                                    .shadow(color: action.color.opacity(0.35), radius: 8, x: 0, y: 3)
+
                                 Text(action.title)
-                                    .font(.caption2)
-                                    .foregroundColor(.primary)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                    .multilineTextAlignment(.center)
+                                    .frame(width: 72)
                             }
                         }
-                        .buttonStyle(PlainButtonStyle())
+                        .buttonStyle(ScalePressButtonStyle())
+                        .bankHoverHighlight()
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 2)
             }
         }
     }
@@ -311,36 +427,66 @@ struct AccountsCarousel: View {
 struct AccountCardCompact: View {
     let account: Account
     var hideBalances: Bool = false
-    
+
+    @State private var isAnimating = false
+
+    private var balanceText: String {
+        hideBalances ? "••••••" : account.formattedBalance
+    }
+
     var body: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(account.accountType.rawValue)
-                    .font(.caption)
-                    .textCase(.uppercase)
-                    .foregroundColor(.secondary)
-                
+        GlassCard(tint: Color.bankPrimary) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(account.accountType.rawValue)
+                        .font(.caption.weight(.semibold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(.secondary)
+                        .tracking(0.5)
+                    Spacer()
+                    Image(systemName: "building.columns")
+                        .font(.caption)
+                        .foregroundStyle(Color.bankPrimary.opacity(0.7))
+                }
+
                 Text(account.nickname ?? "Account")
                     .font(.headline)
-                
+
                 Text("•••• \(account.accountNumber.suffix(4))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Divider()
-                    .background(Color.secondary.opacity(0.2))
-                
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.bankGroupedBackground, in: Capsule())
+
+                Divider().opacity(0.5)
+
                 HStack {
                     Text("Balance")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                     Spacer()
-                    Text(hideBalances ? "••••••" : account.formattedBalance)
-                        .font(.title3.weight(.bold))
-                        .monospacedDigit()
+                    AnimatedDigitText(
+                        text: balanceText,
+                        isAnimating: isAnimating,
+                        font: .title3.weight(.bold).monospacedDigit(),
+                        color: .primary,
+                        distance: 6,
+                        stagger: 0.05
+                    )
                 }
             }
-            .padding()
+            .padding(AppSpacing.lg)
+        }
+        .bankHoverHighlight(AppTheme.CornerRadius.card)
+        .onAppear { replay() }
+        .onChange(of: balanceText) { replay() }
+    }
+
+    private func replay() {
+        isAnimating = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
+            isAnimating = true
         }
     }
 }
@@ -365,26 +511,30 @@ struct AIInsightCard: View {
             }
             .transition(.opacity)
         } else if let insight = accountViewModel.aiInsight, !insight.isEmpty {
-            GlassCard {
+            GlassCard(tint: Color.bankInsight) {
                 HStack(alignment: .top, spacing: AppSpacing.sm) {
                     Image(systemName: "sparkles")
                         .font(.title3)
                         .foregroundStyle(
-                            LinearGradient(colors: [.purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            LinearGradient(
+                                colors: [Color.bankInsight, Color.bankPrimary],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Insight")
                             .font(.caption.weight(.semibold))
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                         Text(insight)
                             .font(.subheadline)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
                 }
-                .padding()
+                .padding(AppSpacing.lg)
             }
             .transition(.opacity.combined(with: .move(edge: .top)))
             .accessibilityElement(children: .combine)
@@ -414,9 +564,9 @@ struct AllTransactionsView: View {
             .searchable(text: $searchText, prompt: "Search transactions")
             .autocorrectionDisabled(true)
             .navigationTitle("All Transactions")
-            .navigationBarTitleDisplayMode(.inline)
+            .bankInlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
             }

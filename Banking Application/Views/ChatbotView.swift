@@ -34,9 +34,7 @@ struct ChatbotView: View {
                             if isThinking {
                                 HStack(spacing: AppSpacing.sm) {
                                     ProgressView()
-                                    Text("Thinking…")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
+                                    ShimmerText("Thinking…", font: .subheadline)
                                     Spacer()
                                 }
                                 .padding(.horizontal)
@@ -125,6 +123,7 @@ struct ChatbotView: View {
                     .foregroundColor(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : Color.bankPrimary)
             }
             .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isThinking)
+            .accessibilityLabel("Send message")
         }
         .padding()
     }
@@ -191,7 +190,7 @@ private struct ChatBubble: View {
                     if message.role == .user {
                         Color.bankPrimary
                     } else {
-                        Color(UIColor.secondarySystemBackground)
+                        Color.bankGroupedBackground
                     }
                 }
             )

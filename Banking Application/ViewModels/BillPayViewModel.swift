@@ -132,10 +132,23 @@ class BillPayViewModel: ObservableObject {
             cashbackTxn = credit
         }
 
+        LiveActivityManager.shared.startPayment(
+            kind: "Bill pay",
+            counterparty: biller.displayName,
+            amount: amountDecimal
+        )
+
         do {
             try context.save()
             isProcessing = false
             HapticFeedbackService.shared.success()
+            NotificationService.shared.notifyTransaction(
+                amount: amountDecimal,
+                title: "Bill paid",
+                body: "\(CurrencyFormatter.shared.string(from: amountDecimal)) paid to \(biller.displayName).",
+                remainingBalance: account.availableBalance
+            )
+            LiveActivityManager.shared.completePayment()
             amount = ""
             lastCashbackEarned = cashback > 0 ? cashback : nil
             return true
@@ -151,6 +164,7 @@ class BillPayViewModel: ObservableObject {
             isProcessing = false
             self.error = .transactionFailed
             HapticFeedbackService.shared.errorOccurred()
+            LiveActivityManager.shared.failPayment()
             return false
         }
     }

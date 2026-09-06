@@ -90,7 +90,7 @@ struct LocationAnnotationView: View {
             Text(location.name)
                 .font(.caption2)
                 .padding(4)
-                .background(Color(UIColor.systemBackground).opacity(0.8))
+                .background(Color.bankBackground.opacity(0.8))
                 .cornerRadius(4)
         }
     }
@@ -211,10 +211,11 @@ struct SearchBar: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel("Clear search")
             }
         }
         .padding(10)
-        .background(Color(UIColor.systemGroupedBackground))
+        .background(Color.bankGroupedBackground)
         .cornerRadius(AppTheme.CornerRadius.pill)
     }
 }
@@ -239,6 +240,16 @@ struct LocationDetailView: View {
                         .padding()
                     }
                     .padding(.horizontal)
+
+                    ModernButton(
+                        title: "Get Directions",
+                        systemImage: "arrow.triangle.turn.up.right.diamond.fill",
+                        variant: .filled
+                    ) {
+                        openInMaps()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, AppSpacing.md)
                     
                     GlassCard {
                         VStack(alignment: .leading, spacing: 12) {

@@ -4,18 +4,21 @@ struct ModernCard<Content: View>: View {
     let content: Content
     let backgroundColor: Color
     let cornerRadius: CGFloat
-    
-    init(backgroundColor: Color = Color(UIColor.systemBackground), cornerRadius: CGFloat = AppTheme.CornerRadius.medium, @ViewBuilder content: () -> Content) {
+
+    init(
+        backgroundColor: Color = .bankCardBackground,
+        cornerRadius: CGFloat = AppTheme.CornerRadius.medium,
+        @ViewBuilder content: () -> Content
+    ) {
         self.content = content()
         self.backgroundColor = backgroundColor
         self.cornerRadius = cornerRadius
     }
-    
+
     var body: some View {
         content
-            .background(backgroundColor)
-            .cornerRadius(cornerRadius)
-            .shadow(color: AppShadows.card.color, radius: AppShadows.card.radius, x: AppShadows.card.x, y: AppShadows.card.y)
+            .background(backgroundColor, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .bankCardShadow()
     }
 }
 
@@ -23,36 +26,49 @@ struct GlassCard<Content: View>: View {
     let content: Content
     let cornerRadius: CGFloat
     /// When true, the border highlight subtly brightens on the edge facing
-    /// the tilt direction — like light glancing off glass. Off by default
-    /// since `GlassCard` is used dozens of times per screen; only enable
-    /// it on a handful of hero cards (e.g. the home balance card) to avoid
-    /// running CoreMotion for every card that scrolls on/off screen.
+    /// the tilt direction. Off by default; enable on hero cards only.
     var reactsToTilt: Bool = false
+    /// Optional soft brand tint under the material.
+    var tint: Color? = nil
 
     @ObservedObject private var motion = MotionManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
-        cornerRadius: CGFloat = AppTheme.CornerRadius.large,
+        cornerRadius: CGFloat = AppTheme.CornerRadius.card,
         reactsToTilt: Bool = false,
+        tint: Color? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.content = content()
         self.cornerRadius = cornerRadius
         self.reactsToTilt = reactsToTilt
+        self.tint = tint
     }
 
-    private var tiltActive: Bool { reactsToTilt && !reduceMotion }
+    private var tiltActive: Bool { reactsToTilt && !reduceMotion && !PlatformUI.isMac }
 
     var body: some View {
         content
-            .background(.ultraThinMaterial)
+            .background {
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    if let tint {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(tint.opacity(0.08))
+                    }
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [Color.white.opacity(strokeTopOpacity), Color.white.opacity(0.05)],
+                            colors: [
+                                Color.white.opacity(strokeTopOpacity),
+                                Color.white.opacity(0.06)
+                            ],
                             startPoint: tiltActive ? highlightStart : .topLeading,
                             endPoint: tiltActive ? highlightEnd : .bottomTrailing
                         ),
@@ -60,13 +76,13 @@ struct GlassCard<Content: View>: View {
                     )
                     .animation(.easeOut(duration: 0.15), value: motion.normalizedX)
             )
-            .shadow(color: AppShadows.card.color, radius: AppShadows.card.radius, x: AppShadows.card.x, y: AppShadows.card.y)
+            .bankCardShadow()
             .onAppear { if tiltActive { MotionManager.shared.subscribe() } }
             .onDisappear { if tiltActive { MotionManager.shared.unsubscribe() } }
     }
 
     private var strokeTopOpacity: Double {
-        tiltActive ? 0.55 + abs(motion.normalizedX) * 0.25 : 0.55
+        tiltActive ? 0.55 + abs(motion.normalizedX) * 0.25 : 0.5
     }
 
     private var highlightStart: UnitPoint {

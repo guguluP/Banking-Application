@@ -100,6 +100,13 @@ class FixedDepositViewModel: ObservableObject {
             reset()
             return true
         } catch {
+            // Roll back the in-memory balance change and remove the
+            // inserted objects if persistence failed, so the UI never shows
+            // the deposit as opened (and the money as moved) when it wasn't saved.
+            sourceAccount.balance += principal
+            sourceAccount.availableBalance += principal
+            context.delete(deposit)
+            context.delete(debitTransaction)
             self.error = .unknownError("Couldn't open the deposit. Please try again.")
             return false
         }

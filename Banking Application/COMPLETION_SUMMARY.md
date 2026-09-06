@@ -1,186 +1,71 @@
-# BankSecure iOS App - Implementation Summary
+# BankSecure iOS App — Implementation Summary
 
 ## Overview
-This implementation provides a comprehensive banking application built with Swift and SwiftUI, following the MVVM architecture pattern. The app includes all core banking features requested in the plan.
+BankSecure is a demo iOS/iPadOS/macOS banking app built with Swift and SwiftUI, following the MVVM architecture pattern. It runs entirely on-device today — all data lives in a local SwiftData store, with no backend server involved yet.
 
 ## Features Implemented
 
 ### 1. Authentication & Security
-- Biometric authentication (Face ID/Touch ID) using LocalAuthentication framework
-- Fallback authentication mechanism
-- Secure session management
-- OAuth-ready architecture for backend integration
+- Biometric authentication (Face ID/Touch ID) via LocalAuthentication, with passcode fallback
+- Passcode set up/change flow, session locking on background/inactivity
+- Sensitive local secrets (e.g. the passcode hash) stored via Keychain, not SwiftData
 
 ### 2. Account Management
-- Account overview with balances and transaction history
-- Multiple account types (checking, savings, credit, etc.)
-- Account status tracking
-- Balance formatting and currency support
+- Account overview with balances and recent transaction history
+- Multiple account types, balance formatting, and INR currency support throughout
 
-### 3. Fund Transfers
-- Transfer between user's own accounts
-- Amount validation and insufficient funds checking
-- Transfer confirmation flow
-- Transaction recording
+### 3. Fund Transfers & Payments
+- Transfer between accounts, with amount/recipient validation and balance rollback on failed saves
+- UPI payments (by UPI ID or QR scan) and bill pay, with a shared biller/payee list
+- Fixed deposits and loans (application, EMI payments, prepayment), each debiting/crediting a real account balance
 
-### 4. Bill Payments
-- Biller management
-- Payment scheduling
-- Payment history tracking
-- Favorite biller functionality
+### 4. Expense Tracking ("Track" tab)
+- Manual quick-add and natural-language expense entry, plus receipt-scan capture
+- Budgets, category breakdowns, and an analytics dashboard over the resulting ledger
+- Kept as a distinct ledger from the simulated banking transactions, with its own privacy/data controls
 
 ### 5. Card Management
-- Debit/credit card display and management
-- Card status tracking (active, blocked, expired, etc.)
-- Spending limits configuration
-- Card security features (toggle contactless, international usage, etc.)
+- Card display and management, status tracking, spending limits
+- Contactless/international-usage toggles
 
 ### 6. ATM & Branch Locator
-- Map-based location display using MapKit
-- Location filtering by type (ATM, branch, both)
-- Service availability indicators
-- Hours of operation display
-- Integration with Apple Maps for navigation
+- Map-based location display via MapKit, filterable by type, with hours/services and Apple Maps handoff
 
-### 7. Profile & Settings
-- User profile display
-- Security settings (passcode change, biometric toggle)
-- Preferences management
-- Legal information access
-- Secure logout functionality
+### 7. AI Assistant
+- On-device chat assistant (Apple Foundation Models where available, with a graceful fallback path) for spending questions and quick summaries
+- Live Activity support for in-progress payments/transfers
+
+### 8. Profile & Settings
+- Profile editing, security settings (passcode, biometrics), notification and appearance preferences
+- Legal information access and secure logout
 
 ## Technical Architecture
 
 ### Language & Frameworks
-- **Swift 5.7+** - Primary programming language
-- **SwiftUI** - Declarative UI framework
-- **Combine** - Reactive programming for state management
-- **Core Data** - Local data persistence
-- **LocalAuthentication** - Biometric authentication
-- **MapKit** - Mapping and location services
-- **URLSession** - Networking layer
+- **Swift 6** — primary language, with strict concurrency partially adopted
+- **SwiftUI** — declarative UI, adaptive between a `TabView` (compact width) and a `NavigationSplitView` sidebar (iPad/Mac)
+- **SwiftData** — local persistence (the actual store; there is no Core Data in this app)
+- **LocalAuthentication**, **MapKit**, **CoreSpotlight**, **ActivityKit** (Live Activities), **AppIntents** (Siri)
 
 ### Design Patterns
-- **MVVM (Model-View-ViewModel)** - Separation of concerns
-- **Dependency Injection** - Service sharing through environment objects
-- **ObservableObject** - Reactive state updates
-- **Protocol-Oriented Programming** - Where applicable
+- MVVM, with `ObservableObject` view models injected as environment objects
+- A small shared design system (`AppTheme`, `GlassCard`, `AnimatedMeshBackground`, the `Transitions/` micro-interaction library) for consistent visual language
 
-### Data Models
-- **User** - Authentication and profile information
-- **Account** - Financial account details
-- **Transaction** - Financial transaction history
-- **Beneficiary** - Transfer recipients
-- **Biller** - Payment recipients
-- **Card** - Payment card information
-- **BankLocation** - ATM and branch locations
-
-### Services
-- **AuthenticationService** - Handles login/logout and biometric authentication
-- **NetworkingService** - Abstracts API communication (ready for backend integration)
-- **CoreDataManager** - Manages local data persistence and caching
-
-## Key Implementation Details
-
-### Security Features
-- Biometric authentication as primary login mechanism
-- Secure handling of sensitive data (models designed for encryption extension)
-- HTTPS-ready networking layer
-- Session management with secure token handling (placeholder for actual implementation)
-
-### Offline Capabilities
-- Core Data integration for local data storage
-- Mock data generation for development/testing
-- Data synchronization ready architecture
-
-### UI/UX Considerations
-- Responsive layouts adapting to different device sizes
-- Accessibility considerations (labels, hints, etc.)
-- Loading states and error handling
-- Intuitive navigation flow
-- Visual feedback for user actions
-
-### Extensibility Points
-- Easy integration with actual banking APIs through NetworkingService
-- Pluggable authentication methods
-- Expandable model structures for additional features
-- Theming support through SwiftUI
-
-## Files Created
-
-### Models (`/Models`)
-- User.swift
-- Account.swift
-- Transaction.swift
-- Beneficiary.swift
-- Biller.swift
-- Card.swift
-- BankLocation.swift
-
-### Views (`/Views`)
-- LoginView.swift
-- MainTabView.swift
-- AccountOverviewView.swift
-- TransferView.swift
-- BillPayView.swift
-- CardManagementView.swift
-- LocationView.swift
-- ProfileView.swift
-
-### ViewModels (`/ViewModels`)
-- AccountViewModel.swift
-- TransactionViewModel.swift
+### Data Models (`/Models`)
+User, Account, Transaction, Beneficiary, Biller, Card, BankLocation, FixedDeposit, Loan, Budget, ExpenseCategory, UPITransaction, ChatMessage, AppError
 
 ### Services (`/Services`)
-- AuthenticationService.swift
-- NetworkingService.swift
+AuthenticationService, KeychainService, CryptoService, PersistenceController, IFSCLookupService, FDRateCard, LoanCalculator, AIChatbotService, ReceiptScanService, ExpenseParsingService, CategoryKeywordClassifier, NotificationService, PaymentLiveActivity, HapticFeedbackService, MotionManager, AppSettings
 
-### Managers (`/Managers`)
-- CoreDataManager.swift
-- CDAccount.swift
-- CDTransaction.swift
-- ModelExtensions.swift
+### Extension Target
+- `BankingLiveActivity` — the Live Activity/Dynamic Island widget extension for in-progress payments
 
-### Resources
-- README.md - Project documentation
-- ModelTests.swift - Model validation tests (syntax verified)
-
-## How to Use This Implementation
-
-1. **Create Xcode Project**: Create a new SwiftUI app in Xcode
-2. **Add Files**: Copy all source files into the project
-3. **Configure Project**: Set minimum iOS version to 16.0+
-4. **Add Capabilities**: Enable Background Modes if needed for location services
-5. **Run**: Build and run on simulator or device
-
-## Next Steps for Production
-
-To prepare this for production use:
-
-1. **Backend Integration**: Replace mock data in NetworkingService with actual API endpoints
-2. **Security Enhancements**:
-   - Implement Keychain for secure storage of tokens and sensitive data
-   - Add certificate pinning for network security
-   - Implement end-to-end encryption for sensitive data
-3. **Data Synchronization**: Implement robust sync between Core Data and backend
-4. **Error Handling**: Add comprehensive error handling and user feedback
-5. **Testing**:
-   - Write unit tests for ViewModels and services
-   - Implement UI tests for critical user flows
-   - Add beta testing via TestFlight
-6. **Performance Optimization**:
-   - Implement caching strategies
-   - Optimize image loading and map rendering
-   - Reduce memory footprint
-7. **Accessibility**: Full accessibility testing and improvements
-8. **Localization**: Add support for multiple languages
-9. **App Store Preparation**:
-   - Create App Store screenshots and description
-   - Implement privacy policy and terms of service
-   - Configure App Store Connect settings
+## Known Limitations / Next Steps for Production
+1. **Backend integration** — replace the local SwiftData store with a real server-side backend for accounts/transactions (in progress; see the project's AWS integration notes)
+2. **Security hardening** — the local passcode hash uses a fast hash rather than a brute-force-resistant KDF (PBKDF2/Argon2); see the code review notes
+3. **Testing** — the app currently has no active unit/UI test target; `Banking ApplicationTests` should be built out
+4. **Accessibility & localization** — ongoing pass needed as new features (Track, AI assistant) land
+5. **App Store preparation** — screenshots, privacy policy, App Store Connect configuration
 
 ## Conclusion
-
-This implementation provides a solid foundation for a secure, feature-rich banking application using modern Swift technologies. The modular architecture makes it easy to extend and maintain, while following Apple's best practices for iOS development.
-
-The app is ready for backend integration and further refinement to meet specific banking institution requirements and regulatory standards.
+BankSecure is a feature-rich, fully local demo banking app with a genuinely polished SwiftUI design system. The near-term priority is backend integration (moving accounts/transactions off-device to a real server) rather than new on-device feature work.

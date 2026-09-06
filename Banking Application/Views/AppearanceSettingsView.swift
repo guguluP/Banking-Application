@@ -2,22 +2,8 @@ import SwiftUI
 
 struct AppearanceSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var appearanceSelection: AppearanceMode = .system
-    
-    enum AppearanceMode: String, CaseIterable {
-        case system = "System"
-        case light = "Light"
-        case dark = "Dark"
-        
-        var systemImage: String {
-            switch self {
-            case .system: return "gear"
-            case .light: return "sun.max.fill"
-            case .dark: return "moon.fill"
-            }
-        }
-    }
-    
+    @ObservedObject private var settings = AppSettings.shared
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -29,11 +15,11 @@ struct AppearanceSettingsView: View {
                                 .foregroundColor(.primary)
                             
                             PillSegmentedControl(
-                                selection: $appearanceSelection,
+                                selection: $settings.appearanceMode,
                                 items: AppearanceMode.allCases,
                                 icon: { $0.systemImage }
                             )
-                            .onChange(of: appearanceSelection) {
+                            .onChange(of: settings.appearanceMode) {
                                 HapticFeedbackService.shared.lightImpact()
                             }
                         }

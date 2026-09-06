@@ -30,7 +30,7 @@ struct BillerPicker: View {
                     .foregroundColor(.secondary)
             }
             .padding()
-            .background(Color(UIColor.systemGroupedBackground))
+            .background(Color.bankGroupedBackground)
             .cornerRadius(AppTheme.CornerRadius.small)
         }
         .accessibilityLabel(selection == nil ? "Select Biller" : selection?.displayName ?? "")

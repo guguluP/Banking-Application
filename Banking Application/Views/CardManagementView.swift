@@ -11,7 +11,6 @@ import SwiftData
 struct CardManagementView: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
     @Query private var cards: [Card]
-    @State private var appeared = false
     @State private var showingAddCard = false
 
     var body: some View {
@@ -34,27 +33,15 @@ struct CardManagementView: View {
                         )
                         .padding()
                     } else {
-                        ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
+                        ForEach(cards) { card in
                             VStack(spacing: AppSpacing.md) {
                                 CreditCardView(card: card)
                                     .padding(.horizontal)
-                                    .scaleEffect(appeared ? 1 : 0.94)
-                                    .opacity(appeared ? 1 : 0)
-                                    .animation(
-                                        .spring(response: 0.5, dampingFraction: 0.82)
-                                            .delay(Double(index) * 0.08),
-                                        value: appeared
-                                    )
                                     .accessibilityElement(children: .combine)
                                     .accessibilityLabel("\(card.cardType.rawValue) card ending \(card.lastFourDigits)")
 
                                 CardControlsView(card: card)
                                     .padding(.horizontal)
-                                    .opacity(appeared ? 1 : 0)
-                                    .animation(
-                                        .easeOut(duration: 0.35).delay(0.12 + Double(index) * 0.08),
-                                        value: appeared
-                                    )
                             }
                         }
 
@@ -67,35 +54,34 @@ struct CardManagementView: View {
                 }
                 .padding(.vertical)
             }
-            .transparentChrome()
             .navigationTitle("Cards")
+            .bankInlineNavigationTitle()
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: AppSpacing.md) {
                         Label("\(cards.count)", systemImage: "creditcard.fill")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundColor(Color.bankPrimary)
+                            .foregroundStyle(Color.bankPrimary)
                             .accessibilityLabel("\(cards.count) cards")
 
                         Button {
                             showingAddCard = true
                         } label: {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundColor(Color.bankPrimary)
+                                .foregroundStyle(Color.bankPrimary)
                         }
                         .accessibilityLabel("Add a card")
                     }
                 }
             }
             .accessibilityElement(children: .contain)
-            .onAppear {
-                withAnimation { appeared = true }
-            }
             .sheet(isPresented: $showingAddCard) {
                 AddCardView()
                     .environmentObject(accountViewModel)
             }
         }
+        // Scoped to the NavigationStack itself -- see AccountOverviewView for why.
+        .transparentChrome()
     }
 }
 

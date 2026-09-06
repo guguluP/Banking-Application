@@ -169,6 +169,8 @@ class AuthenticationService: ObservableObject {
         guard isBiometricsLoginEnabled, lockoutRemainingSeconds == 0 else {
             if !AppSettings.shared.isBiometricsEnabled {
                 errorMessage = "Biometric unlock is turned off in Privacy & Security."
+            } else if !canUseBiometrics {
+                errorMessage = "This device doesn't support biometric authentication. Use your passcode instead."
             }
             completion(false)
             return

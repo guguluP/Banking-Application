@@ -149,7 +149,7 @@ struct TransferView: View {
                                     .font(.caption)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(Color(UIColor.systemGroupedBackground))
+                                    .background(Color.bankGroupedBackground)
                                     .cornerRadius(AppTheme.CornerRadius.pill)
                                     .accessibilityLabel("Quick amount: \(CurrencyFormatter.shared.string(from: amount))")
                                 }
@@ -208,7 +208,7 @@ struct TransferView: View {
             }
             .alert("Confirm Transfer", isPresented: $showingConfirmation) {
                 Button("Cancel", role: .cancel) { }
-                Button("Authorize", role: .destructive) {
+                Button("Authorize") {
                     requestBiometricAuth()
                 }
             } message: {
@@ -359,7 +359,7 @@ struct AccountPicker: View {
                     .foregroundColor(.secondary)
             }
             .padding()
-            .background(Color(UIColor.systemGroupedBackground))
+            .background(Color.bankGroupedBackground)
             .cornerRadius(AppTheme.CornerRadius.small)
         }
         .accessibilityLabel(selection == nil ? "Select Account" : (selection?.nickname ?? "Account") + ": \(selection?.formattedAvailableBalance ?? "0") available")

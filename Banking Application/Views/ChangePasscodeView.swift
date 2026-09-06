@@ -37,12 +37,12 @@ struct ChangePasscodeView: View {
             .padding(.top, AppSpacing.xxl)
             .navigationTitle("Change Passcode")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .accessibilityLabel("Cancel passcode change")
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Save") {
                         validateAndSave()
                     }
@@ -215,6 +215,7 @@ struct PasscodeKeypad: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .disabled(passcode.isEmpty)
+                    .accessibilityLabel("Delete")
                     
                     Button(action: {
                         if passcode.count < 4 {
