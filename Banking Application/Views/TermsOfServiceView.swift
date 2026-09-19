@@ -5,8 +5,7 @@ struct TermsOfServiceView: View {
     @State private var searchText = ""
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 VStack(alignment: .leading, spacing: AppSpacing.lg) {
                     Text("Last updated: January 1, 2023")
                         .font(.caption)
@@ -16,12 +15,13 @@ struct TermsOfServiceView: View {
                 }
                 .padding()
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Terms of Service")
             .searchable(text: $searchText, prompt: "Search terms")
             .autocorrectionDisabled(true)
-        }
-        .accessibilityElement(children: .contain)
-        .swipeDownToDismiss()
+            .bankInlineNavigationTitle()
+            .accessibilityElement(children: .contain)
+            .swipeDownToDismiss()
     }
 }
 

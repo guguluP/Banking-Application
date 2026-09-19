@@ -2,12 +2,6 @@ import SwiftUI
 import Combine
 import SwiftData
 
-// Optional refresh hooks to avoid ObjC runtime reflection
-@objc protocol Refreshing {
-    @objc optional func refresh()
-    @objc optional func refreshIfNeeded()
-}
-
 struct CardManagementView: View {
     @EnvironmentObject var accountViewModel: AccountViewModel
     @Query private var cards: [Card]
@@ -54,6 +48,7 @@ struct CardManagementView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Cards")
             .bankInlineNavigationTitle()
             .toolbar {
@@ -87,10 +82,23 @@ struct CardManagementView: View {
 
 struct CardControlsView: View {
     @Bindable var card: Card
+    @EnvironmentObject var authenticationService: AuthenticationService
 
     var body: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: AppSpacing.md) {
+                Toggle("Freeze card", isOn: Binding(
+                    get: { card.cardStatus == .blocked },
+                    set: { frozen in
+                        authenticationService.stepUpAuthenticate(reason: "Confirm card freeze change") { ok in
+                            if ok {
+                                card.cardStatus = frozen ? .blocked : .active
+                            }
+                        }
+                    }
+                ))
+                .toggleStyle(SwitchToggleStyle(tint: .red))
+
                 Toggle("Contactless Payments", isOn: $card.isContactlessEnabled)
                     .toggleStyle(SwitchToggleStyle(tint: .green))
                     .accessibilityLabel("Contactless Payments")

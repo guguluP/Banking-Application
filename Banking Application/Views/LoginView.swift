@@ -116,6 +116,7 @@ struct LoginView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
+            .bankSoftScrollEdges()
         }
         .offset(x: shakeTrigger ? 10 : 0)
         .animation(shakeTrigger ? .easeInOut(duration: 0.1).repeatCount(5) : .default, value: shakeTrigger)
@@ -138,6 +139,7 @@ struct LoginView: View {
                     .accessibilityLabel("Dismiss keyboard")
             }
         }
+        .sensitiveScreenShield()
     }
 
     private var brandHeader: some View {
@@ -205,7 +207,7 @@ struct LoginView: View {
                 Text("Use \(authenticationService.biometryTypeString)")
                     .fontWeight(.semibold)
             }
-            .foregroundStyle(Color.bankPrimary)
+            .foregroundStyle(.white)
             .padding(.vertical, 10)
             .padding(.horizontal, 16)
             .glassControl(cornerRadius: AppTheme.CornerRadius.pill, tint: Color.bankPrimary)

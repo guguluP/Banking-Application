@@ -3,6 +3,8 @@ import Combine
 import SwiftData
 
 struct TransferView: View {
+    /// When true, skip the inner `NavigationStack` (Payments tab already has one).
+    var isEmbedded: Bool = false
     @EnvironmentObject var accountViewModel: AccountViewModel
     @EnvironmentObject var transactionViewModel: TransactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
@@ -23,8 +25,17 @@ struct TransferView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        Group {
+            if isEmbedded {
+                transferForm
+            } else {
+                NavigationStack { transferForm }
+            }
+        }
+    }
+
+    private var transferForm: some View {
+        ScrollView {
                 VStack(spacing: AppSpacing.lg) {
                     VStack(alignment: .leading, spacing: AppSpacing.md) {
                         Text("From Account")
@@ -88,6 +99,7 @@ struct TransferView: View {
                                     .accessibilityLabel("Add a new payee")
                                 }
                             }
+                            .bankSoftScrollEdges()
                         }
                         .padding(.horizontal)
                     } else {
@@ -155,6 +167,7 @@ struct TransferView: View {
                                 }
                             }
                         }
+                        .bankSoftScrollEdges()
                     }
                     .padding(.horizontal)
                     
@@ -188,6 +201,7 @@ struct TransferView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .overlay {
                 if showingSuccess {
                     TransferSuccessOverlay(isPresented: $showingSuccess)
@@ -219,8 +233,7 @@ struct TransferView: View {
             .sheet(isPresented: $showingAddBeneficiary) {
                 AddBeneficiaryView()
             }
-        }
-        .accessibilityElement(children: .contain)
+            .accessibilityElement(children: .contain)
     }
     
     private var isFormValid: Bool {

@@ -21,6 +21,7 @@ struct ExpenseAnalyticsDashboardView: View {
             }
             .padding(.vertical)
         }
+        .bankSoftScrollEdges()
         .navigationTitle("Analytics")
     }
 

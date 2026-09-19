@@ -48,6 +48,7 @@ struct AccountOverviewView: View {
 
                             QuickActionsView(showUPITapPay: $showUPITapPay, showTransfer: $showTransfer, showBillPay: $showBillPay, showFixedDeposits: $showFixedDeposits, showLoans: $showLoans)
 
+                            IntelligenceBriefingCard()
                             AIInsightCard()
 
                             SpendingChartCard(data: accountViewModel.weeklySpending)
@@ -127,6 +128,7 @@ struct AccountOverviewView: View {
                 .padding(.vertical)
                 .adaptiveContentWidth(PlatformUI.dashboardMaxWidth)
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Home")
             .bankInlineNavigationTitle()
             .toolbar {
@@ -371,17 +373,9 @@ struct QuickActionsView: View {
                             VStack(spacing: 10) {
                                 Image(systemName: action.systemImage)
                                     .font(.title3.weight(.semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(action.color)
                                     .frame(width: 52, height: 52)
-                                    .background(
-                                        LinearGradient(
-                                            colors: [action.color, action.color.opacity(0.75)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        in: Circle()
-                                    )
-                                    .shadow(color: action.color.opacity(0.35), radius: 8, x: 0, y: 3)
+                                    .glassCircle(tint: action.color)
 
                                 Text(action.title)
                                     .font(.caption2.weight(.semibold))
@@ -395,8 +389,22 @@ struct QuickActionsView: View {
                     }
                 }
                 .padding(.horizontal, 2)
+                .scrollTargetLayout()
             }
         }
+        .bankSoftScrollEdges()
+        .scrollTargetBehavior(.viewAligned)
+        .mask(
+            HStack(spacing: 0) {
+                Color.black
+                LinearGradient(
+                    colors: [.black, .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: 28)
+            }
+        )
     }
 }
 
@@ -421,6 +429,7 @@ struct AccountsCarousel: View {
             }
             .padding(.horizontal)
         }
+        .bankSoftScrollEdges()
     }
 }
 
@@ -491,6 +500,46 @@ struct AccountCardCompact: View {
     }
 }
 
+struct IntelligenceBriefingCard: View {
+    @EnvironmentObject var accountViewModel: AccountViewModel
+
+    var body: some View {
+        if let headline = accountViewModel.briefingHeadline {
+            GlassCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Daily briefing")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(accountViewModel.healthScore)")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(Color.bankPrimary)
+                        Text("/100")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(headline)
+                        .font(.subheadline)
+                    if let note = accountViewModel.cashFlowNote {
+                        Text(note).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let rec = accountViewModel.recurringCandidates.first {
+                        Text("Looks recurring: \(rec.payee) \(CurrencyFormatter.shared.string(from: rec.amount)) ×\(rec.occurrences)")
+                            .font(.caption)
+                    }
+                    if let a = accountViewModel.anomalies.first {
+                        Text("Anomaly: \(a.description) — \(a.reason)")
+                            .font(.caption)
+                            .foregroundStyle(Color.bankWarning)
+                    }
+                }
+                .padding()
+            }
+        }
+    }
+}
+
 /// A card that shows an on-device, Apple Intelligence-generated summary of the
 /// week's spending. Hides itself entirely if the feature is unavailable or
 /// hasn't produced anything yet, rather than showing an empty or broken state.
@@ -546,6 +595,7 @@ struct AllTransactionsView: View {
     let transactions: [Transaction]
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
+    @State private var disputeTargetId: String?
 
     private var filtered: [Transaction] {
         guard !searchText.isEmpty else { return transactions }
@@ -559,6 +609,14 @@ struct AllTransactionsView: View {
         NavigationStack {
             List(filtered) { transaction in
                 ModernTransactionRow(transaction: transaction)
+                    .swipeActions {
+                        Button {
+                            disputeTargetId = transaction.id
+                        } label: {
+                            Label("Dispute", systemImage: "exclamationmark.bubble")
+                        }
+                        .tint(.orange)
+                    }
             }
             .listStyle(.plain)
             .searchable(text: $searchText, prompt: "Search transactions")
@@ -568,6 +626,16 @@ struct AllTransactionsView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { disputeTargetId != nil },
+                set: { if !$0 { disputeTargetId = nil } }
+            )) {
+                if let id = disputeTargetId, let tx = transactions.first(where: { $0.id == id }) {
+                    NavigationStack {
+                        DisputeIntakeView(transaction: tx)
+                    }
                 }
             }
         }

@@ -5,8 +5,7 @@ struct NotificationsSettingsView: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 LazyVStack(alignment: .leading, spacing: AppSpacing.lg) {
                     Text("Alerts are delivered as on-device notifications. Enable them in System Settings if you are not prompted. Live Activities appear on iPhone Lock Screen and Dynamic Island while a payment is processing; on Mac an in-app banner is used instead.")
                         .font(.caption)
@@ -117,6 +116,7 @@ struct NotificationsSettingsView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Notifications")
             .task {
                 await NotificationService.shared.requestAuthorizationIfNeeded()
@@ -129,9 +129,9 @@ struct NotificationsSettingsView: View {
                     Task { await NotificationService.shared.requestAuthorizationIfNeeded() }
                 }
             }
-        }
-        .accessibilityElement(children: .contain)
-        .swipeDownToDismiss()
+            .bankInlineNavigationTitle()
+            .accessibilityElement(children: .contain)
+            .swipeDownToDismiss()
     }
 }
 

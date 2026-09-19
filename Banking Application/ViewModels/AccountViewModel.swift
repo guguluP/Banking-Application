@@ -17,6 +17,11 @@ class AccountViewModel: ObservableObject {
     /// completed, or if the feature is unavailable on this device/OS.
     @Published var aiInsight: String?
     @Published var isGeneratingInsight: Bool = false
+    @Published var briefingHeadline: String?
+    @Published var healthScore: Int = 0
+    @Published var cashFlowNote: String?
+    @Published var recurringCandidates: [FinancialIntelligenceService.RecurringCandidate] = []
+    @Published var anomalies: [FinancialIntelligenceService.Anomaly] = []
 
     private let modelContext: ModelContext
     private let transactionViewModel: TransactionViewModel
@@ -170,15 +175,39 @@ class AccountViewModel: ObservableObject {
         isGeneratingInsight = true
         defer { isGeneratingInsight = false }
 
+        let txs = transactionViewModel.recentTransactions
+        let budgetRows = (try? modelContext.fetch(FetchDescriptor<Budget>())) ?? []
+        let loans = (try? modelContext.fetch(FetchDescriptor<Loan>())) ?? []
+        let fds = (try? modelContext.fetch(FetchDescriptor<FixedDeposit>())) ?? []
+        let billers = (try? modelContext.fetch(FetchDescriptor<Biller>())) ?? []
+
+        healthScore = FinancialIntelligenceService.computeHealth(
+            accounts: accounts, transactions: txs, budgets: budgetRows, loans: loans
+        )
+        let cal = Calendar.current
+        let thisMonth = cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
+        let lastMonthStart = cal.date(byAdding: .month, value: -1, to: thisMonth) ?? thisMonth
+        let lastMonthSpend = txs.filter { $0.isDebit && $0.transactionDate >= lastMonthStart && $0.transactionDate < thisMonth }
+            .reduce(Decimal(0)) { $0 + $1.amount }
+        let brief = FinancialIntelligenceService.briefing(
+            transactions: txs, billers: billers, loans: loans, fds: fds,
+            categoryBreakdown: categoryBreakdown, lastMonthSpend: lastMonthSpend, health: healthScore
+        )
+        briefingHeadline = brief.headline
+        let flow = FinancialIntelligenceService.cashFlow(
+            currentBalance: totalAvailableBalance, transactions: txs, loans: loans, billers: billers
+        )
+        cashFlowNote = "30-day projection \(CurrencyFormatter.shared.string(from: flow.projectedBalance30d)) (velocity \(CurrencyFormatter.shared.string(from: flow.dailySpendVelocity))/day)."
+        recurringCandidates = FinancialIntelligenceService.detectRecurring(transactions: txs)
+        anomalies = FinancialIntelligenceService.detectAnomalies(transactions: txs)
+
         do {
-            aiInsight = try await AIAssistantService.shared.spendingInsight(
+            aiInsight = try await AIChatbotService.shared.spendingInsight(
                 categories: categoryBreakdown,
                 totalAvailableBalance: totalAvailableBalance
             )
         } catch {
-            // Non-fatal: the insight card just stays hidden if Apple
-            // Intelligence isn't available on this device.
-            aiInsight = nil
+            aiInsight = briefingHeadline
         }
     }
 }

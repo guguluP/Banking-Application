@@ -17,6 +17,7 @@ struct MainTabView: View {
         ZStack {
             AnimatedMeshBackground()
                 .ignoresSafeArea()
+                .zIndex(0)
 
             Group {
                 if sizeClass == .regular {
@@ -26,20 +27,35 @@ struct MainTabView: View {
                 }
             }
             .tint(Color.bankPrimary)
+            .zIndex(1)
 
             InAppLiveActivityBanner()
-                .zIndex(15)
+                .zIndex(30)
                 .allowsHitTesting(false)
-
-            if !showLockView {
-                assistantFAB
-                    .zIndex(30)
-            }
 
             if showLockView {
                 LockView(isVisible: $showLockView, authenticationService: authenticationService)
                     .transition(.opacity)
-                    .zIndex(10)
+                    .zIndex(50)
+            }
+
+            if authenticationService.isDecoySession {
+                Color.black.opacity(0.55).ignoresSafeArea()
+                VStack(spacing: 12) {
+                    Image(systemName: "lock.shield")
+                        .font(.largeTitle)
+                    Text("Limited view")
+                        .font(.title2.weight(.semibold))
+                    Text("This session is restricted. Sign out and use your primary passcode for full access.")
+                        .multilineTextAlignment(.center)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .glassControl(cornerRadius: 20, interactive: false)
+                .padding()
+                .zIndex(60)
+                .allowsHitTesting(false)
             }
         }
         .sheet(isPresented: $showChatbot) {
@@ -107,15 +123,17 @@ struct MainTabView: View {
                 .accessibilityLabel(AppTab.profile.title)
                 .accessibilityHint(AppTab.profile.hint)
         }
-        .toolbarBackground(.visible, for: .tabBar)
-        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
-        // The assistant FAB floats above this TabView at a fixed screen
-        // position (see `assistantFAB`); reserve a matching safe-area inset
-        // here so scrollable tab content never renders underneath it.
-        .safeAreaInset(edge: .bottom) {
-            if sizeClass != .regular {
-                Color.clear.frame(height: 74)
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabViewBottomAccessory {
+            Button {
+                HapticFeedbackService.shared.lightImpact()
+                showChatbot = true
+            } label: {
+                Label("AI Assistant", systemImage: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
             }
+            .accessibilityLabel("Open AI Assistant")
         }
     }
 
@@ -161,6 +179,7 @@ struct MainTabView: View {
                     }
                     .padding(.horizontal, AppSpacing.md)
                 }
+                .bankSoftScrollEdges()
 
                 Spacer(minLength: 0)
 
@@ -172,14 +191,13 @@ struct MainTabView: View {
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
-                        .background(Color.bankPrimary.opacity(0.12), in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.bankPrimary)
+                .glassControl(cornerRadius: AppTheme.CornerRadius.medium, tint: Color.bankPrimary)
                 .padding(.horizontal, AppSpacing.md)
                 .padding(.bottom, AppSpacing.lg)
             }
-            .background(.ultraThinMaterial)
             .navigationTitle("Menu")
         } detail: {
             tabRoot(for: selectedTab)
@@ -205,38 +223,6 @@ struct MainTabView: View {
         }
     }
 
-    private var assistantFAB: some View {
-        Group {
-            if sizeClass != .regular {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Button {
-                            HapticFeedbackService.shared.lightImpact()
-                            showChatbot = true
-                        } label: {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 58, height: 58)
-                                .background(Color.bankPrimary, in: Circle())
-                                .shadow(color: Color.bankPrimary.opacity(0.5), radius: 12, y: 4)
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(Color.white.opacity(0.4), lineWidth: 1.5)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Circle())
-                        .accessibilityLabel("Open AI Assistant")
-                        .padding(.trailing, AppSpacing.lg)
-                        .padding(.bottom, 88)
-                    }
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Tabs
@@ -252,7 +238,7 @@ enum AppTab: String, CaseIterable, Identifiable, Hashable {
         case .track: return "Track"
         case .cards: return "Cards"
         case .payments: return "Payments"
-        case .profile: return "Profile"
+        case .profile: return "Settings"
         }
     }
 
@@ -262,7 +248,7 @@ enum AppTab: String, CaseIterable, Identifiable, Hashable {
         case .track: return "chart.line.uptrend.xyaxis"
         case .cards: return "creditcard.fill"
         case .payments: return "qrcode.viewfinder"
-        case .profile: return "person.fill"
+        case .profile: return "gearshape.fill"
         }
     }
 
@@ -272,7 +258,7 @@ enum AppTab: String, CaseIterable, Identifiable, Hashable {
         case .track: return "Log expenses, track budgets, and view spending analytics"
         case .cards: return "View and manage your debit and credit cards"
         case .payments: return "UPI payments and bill pay"
-        case .profile: return "Manage your profile and settings"
+        case .profile: return "Profile, security, and app preferences"
         }
     }
 }
@@ -285,9 +271,7 @@ struct LockView: View {
 
     var body: some View {
         ZStack {
-            AnimatedMeshBackground()
-                .ignoresSafeArea()
-            Color.black.opacity(0.4)
+            Color.black.opacity(0.45)
                 .ignoresSafeArea()
                 .transition(.opacity)
 

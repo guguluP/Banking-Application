@@ -51,6 +51,7 @@ struct LocationView: View {
                     .padding(.bottom)
                 }
             }
+            .bankSoftScrollEdges()
             .navigationTitle("ATM & Branch Locator")
             .sheet(isPresented: $showingLocationDetail) {
                 if let location = selectedLocation {
@@ -157,6 +158,7 @@ struct LocationRow: View {
                         }
                     }
                 }
+                .bankSoftScrollEdges()
             }
             .padding()
         }
@@ -273,6 +275,7 @@ struct LocationDetailView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle(location.name)
         }
         .accessibilityElement(children: .contain)

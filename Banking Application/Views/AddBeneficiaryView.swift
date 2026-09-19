@@ -107,6 +107,7 @@ struct AddBeneficiaryView: View {
                 }
                 .padding()
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Add Payee")
         }
         .swipeDownToDismiss()

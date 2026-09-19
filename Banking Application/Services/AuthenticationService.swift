@@ -31,6 +31,7 @@ class AuthenticationService: ObservableObject {
     @Published var canUseBiometrics: Bool = false
     @Published var biometryTypeString: String = ""
     @Published var lockoutRemainingSeconds: Int = 0
+    @Published var isDecoySession: Bool = false
 
     /// Whether the user has opted in to biometric unlock in Settings.
     /// Device capability is still gated by `canUseBiometrics`.
@@ -99,6 +100,38 @@ class AuthenticationService: ObservableObject {
         let hashStored = keychain.set(hash, forKey: KeychainKey.passcodeHash)
         resetFailedAttempts()
         return saltStored && hashStored
+    }
+
+    @discardableResult
+    func setDuressPasscode(_ passcode: String) -> Bool {
+        guard passcode.count == 4, passcode.allSatisfy({ $0.isNumber }), !verifyPasscode(passcode) else { return false }
+        let salt = CryptoService.generateSalt()
+        let hash = CryptoService.hash(passcode: passcode, salt: salt)
+        return keychain.set(salt, forKey: KeychainKey.duressPasscodeSalt)
+            && keychain.set(hash, forKey: KeychainKey.duressPasscodeHash)
+    }
+
+    func verifyDuressPasscode(_ passcode: String) -> Bool {
+        guard let salt = keychain.getString(forKey: KeychainKey.duressPasscodeSalt),
+              let storedHash = keychain.getString(forKey: KeychainKey.duressPasscodeHash) else {
+            return false
+        }
+        let candidateHash = CryptoService.hash(passcode: passcode, salt: salt)
+        return CryptoService.constantTimeEquals(candidateHash, storedHash)
+    }
+
+    /// Re-prompt biometrics for high-value actions (transfers, payee add, card controls).
+    func stepUpAuthenticate(reason: String, completion: @escaping @MainActor (Bool) -> Void) {
+        guard canUseBiometrics, AppSettings.shared.isBiometricsEnabled else {
+            completion(hasPasscodeConfigured)
+            return
+        }
+        let ctx = LAContext()
+        ctx.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+            Task { @MainActor in
+                completion(success)
+            }
+        }
     }
 
     /// Verifies a candidate passcode against the stored hash without revealing
@@ -227,6 +260,7 @@ class AuthenticationService: ObservableObject {
         keychain.set(token, forKey: KeychainKey.sessionToken)
         recordActivity()
         startInactivityMonitor()
+        NotificationService.shared.notifyLogin(decoy: isDecoySession)
     }
 
     // MARK: - App passcode login
@@ -257,6 +291,10 @@ class AuthenticationService: ObservableObject {
             self.isAuthenticating = false
 
             if self.verifyPasscode(passcode) {
+                self.isDecoySession = false
+                self.completeAuthentication()
+            } else if self.verifyDuressPasscode(passcode) {
+                self.isDecoySession = true
                 self.completeAuthentication()
             } else {
                 self.registerFailedAttempt()
@@ -275,6 +313,7 @@ class AuthenticationService: ObservableObject {
     func logout() {
         isAuthenticated = false
         isLocked = false
+        isDecoySession = false
         user = nil
         errorMessage = nil
         keychain.delete(forKey: KeychainKey.sessionToken)

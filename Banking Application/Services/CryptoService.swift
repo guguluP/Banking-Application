@@ -28,6 +28,11 @@ enum CryptoService {
 
     /// Constant-time comparison to avoid leaking timing information about how
     /// many characters of a guessed hash matched.
+    static func receiptHash(for payload: String) -> String {
+        let digest = SHA256.hash(data: Data(payload.utf8))
+        return digest.compactMap { String(format: "%02x", $0) }.joined()
+    }
+
     static func constantTimeEquals(_ lhs: String, _ rhs: String) -> Bool {
         guard lhs.utf8.count == rhs.utf8.count else { return false }
         var result: UInt8 = 0

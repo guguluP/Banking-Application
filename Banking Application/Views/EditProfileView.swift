@@ -12,8 +12,7 @@ struct EditProfileView: View {
     @State private var isSaved = false
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 VStack(spacing: AppSpacing.lg) {
                     VStack(alignment: .leading, spacing: AppSpacing.md) {
                         Text("Personal Information")
@@ -57,6 +56,7 @@ struct EditProfileView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Edit Profile")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -73,15 +73,12 @@ struct EditProfileView: View {
                 }
             }
             .onAppear {
-                // Previously this screen started blank every time and never
-                // wrote changes anywhere — edits looked like they saved but
-                // vanished on the next visit.
                 firstName = authenticationService.user?.firstName ?? ""
                 lastName = authenticationService.user?.lastName ?? ""
                 email = authenticationService.user?.email ?? ""
             }
-        }
-        .accessibilityElement(children: .contain)
+            .bankInlineNavigationTitle()
+            .accessibilityElement(children: .contain)
     }
     
     private func saveProfile() {

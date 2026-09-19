@@ -121,7 +121,30 @@ import SwiftData
             status: .completed
         )
         txn.account = account
+        txn.referenceNumber = CryptoService.receiptHash(
+            for: "\(account.id)|\(recipient)|\(amountDecimal)|\(Date().timeIntervalSince1970)"
+        )
         context.insert(txn)
+
+        if UserDefaults.standard.bool(forKey: "roundUpEnabled") {
+            let remainder = 10 - (NSDecimalNumber(decimal: amountDecimal).intValue % 10)
+            if remainder > 0 && remainder < 10 {
+                let extra = Decimal(remainder)
+                if account.availableBalance >= extra {
+                    account.balance -= extra
+                    account.availableBalance -= extra
+                    let roundUp = Transaction(
+                        accountId: account.id,
+                        type: .transfer,
+                        amount: extra,
+                        description: "Round-up savings",
+                        category: "Savings",
+                        status: .completed
+                    )
+                    context.insert(roundUp)
+                }
+            }
+        }
 
         LiveActivityManager.shared.startPayment(
             kind: "Transfer",

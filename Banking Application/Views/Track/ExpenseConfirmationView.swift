@@ -153,6 +153,7 @@ struct ExpenseConfirmationView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle(editingTransaction == nil ? "Confirm Expense" : "Edit Expense")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

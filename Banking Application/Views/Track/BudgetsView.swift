@@ -27,6 +27,7 @@ struct BudgetsView: View {
                 }
             }
         }
+        .bankSoftScrollEdges()
         .navigationTitle("Budgets")
         .sheet(isPresented: Binding(
             get: { editingCategory != nil },

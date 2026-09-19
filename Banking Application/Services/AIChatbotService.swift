@@ -7,10 +7,27 @@ import FoundationModels
 /// view models currently hold in memory — nothing here is persisted by this
 /// service, and nothing here ever leaves the device (no network call is made
 /// by either the AFM path or the fallback path).
+enum AssistantIntent: String {
+    case balance, spend, search, transfer, bill, fd, loan, security, budget, greeting, forecast, unknown
+}
+
+struct AssistantAction: Equatable {
+    enum Kind: String, Equatable {
+        case transfer, billPay, openFD, requestMoney
+    }
+    var kind: Kind
+    var amount: Decimal?
+    var payee: String?
+}
+
 struct ChatbotContext {
     var firstName: String
     var accounts: [(name: String, type: String, balance: Decimal, availableBalance: Decimal)]
     var recentTransactions: [(description: String, amount: Decimal, isCredit: Bool, category: String?, date: Date)]
+    var budgets: [(category: String, limit: Decimal)] = []
+    var upcomingBills: [(name: String, due: Date, amount: Decimal)] = []
+    var receiptNotes: [String] = []
+    var conversationMemory: [(role: String, text: String)] = []
 
     var totalAvailableBalance: Decimal {
         accounts.reduce(Decimal(0)) { $0 + $1.availableBalance }
@@ -40,8 +57,10 @@ final class AIChatbotService: ObservableObject {
     /// assistant" indicator if desired, but it never gates whether the
     /// chatbot can be used at all.
     @Published private(set) var isUsingOnDeviceModel: Bool = false
+    @Published private(set) var lastAction: AssistantAction?
 
-    private var session: Any? // LanguageModelSession, boxed to avoid an iOS-version-gated stored property type.
+    private var session: Any?
+    private var fallbackTurns: [(role: String, text: String)] = []
 
     private init() {
         refreshAvailability()
@@ -62,25 +81,68 @@ final class AIChatbotService: ObservableObject {
     /// session.
     func resetConversation() {
         session = nil
+        fallbackTurns = []
+        lastAction = nil
         refreshAvailability()
     }
 
-    /// Sends one user message and returns the assistant's reply.
+    func spendingInsight(categories: [CategorySpending], totalAvailableBalance: Decimal) async throws -> String {
+        guard !categories.isEmpty else { return "" }
+        let summaryLines = categories.prefix(5).map { category in
+            "- \(category.name): \(CurrencyFormatter.shared.string(from: category.amount))"
+        }.joined(separator: "\n")
+        let fallback: String = {
+            guard let top = categories.first else { return "" }
+            let total = categories.reduce(Decimal(0)) { $0 + $1.amount }
+            return "Your biggest spend this week was \(top.name) at \(CurrencyFormatter.shared.string(from: top.amount)), out of \(CurrencyFormatter.shared.string(from: total)) total."
+        }()
+        let prompt = """
+        You are a friendly banking assistant. In 1-2 short sentences, summarize this \
+        week's spending. Mention the top category. Available balance is \
+        \(CurrencyFormatter.shared.string(from: totalAvailableBalance)).
+        Greet with "Dear Customer" if you greet at all.
+        Spending:
+        \(summaryLines)
+        """
+        if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability {
+            let session = LanguageModelSession()
+            let response = try await session.respond(to: prompt)
+            return response.content
+        }
+        return fallback
+    }
+
     func reply(to userMessage: String, context: ChatbotContext) async -> String {
         let trimmed = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
+        lastAction = nil
+
+        var ctx = context
+        ctx.conversationMemory = fallbackTurns
 
         if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability {
             do {
-                return try await replyUsingAFM(trimmed, context: context)
+                let text = try await replyUsingAFM(trimmed, context: ctx)
+                remember(user: trimmed, assistant: text)
+                lastAction = extractAction(from: trimmed)
+                return text
             } catch {
-                // Model call failed at runtime (e.g. guardrail rejection,
-                // transient session error) — degrade gracefully rather than
-                // showing an error bubble in a banking app.
-                return replyUsingLocalRules(trimmed, context: context)
+                let text = replyUsingLocalRules(trimmed, context: ctx)
+                remember(user: trimmed, assistant: text)
+                return text
             }
         } else {
-            return replyUsingLocalRules(trimmed, context: context)
+            let text = replyUsingLocalRules(trimmed, context: ctx)
+            remember(user: trimmed, assistant: text)
+            return text
+        }
+    }
+
+    private func remember(user: String, assistant: String) {
+        fallbackTurns.append((role: "user", text: user))
+        fallbackTurns.append((role: "assistant", text: assistant))
+        if fallbackTurns.count > 8 {
+            fallbackTurns.removeFirst(fallbackTurns.count - 8)
         }
     }
 
@@ -118,8 +180,73 @@ final class AIChatbotService: ObservableObject {
 
     // MARK: - Local rule-based fallback (works on every device)
 
+    private func classify(_ text: String) -> AssistantIntent {
+        let t = text.lowercased()
+        let ranked: [(AssistantIntent, [String])] = [
+            (.budget, ["budget", "on track", "overspend", "limit"]),
+            (.forecast, ["forecast", "cash flow", "will i have", "projected"]),
+            (.search, ["show me", "what did i spend at", "restaurants", "filter"]),
+            (.transfer, ["send money", "transfer", "pay "]),
+            (.bill, ["bill", "electricity", "biller"]),
+            (.fd, ["fixed deposit", " fd", "open fd"]),
+            (.loan, ["loan", "emi"]),
+            (.security, ["face id", "touch id", "passcode", "security"]),
+            (.spend, ["spend", "spent", "expense"]),
+            (.balance, ["balance", "how much do i have"]),
+            (.greeting, ["hi", "hello", "hey"])
+        ]
+        for (intent, keys) in ranked {
+            if keys.contains(where: { t.contains($0) }) { return intent }
+        }
+        return .unknown
+    }
+
+    private func extractAmount(from text: String) -> Decimal? {
+        let pattern = #"(\d+(?:\.\d{1,2})?)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range, in: text) else { return nil }
+        return Decimal(string: String(text[range]))
+    }
+
+    private func extractAction(from userMessage: String) -> AssistantAction? {
+        let intent = classify(userMessage)
+        switch intent {
+        case .transfer:
+            return AssistantAction(kind: .transfer, amount: extractAmount(from: userMessage), payee: nil)
+        case .bill:
+            return AssistantAction(kind: .billPay, amount: extractAmount(from: userMessage), payee: nil)
+        case .fd:
+            return AssistantAction(kind: .openFD, amount: extractAmount(from: userMessage), payee: nil)
+        default:
+            return nil
+        }
+    }
+
     private func replyUsingLocalRules(_ userMessage: String, context: ChatbotContext) -> String {
         let text = userMessage.lowercased()
+        lastAction = extractAction(from: userMessage)
+
+        if text.contains("last month") || text.contains("what about") {
+            if let prior = context.conversationMemory.last(where: { $0.role == "user" }) {
+                return "Following up on \"\(prior.text)\": I can filter last month's activity from your on-device ledger. Ask me to show restaurants, groceries, or a merchant."
+            }
+        }
+
+        switch classify(text) {
+        case .budget:
+            if context.budgets.isEmpty {
+                return "Dear Customer, no budgets are set yet. Add category limits in Track and I'll tell you if you're on track."
+            }
+            let lines = context.budgets.map { "\($0.category): \(CurrencyFormatter.shared.string(from: $0.limit)) limit" }
+            return "Dear Customer, here's your budget snapshot: " + lines.joined(separator: "; ") + "."
+        case .forecast:
+            return "Dear Customer, open Home for the 30-day cash-flow projection based on spending velocity and upcoming EMIs."
+        case .search:
+            return "Dear Customer, I can search your ledger. Try: show restaurants last month."
+        default:
+            break
+        }
 
         if text.contains("balance") {
             let formatted = CurrencyFormatter.shared.string(from: context.totalAvailableBalance)

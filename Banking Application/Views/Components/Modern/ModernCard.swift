@@ -25,14 +25,13 @@ struct ModernCard<Content: View>: View {
 struct GlassCard<Content: View>: View {
     let content: Content
     let cornerRadius: CGFloat
-    /// When true, the border highlight subtly brightens on the edge facing
-    /// the tilt direction. Off by default; enable on hero cards only.
+    /// When true, the card uses a single Liquid Glass surface (hero only).
+    /// Default cards use a cheap translucent fill so a dashboard of many
+    /// cards does not sample glass/material on every frame.
     var reactsToTilt: Bool = false
-    /// Optional soft brand tint under the material.
     var tint: Color? = nil
 
-    @ObservedObject private var motion = MotionManager.shared
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     init(
         cornerRadius: CGFloat = AppTheme.CornerRadius.card,
@@ -46,50 +45,43 @@ struct GlassCard<Content: View>: View {
         self.tint = tint
     }
 
-    private var tiltActive: Bool { reactsToTilt && !reduceMotion && !PlatformUI.isMac }
-
     var body: some View {
-        content
-            .background {
-                ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                    if let tint {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(tint.opacity(0.08))
-                    }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let card = content
+            .clipShape(shape)
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(strokeTopOpacity),
-                                Color.white.opacity(0.06)
-                            ],
-                            startPoint: tiltActive ? highlightStart : .topLeading,
-                            endPoint: tiltActive ? highlightEnd : .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-                    .animation(.easeOut(duration: 0.15), value: motion.normalizedX)
+                shape.strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.22 : 0.55),
+                            Color.white.opacity(0.06)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
             )
             .bankCardShadow()
-            .onAppear { if tiltActive { MotionManager.shared.subscribe() } }
-            .onDisappear { if tiltActive { MotionManager.shared.unsubscribe() } }
+
+        if reactsToTilt {
+            card.glassControl(cornerRadius: cornerRadius, tint: tint, interactive: false)
+        } else {
+            card
+                .background {
+                    ZStack {
+                        shape.fill(fillColor)
+                        if let tint {
+                            shape.fill(tint.opacity(0.07))
+                        }
+                    }
+                }
+        }
     }
 
-    private var strokeTopOpacity: Double {
-        tiltActive ? 0.55 + abs(motion.normalizedX) * 0.25 : 0.5
-    }
-
-    private var highlightStart: UnitPoint {
-        UnitPoint(x: 0.5 + motion.normalizedX * 0.4, y: 0.5 + motion.normalizedY * 0.4 - 0.5)
-    }
-
-    private var highlightEnd: UnitPoint {
-        UnitPoint(x: 0.5 - motion.normalizedX * 0.4, y: 0.5 - motion.normalizedY * 0.4 + 0.5)
+    private var fillColor: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.08)
+            : Color.white.opacity(0.78)
     }
 }

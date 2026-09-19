@@ -6,8 +6,7 @@ struct PrivacyAndSecurityView: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 LazyVStack(alignment: .leading, spacing: AppSpacing.lg) {
                     DemoModeBanner()
                         .padding(.horizontal)
@@ -61,46 +60,30 @@ struct PrivacyAndSecurityView: View {
                                 HapticFeedbackService.shared.lightImpact()
                             }
                             .accessibilityLabel("App Passcode Lock enabled")
+
+                            Divider()
+
+                            NavigationLink("Set duress passcode") {
+                                DuressPasscodeView()
+                                    .environmentObject(authenticationService)
+                            }
+                            .font(.body)
                         }
                         .padding()
                     }
 
                     GlassCard {
-                        VStack(alignment: .leading, spacing: AppSpacing.md) {
-                            Label("Notifications", systemImage: "bell.fill")
+                        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                            Label("Alerts", systemImage: "bell.fill")
                                 .font(.headline)
-                                .foregroundColor(.primary)
-
-                            VStack(alignment: .leading, spacing: AppSpacing.md) {
-                                Toggle(isOn: $settings.isTransactionNotificationsEnabled) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Transaction Notifications")
-                                            .font(.body)
-                                        Text("Get alerted on every transaction")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .toggleStyle(SwitchToggleStyle(tint: Color.bankPrimary))
-                                .onChange(of: settings.isTransactionNotificationsEnabled) {
-                                    HapticFeedbackService.shared.lightImpact()
-                                }
-
-                                Divider()
-
-                                Toggle(isOn: $settings.isMarketingNotificationsEnabled) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Marketing & Promotions")
-                                            .font(.body)
-                                        Text("Offers and promotions (demo preference only)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .toggleStyle(SwitchToggleStyle(tint: Color.bankPrimary))
-                                .onChange(of: settings.isMarketingNotificationsEnabled) {
-                                    HapticFeedbackService.shared.lightImpact()
-                                }
+                            Text("Transaction, low-balance, and marketing alerts live under Notifications so they are not configured in two places.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            NavigationLink {
+                                NotificationsSettingsView()
+                            } label: {
+                                Text("Open notification settings")
+                                    .font(.subheadline.weight(.semibold))
                             }
                         }
                         .padding()
@@ -108,10 +91,11 @@ struct PrivacyAndSecurityView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Privacy & Security")
-        }
-        .accessibilityElement(children: .contain)
-        .swipeDownToDismiss()
+            .bankInlineNavigationTitle()
+            .accessibilityElement(children: .contain)
+            .swipeDownToDismiss()
     }
 }
 

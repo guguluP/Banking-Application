@@ -92,6 +92,7 @@ struct LoanTrackerView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Loans")
             .sheet(isPresented: $showingApply) {
                 ApplyForLoanView()
@@ -254,6 +255,7 @@ struct LoanDetailView: View {
             }
             .padding(.vertical)
         }
+        .bankSoftScrollEdges()
         .navigationTitle("Loan Details")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingPrepaySheet) {
@@ -474,6 +476,7 @@ struct ApplyForLoanView: View {
                 }
                 .padding()
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Apply for a Loan")
             .onAppear {
                 if selectedAccount == nil {

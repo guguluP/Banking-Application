@@ -100,6 +100,7 @@ struct PasscodeSetupView: View {
                 advance()
             }
         }
+        .sensitiveScreenShield()
     }
 
     private func advance() {

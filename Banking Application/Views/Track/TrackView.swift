@@ -37,8 +37,6 @@ struct TrackView: View {
             }
             .navigationTitle("Track")
             .bankInlineNavigationTitle()
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -104,11 +102,36 @@ struct TrackView: View {
                     } label: {
                         trackMenuRow(icon: "chart.pie.fill", title: "Budgets", subtitle: "\(tracker.budgets.count) active budgets")
                     }
+
+                    NavigationLink {
+                        EnvelopesView()
+                    } label: {
+                        trackMenuRow(icon: "envelope.fill", title: "Envelopes", subtitle: "Named spending buckets")
+                    }
+
+                    NavigationLink {
+                        SavingsGoalsView()
+                    } label: {
+                        trackMenuRow(icon: "flag.fill", title: "Savings goals", subtitle: "Targets tied to FDs")
+                    }
+
+                    NavigationLink {
+                        BillCalendarView()
+                    } label: {
+                        trackMenuRow(icon: "calendar", title: "Bill calendar", subtitle: "EMIs, bills, FD maturities")
+                    }
+
+                    NavigationLink {
+                        NetWorthView()
+                    } label: {
+                        trackMenuRow(icon: "chart.line.uptrend.xyaxis", title: "Net worth", subtitle: "Accounts + FDs − loans")
+                    }
                 }
                 .padding(.horizontal)
             }
             .padding(.vertical)
         }
+        .bankSoftScrollEdges()
     }
 
     /// A lightweight preview of this month's spending, tappable through to

@@ -43,6 +43,7 @@ struct ExpenseLedgerView: View {
                     }
                 }
                 .listStyle(.plain)
+                .bankSoftScrollEdges()
             }
         }
         .searchable(text: $searchText, prompt: "Search expenses")
@@ -88,6 +89,7 @@ struct ExpenseLedgerView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
         }
+        .bankSoftScrollEdges()
     }
 
     private func filterChip(name: String, systemImage: String? = nil, color: Color = .bankPrimary, isSelected: Bool, action: @escaping () -> Void) -> some View {

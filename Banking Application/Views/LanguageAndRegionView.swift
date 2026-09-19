@@ -1,105 +1,88 @@
 import SwiftUI
 
 struct LanguageAndRegionView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var languageSelection = 0
-    let languageOptions = ["English (US)", "English (UK)", "Spanish", "French", "German"]
-    @State private var regionSelection = 0
-    let regionOptions = ["United States", "United Kingdom", "Canada", "Australia", "India"]
-    @State private var dateFormatSelection: DateFormatOption = .dayMonthYear
-    @State private var timeFormatSelection: TimeFormatOption = .twelveHour
-    
-    enum DateFormatOption: String, CaseIterable {
-        case monthDayYear = "MM/DD/YYYY"
-        case dayMonthYear = "DD/MM/YYYY"
-        case yearMonthDay = "YYYY/MM/DD"
-    }
-    
-    enum TimeFormatOption: String, CaseIterable {
-        case twelveHour = "12-Hour"
-        case twentyFourHour = "24-Hour"
-    }
-    
+    @ObservedObject private var settings = AppSettings.shared
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: AppSpacing.lg) {
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: AppSpacing.md) {
-                            Label("Language", systemImage: "globe")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            
-                            Picker("Language", selection: $languageSelection) {
-                                ForEach(0..<languageOptions.count, id: \.self) { index in
-                                    Text(languageOptions[index]).tag(index)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .onChange(of: languageSelection) {
-                                HapticFeedbackService.shared.lightImpact()
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: AppSpacing.lg) {
+                GlassCard {
+                    VStack(alignment: .leading, spacing: AppSpacing.md) {
+                        Label("Language", systemImage: "globe")
+                            .font(.headline)
+
+                        Picker("Language", selection: $settings.languageIndex) {
+                            ForEach(AppSettings.languageOptions.indices, id: \.self) { index in
+                                Text(AppSettings.languageOptions[index]).tag(index)
                             }
                         }
-                        .padding()
-                    }
-                    
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: AppSpacing.md) {
-                            Label("Region", systemImage: "map.fill")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            
-                            Picker("Region", selection: $regionSelection) {
-                                ForEach(0..<regionOptions.count, id: \.self) { index in
-                                    Text(regionOptions[index]).tag(index)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .onChange(of: regionSelection) {
-                                HapticFeedbackService.shared.lightImpact()
-                            }
+                        .pickerStyle(.menu)
+                        .onChange(of: settings.languageIndex) {
+                            HapticFeedbackService.shared.lightImpact()
                         }
-                        .padding()
+
+                        Text("Display language for labels in this demo. Currency stays Indian Rupees.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: AppSpacing.md) {
-                            Label("Date Format", systemImage: "calendar")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            
-                            PillSegmentedControl(
-                                selection: $dateFormatSelection,
-                                items: DateFormatOption.allCases
-                            )
-                            .onChange(of: dateFormatSelection) {
-                                HapticFeedbackService.shared.lightImpact()
-                            }
-                        }
-                        .padding()
-                    }
-                    
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: AppSpacing.md) {
-                            Label("Time Format", systemImage: "clock.fill")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            
-                            PillSegmentedControl(
-                                selection: $timeFormatSelection,
-                                items: TimeFormatOption.allCases
-                            )
-                            .onChange(of: timeFormatSelection) {
-                                HapticFeedbackService.shared.lightImpact()
-                            }
-                        }
-                        .padding()
-                    }
+                    .padding()
                 }
-                .padding(.vertical)
+
+                GlassCard {
+                    VStack(alignment: .leading, spacing: AppSpacing.md) {
+                        Label("Region", systemImage: "map.fill")
+                            .font(.headline)
+
+                        Picker("Region", selection: $settings.regionIndex) {
+                            ForEach(AppSettings.regionOptions.indices, id: \.self) { index in
+                                Text(AppSettings.regionOptions[index]).tag(index)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .onChange(of: settings.regionIndex) {
+                            HapticFeedbackService.shared.lightImpact()
+                        }
+                    }
+                    .padding()
+                }
+
+                GlassCard {
+                    VStack(alignment: .leading, spacing: AppSpacing.md) {
+                        Label("Date Format", systemImage: "calendar")
+                            .font(.headline)
+
+                        PillSegmentedControl(
+                            selection: $settings.dateFormat,
+                            items: BankDateFormat.allCases
+                        )
+                        .onChange(of: settings.dateFormat) {
+                            HapticFeedbackService.shared.lightImpact()
+                        }
+                    }
+                    .padding()
+                }
+
+                GlassCard {
+                    VStack(alignment: .leading, spacing: AppSpacing.md) {
+                        Label("Time Format", systemImage: "clock.fill")
+                            .font(.headline)
+
+                        PillSegmentedControl(
+                            selection: $settings.timeFormat,
+                            items: BankTimeFormat.allCases
+                        )
+                        .onChange(of: settings.timeFormat) {
+                            HapticFeedbackService.shared.lightImpact()
+                        }
+                    }
+                    .padding()
+                }
             }
-            .navigationTitle("Language & Region")
+            .padding(.vertical)
         }
+        .bankSoftScrollEdges()
+        .navigationTitle("Language & Region")
+        .bankInlineNavigationTitle()
         .accessibilityElement(children: .contain)
         .swipeDownToDismiss()
     }
@@ -107,6 +90,6 @@ struct LanguageAndRegionView: View {
 
 struct LanguageAndRegionView_Previews: PreviewProvider {
     static var previews: some View {
-        LanguageAndRegionView()
+        NavigationStack { LanguageAndRegionView() }
     }
 }

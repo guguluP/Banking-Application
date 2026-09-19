@@ -65,6 +65,7 @@ struct ExpenseTrackerPrivacyView: View {
                     Text("Permanently deletes every expense, category, and budget you've created here, and reverses their effect on your account balances. This does not affect your accounts, cards, or other banking activity.")
                 }
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Privacy & Data")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

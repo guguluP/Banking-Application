@@ -21,6 +21,10 @@ final class AppSettings: ObservableObject {
         static let weeklySummary = "settings.weeklySummary"
         static let hideBalances = "settings.hideBalances"
         static let appearanceMode = "settings.appearanceMode"
+        static let languageIndex = "settings.languageIndex"
+        static let regionIndex = "settings.regionIndex"
+        static let dateFormat = "settings.dateFormat"
+        static let timeFormat = "settings.timeFormat"
         /// Legacy key used by ProfileView before this service existed.
         static let legacyUseBiometrics = "useBiometrics"
     }
@@ -64,6 +68,25 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: Key.appearanceMode) }
     }
 
+    @Published var languageIndex: Int {
+        didSet { UserDefaults.standard.set(languageIndex, forKey: Key.languageIndex) }
+    }
+
+    @Published var regionIndex: Int {
+        didSet { UserDefaults.standard.set(regionIndex, forKey: Key.regionIndex) }
+    }
+
+    @Published var dateFormat: BankDateFormat {
+        didSet { UserDefaults.standard.set(dateFormat.rawValue, forKey: Key.dateFormat) }
+    }
+
+    @Published var timeFormat: BankTimeFormat {
+        didSet { UserDefaults.standard.set(timeFormat.rawValue, forKey: Key.timeFormat) }
+    }
+
+    static let languageOptions = ["English (US)", "English (UK)", "Hindi", "Spanish", "French"]
+    static let regionOptions = ["India", "United States", "United Kingdom", "Canada", "Australia"]
+
     private init() {
         let defaults = UserDefaults.standard
 
@@ -99,6 +122,27 @@ final class AppSettings: ObservableObject {
         } else {
             appearanceMode = .system
         }
+
+        languageIndex = defaults.integer(forKey: Key.languageIndex)
+        regionIndex = defaults.integer(forKey: Key.regionIndex)
+        if let raw = defaults.string(forKey: Key.dateFormat), let format = BankDateFormat(rawValue: raw) {
+            dateFormat = format
+        } else {
+            dateFormat = .dayMonthYear
+        }
+        if let raw = defaults.string(forKey: Key.timeFormat), let format = BankTimeFormat(rawValue: raw) {
+            timeFormat = format
+        } else {
+            timeFormat = .twelveHour
+        }
+    }
+
+    var languageLabel: String {
+        Self.languageOptions.indices.contains(languageIndex) ? Self.languageOptions[languageIndex] : Self.languageOptions[0]
+    }
+
+    var regionLabel: String {
+        Self.regionOptions.indices.contains(regionIndex) ? Self.regionOptions[regionIndex] : Self.regionOptions[0]
     }
 }
 
@@ -126,4 +170,15 @@ enum AppearanceMode: String, CaseIterable {
         case .dark: return .dark
         }
     }
+}
+
+enum BankDateFormat: String, CaseIterable {
+    case monthDayYear = "MM/DD/YYYY"
+    case dayMonthYear = "DD/MM/YYYY"
+    case yearMonthDay = "YYYY/MM/DD"
+}
+
+enum BankTimeFormat: String, CaseIterable {
+    case twelveHour = "12-Hour"
+    case twentyFourHour = "24-Hour"
 }

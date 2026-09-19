@@ -26,18 +26,25 @@ struct PaymentsView: View {
                         UPIPaymentContent()
                     case .bills:
                         BillPayContent(enableSearch: false, externalSearchText: searchText)
+                    case .send:
+                        TransferView(isEmbedded: true)
+                    case .request:
+                        RequestMoneyView()
                     }
                 }
                 .adaptiveContentWidth()
             }
             .navigationTitle("Payments")
-            .searchable(text: $searchText, prompt: "Search payments")
+            .searchableIf(selectedPaymentType == .bills, text: $searchText, prompt: "Search billers")
             .autocorrectionDisabled(true)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
                         withAnimation(AppTheme.Animation.standard) {
-                            selectedPaymentType = selectedPaymentType == .upi ? .bills : .upi
+                            let all = PaymentType.allCases
+                            if let idx = all.firstIndex(of: selectedPaymentType) {
+                                selectedPaymentType = all[(idx + 1) % all.count]
+                            }
                         }
                     }) {
                         Image(systemName: "arrow.triangle.2.circlepath")
@@ -56,11 +63,15 @@ struct PaymentsView: View {
 enum PaymentType: String, CaseIterable {
     case upi = "UPI Payment"
     case bills = "Pay Bills"
-    
+    case send = "Send Money"
+    case request = "Request"
+
     var systemImage: String {
         switch self {
         case .upi: return "qrcode.viewfinder"
         case .bills: return "doc.text.fill"
+        case .send: return "paperplane.fill"
+        case .request: return "arrow.down.left"
         }
     }
 }

@@ -5,8 +5,7 @@ struct AppearanceSettingsView: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 LazyVStack(alignment: .leading, spacing: AppSpacing.lg) {
                     GlassCard {
                         VStack(alignment: .leading, spacing: AppSpacing.md) {
@@ -26,6 +25,17 @@ struct AppearanceSettingsView: View {
                         .padding()
                     }
                     
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                            Label("Liquid Glass", systemImage: "switch.2")
+                                .font(.headline)
+                            Text("iOS 27 lets you slide glass from ultraclear to fully tinted in Settings → Appearance → Liquid Glass. BankSecure uses the system material for tab bars, the assistant accessory, and controls, so that slider applies here automatically.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                    }
+
                     GlassCard {
                         HStack(spacing: AppSpacing.md) {
                             Image(systemName: "app.fill")
@@ -48,10 +58,11 @@ struct AppearanceSettingsView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Appearance")
-        }
-        .accessibilityElement(children: .contain)
-        .swipeDownToDismiss()
+            .bankInlineNavigationTitle()
+            .accessibilityElement(children: .contain)
+            .swipeDownToDismiss()
     }
 }
 

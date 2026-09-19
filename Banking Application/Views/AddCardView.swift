@@ -121,6 +121,7 @@ struct AddCardView: View {
                         .padding(.bottom, AppSpacing.xl)
                     }
                 }
+                .bankSoftScrollEdges()
                 .transparentChrome()
                 .navigationTitle("Add a Card")
                 .navigationBarTitleDisplayMode(.inline)

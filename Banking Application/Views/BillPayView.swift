@@ -87,6 +87,7 @@ struct BillPayContent: View {
                             }
                         }
                     }
+                    .bankSoftScrollEdges()
                 }
                 .padding(.horizontal)
                 
@@ -107,6 +108,7 @@ struct BillPayContent: View {
             }
             .padding(.vertical)
         }
+        .bankSoftScrollEdges()
         .searchableIf(enableSearch, text: $viewModel.searchText, prompt: "Search billers")
         .autocorrectionDisabled(true)
         .alert("Confirm Payment", isPresented: $showingConfirmation) {

@@ -30,7 +30,16 @@ enum PersistenceController {
             FixedDeposit.self,
             Loan.self,
             ExpenseCategory.self,
-            Budget.self
+            Budget.self,
+            ScheduledInstruction.self,
+            SavingsGoal.self,
+            Envelope.self,
+            MoneyRequest.self,
+            TransactionDispute.self,
+            DeviceSession.self,
+            VaultDocument.self,
+            VirtualCard.self,
+            NetWorthSnapshot.self
         ])
     }
 

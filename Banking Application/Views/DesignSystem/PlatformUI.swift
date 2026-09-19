@@ -145,6 +145,11 @@ extension View {
         modifier(HoverHighlightModifier(cornerRadius: radius))
     }
 
+    /// Soft fade at every scroll edge (iOS 26 `scrollEdgeEffectStyle`).
+    func bankSoftScrollEdges() -> some View {
+        scrollEdgeEffectStyle(.soft, for: .all)
+    }
+
     /// Applies `.searchable` only when `enabled` is true. Use this when a
     /// view might be presented standalone (wants its own search field) or
     /// embedded inside a parent that already provides one — SwiftUI only

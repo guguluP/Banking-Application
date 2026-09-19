@@ -121,4 +121,6 @@ enum KeychainKey {
     static let failedAttempts = "failedAttempts"
     static let lockoutUntil = "lockoutUntil"
     static let sessionToken = "sessionToken"
+    static let duressPasscodeHash = "duressPasscodeHash"
+    static let duressPasscodeSalt = "duressPasscodeSalt"
 }

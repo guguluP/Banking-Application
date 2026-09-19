@@ -59,6 +59,15 @@ final class NotificationService: ObservableObject {
         maybeNotifyLowBalance(remainingBalance)
     }
 
+    func notifyLogin(decoy: Bool) {
+        schedule(
+            identifier: "login-\(UUID().uuidString)",
+            title: decoy ? "Session started" : "New login",
+            body: decoy ? "A limited session is active on this device." : "BankSecure was unlocked on this device.",
+            delay: 0.3
+        )
+    }
+
     func rescheduleWeeklySummary() {
         center.removePendingNotificationRequests(withIdentifiers: [weeklyIdentifier])
         guard AppSettings.shared.isWeeklySummaryEnabled else { return }

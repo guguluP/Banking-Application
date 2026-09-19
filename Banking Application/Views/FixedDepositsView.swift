@@ -89,6 +89,7 @@ struct FixedDepositsView: View {
                 }
                 .padding(.vertical)
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Fixed Deposits")
             .sheet(isPresented: $showingOpenDeposit) {
                 OpenFixedDepositView()
@@ -283,6 +284,7 @@ struct OpenFixedDepositView: View {
                 }
                 .padding()
             }
+            .bankSoftScrollEdges()
             .navigationTitle("New Fixed Deposit")
             .onAppear {
                 if selectedSourceAccount == nil {

@@ -79,24 +79,9 @@ struct BankApp: App {
 
     private static func configureChrome() {
         #if canImport(UIKit) && os(iOS)
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
-        appearance.titleTextAttributes = [
-            .foregroundColor: UIColor.label
-        ]
-        appearance.largeTitleTextAttributes = [
-            .foregroundColor: UIColor.label
-        ]
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        UINavigationBar.appearance().compactAppearance = appearance
+        // Leave bar appearances at system defaults so iOS 27 Liquid Glass
+        // (and the user's Appearance → Liquid Glass slider) can apply.
         UINavigationBar.appearance().tintColor = UIColor(Color.bankPrimary)
-
-        let tab = UITabBarAppearance()
-        tab.configureWithDefaultBackground()
-        UITabBar.appearance().standardAppearance = tab
-        UITabBar.appearance().scrollEdgeAppearance = tab
         UITabBar.appearance().tintColor = UIColor(Color.bankPrimary)
         #endif
     }

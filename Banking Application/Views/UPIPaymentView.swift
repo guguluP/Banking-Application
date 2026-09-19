@@ -113,6 +113,7 @@ struct UPIPaymentContent: View {
                             }
                         }
                     }
+                    .bankSoftScrollEdges()
                 }
                 .padding(.horizontal)
                 
@@ -158,6 +159,7 @@ struct UPIPaymentContent: View {
             }
             .padding(.vertical)
         }
+        .bankSoftScrollEdges()
         .sheet(isPresented: $showingScanner) {
             UPCScannerView(upiId: $upiId)
         }

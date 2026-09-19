@@ -4,8 +4,7 @@ struct PrivacyPolicyView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 VStack(alignment: .leading, spacing: AppSpacing.lg) {
                     Text("Last updated: January 1, 2023")
                         .font(.caption)
@@ -25,10 +24,11 @@ struct PrivacyPolicyView: View {
                 }
                 .padding()
             }
+            .bankSoftScrollEdges()
             .navigationTitle("Privacy Policy")
-        }
-        .accessibilityElement(children: .contain)
-        .swipeDownToDismiss()
+            .bankInlineNavigationTitle()
+            .accessibilityElement(children: .contain)
+            .swipeDownToDismiss()
     }
 }
 

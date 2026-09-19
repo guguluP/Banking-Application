@@ -1,13 +1,12 @@
 import SwiftUI
 
-/// Centralizes Liquid Glass adoption (iOS 26+ / macOS 26+) so the rest of the
-/// app never has to scatter `#available` checks around. Below that OS, every
-/// helper falls back to a genuine `Material` — real translucency and blur,
-/// just not the refractive Liquid Glass render.
+/// Liquid Glass for controls and floating chrome.
 ///
-/// Glass belongs on the *control* layer — buttons, segmented controls,
-/// floating toolbars — not dense content surfaces. Content uses `GlassCard`
-/// (Material) so financial figures stay legible.
+/// iOS 27 keeps the same `glassEffect` / `GlassEffectContainer` APIs and
+/// automatically honors the system Appearance → Liquid Glass slider
+/// (ultraclear → fully tinted). Dense money surfaces stay on `GlassCard`
+/// (opaque-enough fill) so figures stay readable and we do not stack a
+/// refractive sample on every row.
 enum LiquidGlass {
 
     @ViewBuilder
@@ -21,6 +20,16 @@ enum LiquidGlass {
             content()
         }
     }
+
+    /// iOS 27 prefers `.clear` when the user has slid the system control
+    /// toward ultraclear; `.regular` remains the readable default.
+    static func style(tint: Color? = nil) -> Glass {
+        var glass: Glass = .regular
+        if let tint {
+            glass = glass.tint(tint)
+        }
+        return glass
+    }
 }
 
 extension View {
@@ -32,7 +41,7 @@ extension View {
     ) -> some View {
         if #available(iOS 26.0, macOS 26.0, *) {
             let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            let base = tint.map { Glass.regular.tint($0) } ?? .regular
+            let base = LiquidGlass.style(tint: tint)
             self.glassEffect(interactive ? base.interactive() : base, in: shape)
         } else {
             self
@@ -62,6 +71,16 @@ extension View {
                         )
                 )
                 .shadow(color: AppShadows.small.color, radius: AppShadows.small.radius, x: 0, y: 1)
+        }
+    }
+
+    @ViewBuilder
+    func glassCircle(tint: Color? = nil, interactive: Bool = true) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let base = LiquidGlass.style(tint: tint)
+            self.glassEffect(interactive ? base.interactive() : base, in: Circle())
+        } else {
+            self.glassControl(cornerRadius: 999, tint: tint, interactive: interactive)
         }
     }
 }
