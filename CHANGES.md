@@ -1,5 +1,7 @@
 # What changed
 
+The app compiles as a local SwiftData client. CloudKit is optional. Transfers, bill pay, UPI, and Siri intents post through `TransactionService`. A duress passcode opens an empty home and blocks money movement. Bank SMS and a sandbox Account Aggregator feed the expense tracker. The Xcode project includes a unit-test target. Demo videos remain in git history; new large media should use Git LFS.
+
 ## 2026-07-12 — Review follow-up (executed)
 
 - **AppSettings** — biometrics, passcode lock, notification prefs, hide balances

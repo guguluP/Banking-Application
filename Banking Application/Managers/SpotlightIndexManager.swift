@@ -1,6 +1,9 @@
 import Foundation
 import CoreSpotlight
 import MobileCoreServices
+import os
+
+private let spotlightLog = Logger(subsystem: "com.banksecure.app", category: "spotlight")
 
 /// Indexes app content into system-wide Spotlight/Siri Suggestions so items can be found
 /// and deep-linked to from outside the app.
@@ -37,7 +40,7 @@ struct SpotlightIndexManager {
         let item = CSSearchableItem(uniqueIdentifier: "biller_\(biller.id)", domainIdentifier: "com.banksecure.billers", attributeSet: billerAttributeSet(for: biller))
         CSSearchableIndex.default().indexSearchableItems([item]) { error in
             if let error = error {
-                print("Failed to index biller: \(error)")
+                spotlightLog.error("Failed to index biller: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -46,7 +49,7 @@ struct SpotlightIndexManager {
         let item = CSSearchableItem(uniqueIdentifier: "account_\(account.id)", domainIdentifier: "com.banksecure.accounts", attributeSet: accountAttributeSet(for: account))
         CSSearchableIndex.default().indexSearchableItems([item]) { error in
             if let error = error {
-                print("Failed to index account: \(error)")
+                spotlightLog.error("Failed to index account: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -61,7 +64,7 @@ struct SpotlightIndexManager {
         let item = CSSearchableItem(uniqueIdentifier: "transaction_\(transaction.id)", domainIdentifier: "com.banksecure.transactions", attributeSet: attributeSet)
         CSSearchableIndex.default().indexSearchableItems([item]) { error in
             if let error = error {
-                print("Failed to index transaction: \(error)")
+                spotlightLog.error("Failed to index transaction: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -72,7 +75,7 @@ struct SpotlightIndexManager {
         }
         CSSearchableIndex.default().indexSearchableItems(items) { error in
             if let error = error {
-                print("Failed to index billers: \(error)")
+                spotlightLog.error("Failed to index billers: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -83,7 +86,7 @@ struct SpotlightIndexManager {
         }
         CSSearchableIndex.default().indexSearchableItems(items) { error in
             if let error = error {
-                print("Failed to index accounts: \(error)")
+                spotlightLog.error("Failed to index accounts: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -91,7 +94,7 @@ struct SpotlightIndexManager {
     func deleteAllItems() {
         CSSearchableIndex.default().deleteSearchableItems(withDomainIdentifiers: ["com.banksecure.billers", "com.banksecure.accounts", "com.banksecure.transactions"]) { error in
             if let error = error {
-                print("Failed to delete items: \(error)")
+                spotlightLog.error("Failed to delete items: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

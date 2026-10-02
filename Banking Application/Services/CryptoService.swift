@@ -1,16 +1,14 @@
 import Foundation
 import CryptoKit
+import CommonCrypto
 import Security
 
 /// Handles one-way hashing for the app passcode. The passcode itself is never
 /// stored anywhere — only a salted SHA-256 digest is persisted (in the Keychain,
 /// via `AuthenticationService`).
 ///
-/// SHA-256 is not a password KDF (no stretching). That is acceptable here because
-/// the secret is a 4-digit PIN whose real defense is exponential lockout in
-/// `AuthenticationService`, not hash strength. Do not reuse this for arbitrary
-/// passwords.
-enum CryptoService {
+nonisolated enum CryptoService {
+    static let pbkdfRounds: UInt32 = 120_000
 
     /// Generates a new random 32-byte salt, base64-encoded for storage.
     static func generateSalt() -> String {
@@ -19,11 +17,39 @@ enum CryptoService {
         return Data(bytes).base64EncodedString()
     }
 
-    /// Produces a hex-encoded SHA-256 hash of `passcode + salt`.
+    /// PBKDF2-HMAC-SHA256. Stored hashes from the older single SHA-256 are still
+    /// accepted by `verify`, which upgrades them on the next successful check.
     static func hash(passcode: String, salt: String) -> String {
+        let saltBytes = Array(Data(salt.utf8))
+        let password = Array(passcode.utf8)
+        var derived = [UInt8](repeating: 0, count: 32)
+        let status = CCKeyDerivationPBKDF(
+            CCPBKDFAlgorithm(kCCPBKDF2),
+            password,
+            password.count,
+            saltBytes,
+            saltBytes.count,
+            CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+            pbkdfRounds,
+            &derived,
+            derived.count
+        )
+        guard status == kCCSuccess else { return legacyHash(passcode: passcode, salt: salt) }
+        let hex = derived.map { String(format: "%02x", $0) }.joined()
+        return "pbkdf2$\(pbkdfRounds)$\(hex)"
+    }
+
+    static func legacyHash(passcode: String, salt: String) -> String {
         let combined = Data((passcode + salt).utf8)
         let digest = SHA256.hash(data: combined)
         return digest.compactMap { String(format: "%02x", $0) }.joined()
+    }
+
+    static func verify(passcode: String, salt: String, storedHash: String) -> Bool {
+        if storedHash.hasPrefix("pbkdf2$") {
+            return constantTimeEquals(hash(passcode: passcode, salt: salt), storedHash)
+        }
+        return constantTimeEquals(legacyHash(passcode: passcode, salt: salt), storedHash)
     }
 
     /// Constant-time comparison to avoid leaking timing information about how

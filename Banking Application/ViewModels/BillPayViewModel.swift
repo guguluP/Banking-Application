@@ -2,18 +2,6 @@ import Foundation
 import Combine
 import SwiftData
 
-private extension Decimal {
-    /// Rounds to `places` decimal digits (bankers' rounding is unnecessary
-    /// here — plain "round half up" matches how currency amounts are
-    /// typically displayed to users).
-    func rounded(_ places: Int) -> Decimal {
-        var result = Decimal()
-        var value = self
-        NSDecimalRound(&result, &value, places, .plain)
-        return result
-    }
-}
-
 @MainActor
 class BillPayViewModel: ObservableObject {
     @Published var billerAccount = ""
@@ -93,74 +81,41 @@ class BillPayViewModel: ObservableObject {
             return false
         }
 
+        guard !isProcessing else { return false }
         isProcessing = true
-
-        account.balance -= amountDecimal
-        account.availableBalance -= amountDecimal
-
-        let txn = Transaction(
-            accountId: account.id,
-            type: .payment,
-            amount: amountDecimal,
-            description: biller.displayName,
-            counterparty: biller.name,
-            transactionDate: Date(),
-            category: "Payment",
-            status: .completed
-        )
-        txn.account = account
-        context.insert(txn)
-
-        // A small cashback credit, applied to the same account, gives the
-        // "you got something back" moment the confetti celebrates.
-        let cashback = (amountDecimal * Self.cashbackRate).rounded(2)
-        var cashbackTxn: Transaction?
-        if cashback > 0 {
-            account.balance += cashback
-            account.availableBalance += cashback
-            let credit = Transaction(
-                accountId: account.id,
-                type: .deposit,
-                amount: cashback,
-                description: "Cashback — \(biller.displayName)",
-                transactionDate: Date(),
-                category: "Cashback",
-                status: .completed
-            )
-            credit.account = account
-            context.insert(credit)
-            cashbackTxn = credit
-        }
-
-        LiveActivityManager.shared.startPayment(
-            kind: "Bill pay",
-            counterparty: biller.displayName,
-            amount: amountDecimal
-        )
+        LiveActivityManager.shared.startPayment(kind: "Bill pay", counterparty: biller.displayName, amount: amountDecimal)
 
         do {
-            try context.save()
+            _ = try TransactionService.post(
+                from: account,
+                amount: amountDecimal,
+                rail: .billPay,
+                counterparty: biller.name,
+                description: biller.displayName,
+                category: "Payment",
+                cashbackRate: Self.cashbackRate,
+                in: context
+            )
+            let cashback = (amountDecimal * Self.cashbackRate).rounded(places: 2)
             isProcessing = false
             HapticFeedbackService.shared.success()
             NotificationService.shared.notifyTransaction(
                 amount: amountDecimal,
                 title: "Bill paid",
-                body: "\(CurrencyFormatter.shared.string(from: amountDecimal)) paid to \(biller.displayName).",
+                body: "\(CurrencyFormatter.shared.string(from: amountDecimal, currencyCode: account.currency)) paid to \(biller.displayName).",
                 remainingBalance: account.availableBalance
             )
             LiveActivityManager.shared.completePayment()
             amount = ""
             lastCashbackEarned = cashback > 0 ? cashback : nil
             return true
+        } catch let failure as PaymentFailure {
+            isProcessing = false
+            error = failure.appError
+            HapticFeedbackService.shared.errorOccurred()
+            LiveActivityManager.shared.failPayment()
+            return false
         } catch {
-            account.balance += amountDecimal
-            account.availableBalance += amountDecimal
-            context.delete(txn)
-            if let cashbackTxn {
-                account.balance -= cashback
-                account.availableBalance -= cashback
-                context.delete(cashbackTxn)
-            }
             isProcessing = false
             self.error = .transactionFailed
             HapticFeedbackService.shared.errorOccurred()

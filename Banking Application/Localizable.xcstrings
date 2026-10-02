@@ -1,0 +1,12 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Accounts" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accounts" } },
+        "hi" : { "stringUnit" : { "state" : "translated", "value" : "खाते" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

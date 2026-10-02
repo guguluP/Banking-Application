@@ -24,6 +24,8 @@ enum TransactionEntrySource: String, Codable {
     case manualEntry = "Manual Entry"
     case naturalLanguage = "Natural Language"
     case receiptScan = "Receipt Scan"
+    case smsImport = "SMS Import"
+    case aggregator = "Account Aggregator"
 }
 
 @Model
@@ -64,6 +66,13 @@ nonisolated final class Transaction {
     /// unsure about.
     var extractionConfidence: Double?
     var notes: String?
+    /// UPI UTR / RRN or another bank reference used to dedupe SMS and aggregator rows.
+    var externalRef: String?
+    /// Hash of the parsed import, never the raw SMS body.
+    var rawHash: String?
+    /// When false, the row is already reflected in `Account.openingBalance`.
+    var countsInLedger: Bool = false
+    var railRaw: String = ""
 
     // Inverse of Account.transactions. Optional, as CloudKit-backed SwiftData
     // relationships must not be required.

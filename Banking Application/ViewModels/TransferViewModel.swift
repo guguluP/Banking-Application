@@ -73,6 +73,7 @@ import SwiftData
     /// state for correctness.
     @discardableResult
     func performTransfer(from account: Account, description transferDescription: String, in context: ModelContext) -> Bool {
+        guard !isProcessing else { return false }
         clearError()
 
         guard isRecipientValid else {
@@ -105,61 +106,27 @@ import SwiftData
         }
 
         isProcessing = true
-
-        account.balance -= amountDecimal
-        account.availableBalance -= amountDecimal
-
         let note = transferDescription.trimmingCharacters(in: .whitespaces)
-        let txn = Transaction(
-            accountId: account.id,
-            type: .transfer,
-            amount: amountDecimal,
-            description: note.isEmpty ? "Transfer to \(recipient.suffix(4))" : note,
-            counterparty: recipient,
-            transactionDate: Date(),
-            category: "Transfer",
-            status: .completed
-        )
-        txn.account = account
-        txn.referenceNumber = CryptoService.receiptHash(
-            for: "\(account.id)|\(recipient)|\(amountDecimal)|\(Date().timeIntervalSince1970)"
-        )
-        context.insert(txn)
-
-        if UserDefaults.standard.bool(forKey: "roundUpEnabled") {
-            let remainder = 10 - (NSDecimalNumber(decimal: amountDecimal).intValue % 10)
-            if remainder > 0 && remainder < 10 {
-                let extra = Decimal(remainder)
-                if account.availableBalance >= extra {
-                    account.balance -= extra
-                    account.availableBalance -= extra
-                    let roundUp = Transaction(
-                        accountId: account.id,
-                        type: .transfer,
-                        amount: extra,
-                        description: "Round-up savings",
-                        category: "Savings",
-                        status: .completed
-                    )
-                    context.insert(roundUp)
-                }
-            }
-        }
-
-        LiveActivityManager.shared.startPayment(
-            kind: "Transfer",
-            counterparty: recipient,
-            amount: amountDecimal
-        )
+        LiveActivityManager.shared.startPayment(kind: "Transfer", counterparty: recipient, amount: amountDecimal)
 
         do {
-            try context.save()
+            let receipt = try TransactionService.post(
+                from: account,
+                amount: amountDecimal,
+                rail: .transfer,
+                counterparty: recipient,
+                description: note.isEmpty ? "Transfer to \(recipient.suffix(4))" : note,
+                category: "Transfer",
+                recipientAccountNumber: recipient,
+                applyRoundUp: true,
+                in: context
+            )
             isProcessing = false
             HapticFeedbackService.shared.success()
             NotificationService.shared.notifyTransaction(
                 amount: amountDecimal,
                 title: "Transfer sent",
-                body: "\(CurrencyFormatter.shared.string(from: amountDecimal)) sent to account ending \(recipient.suffix(4)).",
+                body: "\(CurrencyFormatter.shared.string(from: amountDecimal, currencyCode: account.currency)) sent to account ending \(recipient.suffix(4)). Ref \(receipt.reference).",
                 remainingBalance: account.availableBalance
             )
             LiveActivityManager.shared.completePayment()
@@ -167,17 +134,34 @@ import SwiftData
             amount = ""
             description = ""
             return true
+        } catch let failure as PaymentFailure {
+            isProcessing = false
+            error = failure.appError
+            HapticFeedbackService.shared.errorOccurred()
+            LiveActivityManager.shared.failPayment()
+            return false
         } catch {
-            // Roll back the in-memory balance change if persistence failed,
-            // so the UI never shows money as "sent" when it wasn't saved.
-            account.balance += amountDecimal
-            account.availableBalance += amountDecimal
-            context.delete(txn)
             isProcessing = false
             self.error = .transactionFailed
             HapticFeedbackService.shared.errorOccurred()
             LiveActivityManager.shared.failPayment()
             return false
+        }
+    }
+}
+
+extension PaymentFailure {
+    var appError: AppError {
+        switch self {
+        case .invalidAmount, .overSingleCap, .overPeriodLimit: return .invalidAmount
+        case .invalidAccountNumber: return .invalidInput
+        case .sameAccount: return .sameAccount
+        case .insufficientFunds: return .insufficientFunds
+        case .notAuthenticated, .movementBlocked: return .authenticationFailed
+        case .accountNotMovable, .payeeCoolingOff: return .unknownError(self == .payeeCoolingOff
+            ? "This payee is still in the cooling-off period for large transfers."
+            : "This account can't send money.")
+        case .duplicate, .saveFailed: return .transactionFailed
         }
     }
 }

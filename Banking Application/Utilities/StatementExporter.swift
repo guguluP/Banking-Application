@@ -1,4 +1,8 @@
 import Foundation
+import PDFKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 enum StatementExporter {
     static func csv(for transactions: [Transaction], accountLabel: String) -> String {
@@ -50,6 +54,25 @@ enum StatementExporter {
             let items = $0.notes ?? $0.description
             return "\($0.merchant ?? $0.description): \(items) — \(CurrencyFormatter.shared.string(from: $0.amount))"
         }.joined(separator: "\n")
+    }
+
+    static func passwordProtectedPDF(for transactions: [Transaction], accountLabel: String, password: String) -> Data? {
+        #if canImport(UIKit)
+        let page = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let renderer = UIGraphicsPDFRenderer(bounds: page)
+        let raw = renderer.pdfData { ctx in
+            ctx.beginPage()
+            let body = csv(for: transactions, accountLabel: accountLabel)
+            body.draw(in: page.insetBy(dx: 36, dy: 36), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 9, weight: .regular)])
+        }
+        guard let document = PDFDocument(data: raw) else { return nil }
+        return document.dataRepresentation(options: [
+            PDFDocumentWriteOption.userPasswordOption: password,
+            PDFDocumentWriteOption.ownerPasswordOption: password
+        ])
+        #else
+        return nil
+        #endif
     }
 
     private static func csv(_ value: String) -> String {

@@ -284,30 +284,12 @@ struct TransferView: View {
     
     private func requestBiometricAuth() {
         showingConfirmation = false
-
-        if authenticationService.canUseBiometrics {
-            authenticationService.authenticateWithBiometrics { success in
-                Task { @MainActor in
-                    if success {
-                        processTransfer()
-                    } else {
-                        viewModel.error = .authenticationFailed
-                        HapticFeedbackService.shared.errorOccurred()
-                    }
-                }
-            }
-        } else {
-            // No biometrics enrolled on this device — fall back to the
-            // device passcode rather than blocking the transfer outright.
-            authenticationService.authenticateWithPasscode { success in
-                Task { @MainActor in
-                    if success {
-                        processTransfer()
-                    } else {
-                        viewModel.error = .authenticationFailed
-                        HapticFeedbackService.shared.errorOccurred()
-                    }
-                }
+        authenticationService.stepUpAuthenticate(reason: "Confirm this transfer") { success in
+            if success {
+                processTransfer()
+            } else {
+                viewModel.error = .authenticationFailed
+                HapticFeedbackService.shared.errorOccurred()
             }
         }
     }

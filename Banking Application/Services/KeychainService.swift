@@ -104,6 +104,41 @@ final class KeychainService {
 
     /// Wipes every secure item this app owns. Called on logout-and-erase or when a
     /// new passcode is being provisioned from scratch.
+    /// Stores a random secret that the system will reveal only after a biometric
+    /// match against the current set. A failed match or a simulator without
+    /// biometrics returns false and the caller falls back to the app passcode.
+    @discardableResult
+    func installBiometricGate() -> Bool {
+        delete(forKey: KeychainKey.biometricGate)
+        guard let access = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+            .biometryCurrentSet,
+            nil
+        ) else { return false }
+        let secret = Data(UUID().uuidString.utf8)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: KeychainKey.biometricGate,
+            kSecValueData as String: secret,
+            kSecAttrAccessControl as String: access
+        ]
+        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+    }
+
+    func readBiometricGate(reason: String) -> Bool {
+        let context = LAContext()
+        context.localizedReason = reason
+        var query = baseQuery(for: KeychainKey.biometricGate)
+        query[kSecReturnData as String] = true
+        query[kSecUseAuthenticationContext as String] = context
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        return status == errSecSuccess && result is Data
+    }
+
     func removeAll() {
         let classes: [CFString] = [kSecClassGenericPassword, kSecClassInternetPassword, kSecClassKey]
         for secClass in classes {
@@ -121,6 +156,10 @@ enum KeychainKey {
     static let failedAttempts = "failedAttempts"
     static let lockoutUntil = "lockoutUntil"
     static let sessionToken = "sessionToken"
+    static let lockoutUptimeDeadline = "lockoutUptimeDeadline"
+    static let lockoutBootAnchor = "lockoutBootAnchor"
+    static let lockoutDuration = "lockoutDuration"
+    static let biometricGate = "biometricGate"
     static let duressPasscodeHash = "duressPasscodeHash"
     static let duressPasscodeSalt = "duressPasscodeSalt"
 }

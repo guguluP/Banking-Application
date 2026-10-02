@@ -165,23 +165,15 @@ struct BillPayContent: View {
     }
     
     private func requestBiometricAuth() {
-        guard authenticationService.canUseBiometrics else {
-            viewModel.error = .biometricFailed
-            HapticFeedbackService.shared.errorOccurred()
-            showingBiometric = true
-            return
-        }
-        
         showingConfirmation = false
-        
-        authenticationService.authenticateWithBiometrics { success in
+        authenticationService.stepUpAuthenticate(reason: "Confirm this bill payment") { success in
+            showingBiometric = false
             if success {
                 processPayment()
             } else {
                 viewModel.error = .authenticationFailed
                 HapticFeedbackService.shared.errorOccurred()
             }
-            showingBiometric = false
         }
     }
     

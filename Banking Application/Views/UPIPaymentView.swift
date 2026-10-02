@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import SwiftData
+import CoreImage.CIFilterBuiltins
 
 /// Sheet-presented UPI payment flow (used from Home's QR action). Thin
 /// wrapper around `UPIPaymentContent` that just adds the navigation chrome
@@ -37,6 +38,7 @@ struct UPIPaymentContent: View {
     @State private var isProcessing = false
     @State private var showingPaymentSuccess = false
     @State private var successAmount: String = ""
+    @State private var showingQR = false
     
     private let quickAmounts: [Decimal] = [Decimal(100), Decimal(500), Decimal(1000), Decimal(2000)]
     
@@ -134,6 +136,8 @@ struct UPIPaymentContent: View {
                         .padding(.horizontal)
                 }
                 
+                Button("Show my UPI QR") { showingQR = true }
+                    .padding(.horizontal)
                 ModernButton(
                     title: isProcessing ? "Processing..." : "Pay via UPI with Face ID",
                     systemImage: isProcessing ? nil : "faceid",
@@ -162,6 +166,9 @@ struct UPIPaymentContent: View {
         .bankSoftScrollEdges()
         .sheet(isPresented: $showingScanner) {
             UPCScannerView(upiId: $upiId)
+        }
+        .sheet(isPresented: $showingQR) {
+            UPIQRCodeView(payload: "upi://pay?pa=\(upiId.isEmpty ? "demo@banksecure" : upiId)&pn=BankSecure&cu=INR")
         }
         .alert("Confirm UPI Payment", isPresented: $showingConfirmation) {
             Button("Cancel", role: .cancel) { }
@@ -234,15 +241,8 @@ struct UPIPaymentContent: View {
     }
     
     private func requestBiometricAuth() {
-        guard authenticationService.canUseBiometrics else {
-            error = .biometricFailed
-            HapticFeedbackService.shared.errorOccurred()
-            return
-        }
-        
         showingConfirmation = false
-        
-        authenticationService.authenticateWithBiometrics { success in
+        authenticationService.stepUpAuthenticate(reason: "Confirm this UPI payment") { success in
             if success {
                 processUPIPayment()
             } else {
@@ -262,6 +262,7 @@ struct UPIPaymentContent: View {
             return
         }
 
+        guard !isProcessing else { return }
         isProcessing = true
         LiveActivityManager.shared.startPayment(
             kind: "UPI",
@@ -269,27 +270,16 @@ struct UPIPaymentContent: View {
             amount: amountDecimal
         )
 
-        // Debits the account and writes a proper Transaction, same as
-        // transfers and bill payments, rather than only logging a
-        // standalone UPITransaction record.
-        account.balance -= amountDecimal
-        account.availableBalance -= amountDecimal
-
-        let txn = Transaction(
-            accountId: account.id,
-            type: .payment,
-            amount: amountDecimal,
-            description: remarks.isEmpty ? "UPI payment to \(upiId)" : remarks,
-            counterparty: upiId,
-            transactionDate: Date(),
-            category: "UPI",
-            status: .completed
-        )
-        txn.account = account
-        modelContext.insert(txn)
-
         do {
-            try modelContext.save()
+            _ = try TransactionService.post(
+                from: account,
+                amount: amountDecimal,
+                rail: .upi,
+                counterparty: upiId,
+                description: remarks.isEmpty ? "UPI payment to \(upiId)" : remarks,
+                category: "UPI",
+                in: modelContext
+            )
             accountViewModel.addUPITransaction(upiId: upiId, amount: amountDecimal)
             accountViewModel.loadAccounts()
             transactionViewModel.loadAllTransactions()
@@ -307,10 +297,12 @@ struct UPIPaymentContent: View {
                 showingPaymentSuccess = true
             }
             resetForm()
+        } catch let failure as PaymentFailure {
+            isProcessing = false
+            self.error = failure.appError
+            HapticFeedbackService.shared.errorOccurred()
+            LiveActivityManager.shared.failPayment()
         } catch {
-            account.balance += amountDecimal
-            account.availableBalance += amountDecimal
-            modelContext.delete(txn)
             isProcessing = false
             self.error = .transactionFailed
             HapticFeedbackService.shared.errorOccurred()

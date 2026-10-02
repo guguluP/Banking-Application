@@ -37,6 +37,9 @@ enum PersistenceController {
             MoneyRequest.self,
             TransactionDispute.self,
             DeviceSession.self,
+            SecurityEvent.self,
+            ImportedEvent.self,
+            AAConsent.self,
             VaultDocument.self,
             VirtualCard.self,
             NetWorthSnapshot.self
@@ -47,6 +50,9 @@ enum PersistenceController {
     /// mirrors local writes to the user's private CloudKit database in the
     /// background and merges remote changes back in, so the same account looks
     /// identical across the user's iPhone, iPad, and Mac.
+    static var didFallBackToMemory = false
+    static var storeFailureDescription: String?
+
     static let shared: ModelContainer = {
         let configuration = ModelConfiguration(
             schema: schema,
@@ -56,23 +62,35 @@ enum PersistenceController {
 
         do {
             let container = try ModelContainer(for: schema, configurations: [configuration])
-            seedIfNeeded(container: container)
-            seedDefaultCategoriesIfNeeded(container: container)
-            sanitizeStoredCards(container: container)
+            protectStore(at: configuration.url)
+            prepare(container)
             return container
         } catch {
-            // Falling back to an in-memory store keeps the app usable (e.g. in
-            // Simulator without an iCloud account) instead of crashing outright.
+            didFallBackToMemory = true
+            storeFailureDescription = error.localizedDescription
             let fallbackConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             guard let fallback = try? ModelContainer(for: schema, configurations: [fallbackConfiguration]) else {
                 fatalError("Unable to create ModelContainer: \(error)")
             }
-            seedIfNeeded(container: fallback)
-            seedDefaultCategoriesIfNeeded(container: fallback)
-            sanitizeStoredCards(container: fallback)
+            prepare(fallback)
             return fallback
         }
     }()
+
+    private static func prepare(_ container: ModelContainer) {
+        seedIfNeeded(container: container)
+        seedDefaultCategoriesIfNeeded(container: container)
+        sanitizeStoredCards(container: container)
+        TransactionService.adoptLedgerBaselines(in: container.mainContext)
+        ScheduledPaymentRunner.processDue(in: container.mainContext)
+    }
+
+    private static func protectStore(at url: URL) {
+        try? FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.complete],
+            ofItemAtPath: url.path
+        )
+    }
 
     /// A separate, always-in-memory container used by SwiftUI previews and tests.
     static var preview: ModelContainer = {

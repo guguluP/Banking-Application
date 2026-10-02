@@ -27,6 +27,16 @@ final class AppSettings: ObservableObject {
         static let timeFormat = "settings.timeFormat"
         /// Legacy key used by ProfileView before this service existed.
         static let legacyUseBiometrics = "useBiometrics"
+        static let roundUpEnabled = "roundUpEnabled"
+        static let dailyTransfer = "limits.dailyTransfer"
+        static let monthlyTransfer = "limits.monthlyTransfer"
+        static let dailyUPI = "limits.dailyUPI"
+        static let monthlyUPI = "limits.monthlyUPI"
+        static let dailyBill = "limits.dailyBill"
+        static let monthlyBill = "limits.monthlyBill"
+        static let largeAmount = "limits.largeAmount"
+        static let coolingHours = "limits.coolingHours"
+        static let coolingLarge = "limits.coolingLarge"
     }
 
     @Published var isBiometricsEnabled: Bool {
@@ -84,6 +94,20 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(timeFormat.rawValue, forKey: Key.timeFormat) }
     }
 
+    @Published var isRoundUpEnabled: Bool {
+        didSet { UserDefaults.standard.set(isRoundUpEnabled, forKey: Key.roundUpEnabled) }
+    }
+
+    @Published var dailyTransferLimit: Decimal
+    @Published var monthlyTransferLimit: Decimal
+    @Published var dailyUPILimit: Decimal
+    @Published var monthlyUPILimit: Decimal
+    @Published var dailyBillPayLimit: Decimal
+    @Published var monthlyBillPayLimit: Decimal
+    @Published var largeTransactionAmount: Decimal
+    @Published var payeeCoolingHours: Double
+    @Published var coolingLargeAmount: Decimal
+
     static let languageOptions = ["English (US)", "English (UK)", "Hindi", "Spanish", "French"]
     static let regionOptions = ["India", "United States", "United Kingdom", "Canada", "Australia"]
 
@@ -135,6 +159,38 @@ final class AppSettings: ObservableObject {
         } else {
             timeFormat = .twelveHour
         }
+
+        isRoundUpEnabled = defaults.bool(forKey: Key.roundUpEnabled)
+        dailyTransferLimit = Self.decimal(defaults, Key.dailyTransfer, 50_000)
+        monthlyTransferLimit = Self.decimal(defaults, Key.monthlyTransfer, 200_000)
+        dailyUPILimit = Self.decimal(defaults, Key.dailyUPI, 100_000)
+        monthlyUPILimit = Self.decimal(defaults, Key.monthlyUPI, 200_000)
+        dailyBillPayLimit = Self.decimal(defaults, Key.dailyBill, 100_000)
+        monthlyBillPayLimit = Self.decimal(defaults, Key.monthlyBill, 200_000)
+        largeTransactionAmount = Self.decimal(defaults, Key.largeAmount, 10_000)
+        payeeCoolingHours = defaults.object(forKey: Key.coolingHours) == nil ? 24 : defaults.double(forKey: Key.coolingHours)
+        coolingLargeAmount = Self.decimal(defaults, Key.coolingLarge, 5_000)
+    }
+
+    func persistLimits() {
+        let defaults = UserDefaults.standard
+        func store(_ value: Decimal, _ key: String) {
+            defaults.set(NSDecimalNumber(decimal: value).stringValue, forKey: key)
+        }
+        store(dailyTransferLimit, Key.dailyTransfer)
+        store(monthlyTransferLimit, Key.monthlyTransfer)
+        store(dailyUPILimit, Key.dailyUPI)
+        store(monthlyUPILimit, Key.monthlyUPI)
+        store(dailyBillPayLimit, Key.dailyBill)
+        store(monthlyBillPayLimit, Key.monthlyBill)
+        store(largeTransactionAmount, Key.largeAmount)
+        store(coolingLargeAmount, Key.coolingLarge)
+        defaults.set(payeeCoolingHours, forKey: Key.coolingHours)
+    }
+
+    private static func decimal(_ defaults: UserDefaults, _ key: String, _ fallback: Decimal) -> Decimal {
+        guard let raw = defaults.string(forKey: key), let value = Decimal(string: raw) else { return fallback }
+        return value
     }
 
     var languageLabel: String {

@@ -148,13 +148,11 @@ Unit tests live in the separate `Banking ApplicationTests/` target (kept out of 
 | `CardModelTests` | Card number normalization (last-4) and spend/limit progress |
 | `CurrencyFormatterTests` | INR currency formatting |
 | `TransferValidationTests` | Transfer form validation logic |
+| `PaymentServiceTests` | Internal credit, frozen accounts, failed-save rollback, SMS parse, lockout clock |
 
-**To run tests in Xcode:**
+The unit-test target is already in the Xcode project and in the shared scheme. Product → Test (`⌘U`) runs it. This Mac had no iOS Simulator runtime installed, so the last check here was a simulator compile only.
 
-1. **File → New → Target → Unit Testing Bundle**, name it `Banking ApplicationTests` if not already configured.
-2. Add the test files from `Banking ApplicationTests/` to that target.
-3. Ensure each test file uses `@testable import Banking_Application`.
-4. **Product → Test** (`⌘U`).
+The optional `aggregator-backend` folder is a sandbox stand-in for Account Aggregator consent. It is not a core-banking server. Day-to-day accounts still live in SwiftData.
 
 ## Disclaimer
 

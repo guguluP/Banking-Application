@@ -9,6 +9,8 @@ enum BankIntentError: Swift.Error, CustomLocalizedStringResourceConvertible {
     case invalidAmount
     case insufficientFunds
     case saveFailed
+    case notAllowed
+    case overLimit
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
@@ -17,6 +19,8 @@ enum BankIntentError: Swift.Error, CustomLocalizedStringResourceConvertible {
         case .invalidAmount: return "Enter an amount greater than zero."
         case .insufficientFunds: return "That account doesn't have enough available balance."
         case .saveFailed: return "The transaction couldn't be saved. Please try again in the app."
+        case .notAllowed: return "That account can't send money right now."
+        case .overLimit: return "That payment is over the limit."
         }
     }
 }
@@ -41,9 +45,8 @@ struct PayBillerIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        guard amount > 0, let amountDecimal = Decimal(string: String(amount)) else {
-            throw BankIntentError.invalidAmount
-        }
+        guard amount > 0 else { throw BankIntentError.invalidAmount }
+        let amountDecimal = BankIntentAmounts.decimal(from: amount)
 
         let context = PersistenceController.shared.mainContext
         let accountId = fromAccount.id
@@ -61,36 +64,22 @@ struct PayBillerIntent: AppIntent {
             throw BankIntentError.billerNotFound
         }
 
-        guard amountDecimal <= account.availableBalance else {
-            throw BankIntentError.insufficientFunds
-        }
-
-        account.balance -= amountDecimal
-        account.availableBalance -= amountDecimal
-
-        let txn = Transaction(
-            accountId: account.id,
-            type: .payment,
-            amount: amountDecimal,
-            description: billerModel.displayName,
-            counterparty: billerModel.name,
-            transactionDate: Date(),
-            category: "Payment",
-            status: .completed
-        )
-        txn.account = account
-        context.insert(txn)
-
         do {
-            try context.save()
-        } catch {
-            account.balance += amountDecimal
-            account.availableBalance += amountDecimal
-            context.delete(txn)
-            throw BankIntentError.saveFailed
+            _ = try TransactionService.post(
+                from: account,
+                amount: amountDecimal,
+                rail: .billPay,
+                counterparty: billerModel.name,
+                description: billerModel.displayName,
+                category: "Payment",
+                requireSession: false,
+                in: context
+            )
+        } catch let failure as PaymentFailure {
+            throw BankIntentError(failure)
         }
 
-        let confirmation = "Paid \(CurrencyFormatter.shared.string(from: amountDecimal)) to \(billerModel.displayName)."
+        let confirmation = "Paid \(CurrencyFormatter.shared.string(from: amountDecimal, currencyCode: account.currency)) to \(billerModel.displayName)."
         return .result(value: confirmation)
     }
 }
@@ -115,9 +104,9 @@ struct TransferMoneyIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        guard amount > 0, let amountDecimal = Decimal(string: String(amount)) else {
-            throw BankIntentError.invalidAmount
-        }
+        guard amount > 0 else { throw BankIntentError.invalidAmount }
+        let amountDecimal = BankIntentAmounts.decimal(from: amount)
+        let recipient = toAccount.trimmingCharacters(in: .whitespaces)
 
         let context = PersistenceController.shared.mainContext
         let accountId = fromAccount.id
@@ -128,39 +117,42 @@ struct TransferMoneyIntent: AppIntent {
             throw BankIntentError.accountNotFound
         }
 
-        guard amountDecimal <= account.availableBalance else {
-            throw BankIntentError.insufficientFunds
-        }
-
-        let recipient = toAccount.trimmingCharacters(in: .whitespaces)
-
-        account.balance -= amountDecimal
-        account.availableBalance -= amountDecimal
-
-        let txn = Transaction(
-            accountId: account.id,
-            type: .transfer,
-            amount: amountDecimal,
-            description: "Transfer to \(recipient.suffix(4))",
-            counterparty: recipient,
-            transactionDate: Date(),
-            category: "Transfer",
-            status: .completed
-        )
-        txn.account = account
-        context.insert(txn)
-
         do {
-            try context.save()
-        } catch {
-            account.balance += amountDecimal
-            account.availableBalance += amountDecimal
-            context.delete(txn)
-            throw BankIntentError.saveFailed
+            let receipt = try TransactionService.post(
+                from: account,
+                amount: amountDecimal,
+                rail: .transfer,
+                counterparty: recipient,
+                description: "Transfer to \(recipient.suffix(4))",
+                category: "Transfer",
+                recipientAccountNumber: recipient,
+                applyRoundUp: true,
+                requireSession: false,
+                in: context
+            )
+            let confirmation = "Transferred \(CurrencyFormatter.shared.string(from: amountDecimal, currencyCode: account.currency)) to account ending in \(recipient.suffix(4)). Ref \(receipt.reference)."
+            return .result(value: confirmation)
+        } catch let failure as PaymentFailure {
+            throw BankIntentError(failure)
         }
+    }
+}
 
-        let confirmation = "Transferred \(CurrencyFormatter.shared.string(from: amountDecimal)) to account ending in \(recipient.suffix(4))."
-        return .result(value: confirmation)
+enum BankIntentAmounts {
+    static func decimal(from amount: Double) -> Decimal {
+        Decimal(string: String(format: "%.2f", amount)) ?? Decimal(amount)
+    }
+}
+
+extension BankIntentError {
+    init(_ failure: PaymentFailure) {
+        switch failure {
+        case .invalidAmount, .invalidAccountNumber, .sameAccount, .overSingleCap: self = .invalidAmount
+        case .insufficientFunds: self = .insufficientFunds
+        case .accountNotMovable, .movementBlocked, .notAuthenticated, .payeeCoolingOff: self = .notAllowed
+        case .overPeriodLimit: self = .overLimit
+        case .duplicate, .saveFailed: self = .saveFailed
+        }
     }
 }
 
@@ -330,6 +322,15 @@ struct BankAppShortcuts: @preconcurrency AppShortcutsProvider {
             ],
             shortTitle: "Transfer Money",
             systemImageName: "paperplane.fill"
+        ),
+        AppShortcut(
+            intent: ImportBankSMSIntent(),
+            phrases: [
+                "Import a bank message in \(.applicationName)",
+                "Log a bank SMS with \(.applicationName)"
+            ],
+            shortTitle: "Import Bank SMS",
+            systemImageName: "message"
         ),
         AppShortcut(
             intent: SummarizeTextIntent(),

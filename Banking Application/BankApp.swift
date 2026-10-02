@@ -29,6 +29,7 @@ struct BankApp: App {
 
     @State private var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     @State private var showSplash = true
+    @State private var showStoreWarning = PersistenceController.didFallBackToMemory
 
     var body: some Scene {
         WindowGroup {
@@ -55,6 +56,11 @@ struct BankApp: App {
             .modelContainer(container)
             .tint(Color.bankPrimary)
             .preferredColorScheme(settings.appearanceMode.colorScheme)
+            .alert("Your bank data could not be opened", isPresented: $showStoreWarning) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Nothing you do in this session will be saved. \(PersistenceController.storeFailureDescription ?? "")")
+            }
             .onChange(of: hasCompletedOnboarding) { _, completed in
                 UserDefaults.standard.set(completed, forKey: "hasCompletedOnboarding")
             }

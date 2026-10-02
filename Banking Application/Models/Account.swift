@@ -35,8 +35,16 @@ nonisolated final class Account {
     var interestRate: Double?
     var isPrimary: Bool = false
 
-    @Relationship(deleteRule: .cascade, inverse: \Transaction.account)
+    /// History stays when an account row is removed so the ledger can still be audited.
+    @Relationship(deleteRule: .nullify, inverse: \Transaction.account)
     var transactions: [Transaction]? = []
+
+    /// Balance before rows with `countsInLedger == true`. Existing demo rows are
+    /// folded into this figure once, so they are not applied twice.
+    var openingBalance: Decimal = 0
+    /// Difference between book balance and spendable balance (holds).
+    var reservedHold: Decimal = 0
+    var usesLedgerBalance: Bool = false
 
     var accountType: AccountType {
         get { AccountType(rawValue: accountTypeRaw) ?? .checking }

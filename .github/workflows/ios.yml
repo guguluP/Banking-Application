@@ -1,0 +1,17 @@
+name: iOS
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: |
+          xcodebuild test \
+            -project "Banking Application.xcodeproj" \
+            -scheme "Banking Application" \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -only-testing:"Banking ApplicationTests" \
+            CODE_SIGNING_ALLOWED=NO

@@ -12,6 +12,7 @@ struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @State private var showLockView = false
     @State private var showChatbot = false
+    @State private var hideForSwitcher = false
 
     var body: some View {
         ZStack {
@@ -20,7 +21,9 @@ struct MainTabView: View {
                 .zIndex(0)
 
             Group {
-                if sizeClass == .regular {
+                if authenticationService.isDecoySession {
+                    DecoyHomeView()
+                } else if sizeClass == .regular {
                     regularLayout
                 } else {
                     compactLayout
@@ -28,6 +31,7 @@ struct MainTabView: View {
             }
             .tint(Color.bankPrimary)
             .zIndex(1)
+            .blur(radius: hideForSwitcher ? 24 : 0)
 
             InAppLiveActivityBanner()
                 .zIndex(30)
@@ -38,25 +42,10 @@ struct MainTabView: View {
                     .transition(.opacity)
                     .zIndex(50)
             }
-
-            if authenticationService.isDecoySession {
-                Color.black.opacity(0.55).ignoresSafeArea()
-                VStack(spacing: 12) {
-                    Image(systemName: "lock.shield")
-                        .font(.largeTitle)
-                    Text("Limited view")
-                        .font(.title2.weight(.semibold))
-                    Text("This session is restricted. Sign out and use your primary passcode for full access.")
-                        .multilineTextAlignment(.center)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
-                .glassControl(cornerRadius: 20, interactive: false)
-                .padding()
-                .zIndex(60)
-                .allowsHitTesting(false)
-            }
+        }
+        .sheet(isPresented: $authenticationService.isPresentingStepUpPasscode) {
+            StepUpPasscodeSheet()
+                .environmentObject(authenticationService)
         }
         .sheet(isPresented: $showChatbot) {
             ChatbotView()
@@ -79,6 +68,7 @@ struct MainTabView: View {
             HapticFeedbackService.shared.lightImpact()
         }
         .onChange(of: scenePhase) { _, newPhase in
+            hideForSwitcher = newPhase != .active
             if newPhase == .background, AppSettings.shared.isPasscodeLockEnabled {
                 authenticationService.isLocked = true
             }

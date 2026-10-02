@@ -37,6 +37,15 @@ nonisolated final class CurrencyFormatter: @unchecked Sendable {
     func string(from amount: Decimal) -> String {
         return numberFormatter.string(from: NSDecimalNumber(decimal: amount)) ?? "\(amount)"
     }
+
+    func string(from amount: Decimal, currencyCode: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currencyCode
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 2
+        return formatter.string(from: NSDecimalNumber(decimal: amount)) ?? "\(amount) \(currencyCode)"
+    }
     
     func attributedString(from amount: Decimal, showSign: Bool = false, for transactionType: TransactionType? = nil) -> AttributedString {
         let text = string(from: amount, showSign: showSign, for: transactionType)

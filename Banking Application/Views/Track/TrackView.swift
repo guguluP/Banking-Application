@@ -126,6 +126,24 @@ struct TrackView: View {
                     } label: {
                         trackMenuRow(icon: "chart.line.uptrend.xyaxis", title: "Net worth", subtitle: "Accounts + FDs − loans")
                     }
+
+                    NavigationLink {
+                        ImportReviewQueueView()
+                    } label: {
+                        trackMenuRow(icon: "tray.full", title: "Review imports", subtitle: "SMS and Account Aggregator")
+                    }
+
+                    NavigationLink {
+                        SMSImportGuideView()
+                    } label: {
+                        trackMenuRow(icon: "message", title: "Bank SMS setup", subtitle: "Shortcuts automation")
+                    }
+
+                    NavigationLink {
+                        AggregatorConsentView()
+                    } label: {
+                        trackMenuRow(icon: "link", title: "Account Aggregator", subtitle: "Sandbox consent and revoke")
+                    }
                 }
                 .padding(.horizontal)
             }

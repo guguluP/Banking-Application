@@ -31,7 +31,17 @@ class AuthenticationService: ObservableObject {
     @Published var canUseBiometrics: Bool = false
     @Published var biometryTypeString: String = ""
     @Published var lockoutRemainingSeconds: Int = 0
-    @Published var isDecoySession: Bool = false
+    @Published var isDecoySession: Bool = false {
+        didSet { Self.movementBlocked = isDecoySession }
+    }
+    @Published var isPresentingStepUpPasscode = false
+
+    /// In-memory mirror so `TransactionService` can refuse money movement
+    /// without holding the auth object. Login sets both.
+    static var movementBlocked = false
+    static var sessionIsLive = false
+
+    private var stepUpContinuation: (@MainActor (Bool) -> Void)?
 
     /// Whether the user has opted in to biometric unlock in Settings.
     /// Device capability is still gated by `canUseBiometrics`.
@@ -99,6 +109,12 @@ class AuthenticationService: ObservableObject {
         let saltStored = keychain.set(salt, forKey: KeychainKey.passcodeSalt)
         let hashStored = keychain.set(hash, forKey: KeychainKey.passcodeHash)
         resetFailedAttempts()
+        if saltStored && hashStored {
+            SecurityLog.record(kind: "passcode_changed", detail: "app passcode updated")
+            if AppSettings.shared.isBiometricsEnabled {
+                keychain.installBiometricGate()
+            }
+        }
         return saltStored && hashStored
     }
 
@@ -116,22 +132,49 @@ class AuthenticationService: ObservableObject {
               let storedHash = keychain.getString(forKey: KeychainKey.duressPasscodeHash) else {
             return false
         }
-        let candidateHash = CryptoService.hash(passcode: passcode, salt: salt)
-        return CryptoService.constantTimeEquals(candidateHash, storedHash)
+        return CryptoService.verify(passcode: passcode, salt: salt, storedHash: storedHash)
     }
 
     /// Re-prompt biometrics for high-value actions (transfers, payee add, card controls).
+    /// Confirms a payment or card change. Does not mint a session or send a login notice.
+    /// Biometrics unlock a Keychain secret when that item exists. Otherwise, or if the
+    /// user turned biometrics off, the app passcode sheet is used.
     func stepUpAuthenticate(reason: String, completion: @escaping @MainActor (Bool) -> Void) {
-        guard canUseBiometrics, AppSettings.shared.isBiometricsEnabled else {
-            completion(hasPasscodeConfigured)
+        guard lockoutRemainingSeconds == 0 else {
+            errorMessage = "Too many attempts. Try again in \(lockoutRemainingSeconds)s."
+            completion(false)
             return
         }
-        let ctx = LAContext()
-        ctx.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
-            Task { @MainActor in
-                completion(success)
-            }
+        if isBiometricsLoginEnabled, keychain.readBiometricGate(reason: reason) {
+            SecurityLog.record(kind: "step_up", detail: reason)
+            completion(true)
+            return
         }
+        stepUpContinuation = completion
+        isPresentingStepUpPasscode = true
+    }
+
+    func submitStepUpPasscode(_ passcode: String) {
+        isPresentingStepUpPasscode = false
+        let ok = verifyPasscode(passcode)
+        if ok {
+            SecurityLog.record(kind: "step_up_passcode", detail: "app passcode")
+        } else {
+            registerFailedAttempt()
+            errorMessage = lockoutRemainingSeconds > 0
+                ? "Too many attempts. Try again in \(lockoutRemainingSeconds)s."
+                : "Incorrect passcode."
+        }
+        let callback = stepUpContinuation
+        stepUpContinuation = nil
+        callback?(ok)
+    }
+
+    func cancelStepUp() {
+        isPresentingStepUpPasscode = false
+        let callback = stepUpContinuation
+        stepUpContinuation = nil
+        callback?(false)
     }
 
     /// Verifies a candidate passcode against the stored hash without revealing
@@ -141,23 +184,43 @@ class AuthenticationService: ObservableObject {
               let storedHash = keychain.getString(forKey: KeychainKey.passcodeHash) else {
             return false
         }
-        let candidateHash = CryptoService.hash(passcode: passcode, salt: salt)
-        return CryptoService.constantTimeEquals(candidateHash, storedHash)
+        let matches = CryptoService.verify(passcode: passcode, salt: salt, storedHash: storedHash)
+        if matches && !storedHash.hasPrefix("pbkdf2$") {
+            keychain.set(CryptoService.hash(passcode: passcode, salt: salt), forKey: KeychainKey.passcodeHash)
+        }
+        return matches
     }
 
     // MARK: - Lockout handling
 
     private func refreshLockoutState() {
-        guard let lockoutUntilRaw = keychain.getString(forKey: KeychainKey.lockoutUntil),
-              let lockoutUntil = TimeInterval(lockoutUntilRaw) else {
-            lockoutRemainingSeconds = 0
-            return
-        }
-        let remaining = Int(lockoutUntil - Date().timeIntervalSince1970)
-        lockoutRemainingSeconds = max(0, remaining)
+        lockoutRemainingSeconds = Self.remainingLockout(keychain: keychain)
         if lockoutRemainingSeconds > 0 {
             startLockoutCountdown()
         }
+    }
+
+    /// Lockout is measured with `ProcessInfo.systemUptime` plus the boot
+    /// instant captured when the lockout started. Moving the wall clock does
+    /// not clear it. A reboot (boot instant changed) restarts the stored
+    /// cooldown instead of dropping it.
+    static func remainingLockout(keychain: KeychainService, nowUptime: TimeInterval = ProcessInfo.processInfo.systemUptime, nowWall: TimeInterval = Date().timeIntervalSince1970) -> Int {
+        guard let deadlineRaw = keychain.getString(forKey: KeychainKey.lockoutUptimeDeadline),
+              let deadline = TimeInterval(deadlineRaw),
+              let bootRaw = keychain.getString(forKey: KeychainKey.lockoutBootAnchor),
+              let boot = TimeInterval(bootRaw),
+              let durationRaw = keychain.getString(forKey: KeychainKey.lockoutDuration),
+              let duration = TimeInterval(durationRaw) else {
+            return 0
+        }
+        let bootNow = nowWall - nowUptime
+        if abs(bootNow - boot) > 5 {
+            let restarted = nowUptime + duration
+            keychain.set(String(restarted), forKey: KeychainKey.lockoutUptimeDeadline)
+            keychain.set(String(bootNow), forKey: KeychainKey.lockoutBootAnchor)
+            return Int(duration)
+        }
+        return max(0, Int(deadline - nowUptime))
     }
 
     private func startLockoutCountdown() {
@@ -183,8 +246,11 @@ class AuthenticationService: ObservableObject {
         // Exponential backoff beyond the threshold: 30s, 60s, 120s, ...
         let extraStrikes = attempts - maxFailedAttempts
         let cooldown = min(30 * (1 << extraStrikes), 15 * 60)
-        let unlockAt = Date().timeIntervalSince1970 + Double(cooldown)
-        keychain.set(String(unlockAt), forKey: KeychainKey.lockoutUntil)
+        let uptime = ProcessInfo.processInfo.systemUptime
+        let wall = Date().timeIntervalSince1970
+        keychain.set(String(uptime + Double(cooldown)), forKey: KeychainKey.lockoutUptimeDeadline)
+        keychain.set(String(wall - uptime), forKey: KeychainKey.lockoutBootAnchor)
+        keychain.set(String(cooldown), forKey: KeychainKey.lockoutDuration)
         lockoutRemainingSeconds = cooldown
         startLockoutCountdown()
     }
@@ -192,6 +258,9 @@ class AuthenticationService: ObservableObject {
     private func resetFailedAttempts() {
         keychain.delete(forKey: KeychainKey.failedAttempts)
         keychain.delete(forKey: KeychainKey.lockoutUntil)
+        keychain.delete(forKey: KeychainKey.lockoutUptimeDeadline)
+        keychain.delete(forKey: KeychainKey.lockoutBootAnchor)
+        keychain.delete(forKey: KeychainKey.lockoutDuration)
         lockoutRemainingSeconds = 0
         lockoutTimer?.invalidate()
     }
@@ -258,9 +327,17 @@ class AuthenticationService: ObservableObject {
         resetFailedAttempts()
         let token = UUID().uuidString
         keychain.set(token, forKey: KeychainKey.sessionToken)
+        Self.sessionIsLive = true
+        Self.movementBlocked = isDecoySession
         recordActivity()
         startInactivityMonitor()
         NotificationService.shared.notifyLogin(decoy: isDecoySession)
+        SecurityLog.record(kind: "sign_in", detail: isDecoySession ? "restricted session" : "new sign-in")
+    }
+
+    /// True only when this process completed login and the keychain still holds that token.
+    static func restoreSessionFlag(keychain: KeychainService) {
+        sessionIsLive = keychain.getString(forKey: KeychainKey.sessionToken) != nil && sessionIsLive
     }
 
     // MARK: - App passcode login
@@ -317,6 +394,8 @@ class AuthenticationService: ObservableObject {
         user = nil
         errorMessage = nil
         keychain.delete(forKey: KeychainKey.sessionToken)
+        Self.sessionIsLive = false
+        Self.movementBlocked = false
         stopInactivityMonitor()
     }
 

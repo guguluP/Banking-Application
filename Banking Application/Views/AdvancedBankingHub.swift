@@ -33,6 +33,8 @@ struct AdvancedBankingHub: View {
             }
             Section("Trust") {
                 NavigationLink("Devices") { DeviceManagementView() }
+                NavigationLink("Security activity") { SecurityActivityView() }
+                NavigationLink("Limits") { LimitSettingsView() }
                 NavigationLink("Disputes") { DisputesInboxView() }
                 NavigationLink("Family / joint access") { FamilyAccountsView() }
                 NavigationLink("Offers") { MerchantOffersView() }
@@ -386,16 +388,35 @@ struct CardReissueView: View {
 
 struct StatementsView: View {
     @Query private var transactions: [Transaction]
+    @Query private var accounts: [Account]
     @State private var from = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
     @State private var to = Date()
+    @State private var accountId = "all"
+    @State private var pdfPassword = ""
     var body: some View {
-        let filtered = transactions.filter { $0.transactionDate >= from && $0.transactionDate <= to }
-        let csv = StatementExporter.csv(for: filtered, accountLabel: "All accounts")
+        let filtered = transactions.filter { tx in
+            tx.transactionDate >= from && tx.transactionDate <= to
+                && (accountId == "all" || tx.accountId == accountId)
+        }
+        let label = accounts.first { $0.id == accountId }?.nickname ?? "All accounts"
+        let csv = StatementExporter.csv(for: filtered, accountLabel: label)
         Form {
             DatePicker("From", selection: $from, displayedComponents: .date)
             DatePicker("To", selection: $to, displayedComponents: .date)
+            Picker("Account", selection: $accountId) {
+                Text("All accounts").tag("all")
+                ForEach(accounts) { account in
+                    Text(account.nickname ?? account.accountType.rawValue).tag(account.id)
+                }
+            }
             ShareLink(item: csv, preview: SharePreview("statement.csv")) {
                 Label("Export CSV", systemImage: "square.and.arrow.up")
+            }
+            SecureField("PDF password", text: $pdfPassword)
+            if let data = StatementExporter.passwordProtectedPDF(for: filtered, accountLabel: label, password: pdfPassword), !pdfPassword.isEmpty {
+                ShareLink(item: data, preview: SharePreview("statement.pdf")) {
+                    Label("Export password PDF", systemImage: "lock.doc")
+                }
             }
             Text("\(filtered.count) transactions in range")
         }
