@@ -1,11 +1,1684 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
+    "·" : {
+
+    },
+    "(%lld%%)" : {
+
+    },
+    "/100" : {
+
+    },
+    "%.1f%% vs last month" : {
+
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@%% p.a." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@%% p.a."
+          }
+        }
+      }
+    },
+    "%@ · •••• %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · •••• %2$@ · %3$@"
+          }
+        }
+      }
+    },
+    "%@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ / %2$@"
+          }
+        }
+      }
+    },
+    "%@ card ending %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ card ending %2$@"
+          }
+        }
+      }
+    },
+    "%@ of %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "%@ spend %lld percent of limit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ spend %2$lld percent of limit"
+          }
+        }
+      }
+    },
+    "%@ unlock enabled" : {
+
+    },
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@. Edit profile" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@. Edit profile"
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@/month across all loans" : {
+
+    },
+    "%@%% p.a." : {
+
+    },
+    "%@%% p.a. · %lld months" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%% p.a. · %2$lld months"
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "%lld cards" : {
+
+    },
+    "%lld days to maturity" : {
+
+    },
+    "%lld EMIs remaining" : {
+
+    },
+    "%lld mo" : {
+
+    },
+    "%lld transactions in range" : {
+
+    },
+    "%lld yr" : {
+
+    },
+    "%lld." : {
+
+    },
+    "•••• %@" : {
+
+    },
+    "+%@" : {
+
+    },
+    "0" : {
+
+    },
+    "0.00" : {
+
+    },
+    "1. Open Shortcuts and create a Personal Automation." : {
+
+    },
+    "2. Choose Message. Add a sender for each bank you use. The parser knows the public-sector banks, the private banks, the payments banks, the small-finance banks, and the larger co-operative banks." : {
+
+    },
+    "3. Add the action Import Bank SMS from BankSecure and pass the message text." : {
+
+    },
+    "4. Turn off Ask Before Running so it can record the payment immediately." : {
+
+    },
+    "5000" : {
+
+    },
+    "50000" : {
+
+    },
+    "Account" : {
+
+    },
+    "Account Aggregator" : {
+
+    },
     "Accounts" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Accounts" } },
-        "hi" : { "stringUnit" : { "state" : "translated", "value" : "खाते" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accounts"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "खाते"
+          }
+        }
       }
+    },
+    "Active consents" : {
+
+    },
+    "Add" : {
+
+    },
+    "Add a card" : {
+
+    },
+    "Add a Card" : {
+
+    },
+    "Add a new payee" : {
+
+    },
+    "Add a payee to save them for next time" : {
+
+    },
+    "Add Category" : {
+
+    },
+    "Add envelope" : {
+
+    },
+    "Add Expense" : {
+
+    },
+    "Add Payee" : {
+
+    },
+    "Add remarks" : {
+
+    },
+    "Advanced" : {
+
+    },
+    "After prepay %@" : {
+
+    },
+    "AI Assistant" : {
+
+    },
+    "Alerts" : {
+
+    },
+    "Alerts and new payees" : {
+
+    },
+    "Alerts are delivered as on-device notifications. Enable them in System Settings if you are not prompted. Live Activities appear on iPhone Lock Screen and Dynamic Island while a payment is processing; on Mac an in-app banner is used instead." : {
+
+    },
+    "All accounts" : {
+
+    },
+    "All processing happens on your device" : {
+
+    },
+    "All Transactions" : {
+
+    },
+    "Allocate" : {
+
+    },
+    "AMEX" : {
+
+    },
+    "Amount" : {
+
+    },
+    "Analytics" : {
+
+    },
+    "Anomaly: %@ — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Anomaly: %1$@ — %2$@"
+          }
+        }
+      }
+    },
+    "App Icon" : {
+
+    },
+    "App Locked" : {
+
+    },
+    "App Passcode Lock" : {
+
+    },
+    "App Passcode Lock enabled" : {
+
+    },
+    "Appearance" : {
+
+    },
+    "Apply for a Loan" : {
+
+    },
+    "Ask about your account…" : {
+
+    },
+    "Ask me about your accounts" : {
+
+    },
+    "Assistant" : {
+
+    },
+    "At Maturity" : {
+
+    },
+    "ATM & Branch Locator" : {
+
+    },
+    "Authenticate to continue" : {
+
+    },
+    "Authorize" : {
+
+    },
+    "Available" : {
+
+    },
+    "Available: %@" : {
+
+    },
+    "Balance" : {
+
+    },
+    "Bank Details" : {
+
+    },
+    "Bank SMS via Shortcuts" : {
+
+    },
+    "Banking plus" : {
+
+    },
+    "BankSecure" : {
+
+    },
+    "BankSecure is a demo. No real money moves. Liquid Glass follows Settings → Appearance on iOS 27." : {
+
+    },
+    "BankSecure Logo" : {
+
+    },
+    "BHIM and other UPI apps debit your bank account. The bank SMS is enough to record the payment. BankSecure keeps the parsed amount, payee, last four digits, and a hash. It drops messages that look like OTPs." : {
+
+    },
+    "Bill calendar" : {
+
+    },
+    "Bill pay" : {
+
+    },
+    "Biller" : {
+
+    },
+    "Billers" : {
+
+    },
+    "Biometric Authentication" : {
+
+    },
+    "Biometric authentication is required. Enable Face ID or Touch ID in Settings." : {
+
+    },
+    "Biometric Required" : {
+
+    },
+    "Biometric unlock enabled" : {
+
+    },
+    "Bucket" : {
+
+    },
+    "Budgets" : {
+
+    },
+    "By" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Cancel editing" : {
+
+    },
+    "Cancel passcode change" : {
+
+    },
+    "Cancel scanning" : {
+
+    },
+    "Card details" : {
+
+    },
+    "Card Issued" : {
+
+    },
+    "Card reissue" : {
+
+    },
+    "Cardless ATM" : {
+
+    },
+    "Cards" : {
+
+    },
+    "Cards & cash" : {
+
+    },
+    "Category" : {
+
+    },
+    "Category name" : {
+
+    },
+    "Change" : {
+
+    },
+    "Change Passcode" : {
+
+    },
+    "Check Balance" : {
+
+    },
+    "Check balance for ${account}" : {
+
+    },
+    "Check the available balance on an account" : {
+
+    },
+    "Choose from Library" : {
+
+    },
+    "Choose network" : {
+
+    },
+    "Clear" : {
+
+    },
+    "Clear search" : {
+
+    },
+    "Closed" : {
+
+    },
+    "Collect request" : {
+
+    },
+    "Color" : {
+
+    },
+    "Confirm" : {
+
+    },
+    "Confirm Expense" : {
+
+    },
+    "Confirm New Passcode" : {
+
+    },
+    "Confirm Passcode" : {
+
+    },
+    "Confirm Payment" : {
+
+    },
+    "Confirm payment of %@ to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Confirm payment of %1$@ to %2$@"
+          }
+        }
+      }
+    },
+    "Confirm Transfer" : {
+
+    },
+    "Confirm transfer of %@ to account ending in %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Confirm transfer of %1$@ to account ending in %2$@"
+          }
+        }
+      }
+    },
+    "Confirm UPI Payment" : {
+
+    },
+    "Consent recorded %@" : {
+
+    },
+    "Contactless Payments" : {
+
+    },
+    "Create" : {
+
+    },
+    "Create a Passcode" : {
+
+    },
+    "Create sandbox consent" : {
+
+    },
+    "Credit" : {
+
+    },
+    "Currency" : {
+
+    },
+    "Daily briefing" : {
+
+    },
+    "Daily limit" : {
+
+    },
+    "Date" : {
+
+    },
+    "Date Format" : {
+
+    },
+    "Day" : {
+
+    },
+    "DEBIT" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete All Tracking Data" : {
+
+    },
+    "Delete all tracking data?" : {
+
+    },
+    "Delete Everything" : {
+
+    },
+    "Delete this entry?" : {
+
+    },
+    "Demo mode" : {
+
+    },
+    "Demo mode. Educational sample data only. Not a real bank account." : {
+
+    },
+    "Deposit Details" : {
+
+    },
+    "Describe your expense" : {
+
+    },
+    "Description" : {
+
+    },
+    "Description (Optional)" : {
+
+    },
+    "Details" : {
+
+    },
+    "Device Security" : {
+
+    },
+    "Devices" : {
+
+    },
+    "Digital consent for new products (FD / loan). This records an on-device acceptance timestamp — production eSign would use a licensed CA." : {
+
+    },
+    "Dining" : {
+
+    },
+    "Disburse To" : {
+
+    },
+    "DISCOVER" : {
+
+    },
+    "Dismiss keyboard" : {
+
+    },
+    "Display language for labels in this demo. Currency stays Indian Rupees." : {
+
+    },
+    "Dispute" : {
+
+    },
+    "Disputes" : {
+
+    },
+    "Document vault" : {
+
+    },
+    "Documents" : {
+
+    },
+    "Done" : {
+
+    },
+    "Duress passcode" : {
+
+    },
+    "e-Sign" : {
+
+    },
+    "e-Sign consents" : {
+
+    },
+    "e.g. \"Coffee and a croissant, ₹350\" or \"Uber to the airport ₹450 yesterday\"" : {
+
+    },
+    "Edit" : {
+
+    },
+    "Edit Expense" : {
+
+    },
+    "Edit profile" : {
+
+    },
+    "Edit Profile" : {
+
+    },
+    "Educational sample data only. Not a real bank account or UPI transfer." : {
+
+    },
+    "Electricity bill" : {
+
+    },
+    "EMI" : {
+
+    },
+    "EMIs" : {
+
+    },
+    "Enter an amount greater than zero." : {
+
+    },
+    "Enter an amount to see projected returns" : {
+
+    },
+    "Enter an amount to see your estimated EMI" : {
+
+    },
+    "Enter Current Passcode" : {
+
+    },
+    "Enter it once more to confirm." : {
+
+    },
+    "Enter New Passcode" : {
+
+    },
+    "Enter Passcode" : {
+
+    },
+    "Enter your app passcode" : {
+
+    },
+    "Envelopes" : {
+
+    },
+    "Estimated EMI" : {
+
+    },
+    "Estimated interest saved: %@" : {
+
+    },
+    "EUR" : {
+
+    },
+    "Every Monday morning at 8 AM" : {
+
+    },
+    "Everything here runs on your device — nothing you ask is sent anywhere." : {
+
+    },
+    "Exclusive deals and rewards" : {
+
+    },
+    "Expense" : {
+
+    },
+    "Export as CSV" : {
+
+    },
+    "Export CSV" : {
+
+    },
+    "Export password PDF" : {
+
+    },
+    "Exports every expense you've logged — date, merchant, category, amount, and notes — as a CSV file you can open in any spreadsheet app." : {
+
+    },
+    "Family" : {
+
+    },
+    "Family / joint access" : {
+
+    },
+    "Family view" : {
+
+    },
+    "FD maturities" : {
+
+    },
+    "Financial overview" : {
+
+    },
+    "Fixed Deposits" : {
+
+    },
+    "For transactions above ₹50,000" : {
+
+    },
+    "Freeze card" : {
+
+    },
+    "From" : {
+
+    },
+    "From / people" : {
+
+    },
+    "From Account" : {
+
+    },
+    "GBP" : {
+
+    },
+    "Generate" : {
+
+    },
+    "Goals" : {
+
+    },
+    "Here's your financial overview" : {
+
+    },
+    "Hide balances" : {
+
+    },
+    "History" : {
+
+    },
+    "Home" : {
+
+    },
+    "I accept the product terms" : {
+
+    },
+    "Icon" : {
+
+    },
+    "Import bank message ${text}" : {
+
+    },
+    "Import Bank SMS" : {
+
+    },
+    "Income" : {
+
+    },
+    "Indicative INR debit uses a demo FX table. Live rates require a treasury feed." : {
+
+    },
+    "Insight" : {
+
+    },
+    "Interest Earned" : {
+
+    },
+    "International" : {
+
+    },
+    "International Usage" : {
+
+    },
+    "International wire" : {
+
+    },
+    "Invalid input" : {
+
+    },
+    "iOS 27 lets you slide glass from ultraclear to fully tinted in Settings → Appearance → Liquid Glass. BankSecure uses the system material for tab bars, the assistant accessory, and controls, so that slider applies here automatically." : {
+
+    },
+    "Issue single-use card" : {
+
+    },
+    "Language" : {
+
+    },
+    "Language & Region" : {
+
+    },
+    "Large Transactions" : {
+
+    },
+    "Last 7 Days Spending" : {
+
+    },
+    "Last Month" : {
+
+    },
+    "Last updated: January 1, 2023" : {
+
+    },
+    "Ledger" : {
+
+    },
+    "Legal" : {
+
+    },
+    "Like" : {
+
+    },
+    "Limits" : {
+
+    },
+    "Liquid Glass" : {
+
+    },
+    "Loan Details" : {
+
+    },
+    "Loan Type" : {
+
+    },
+    "Loans" : {
+
+    },
+    "Lock to merchant" : {
+
+    },
+    "Log an expense to see your analytics here." : {
+
+    },
+    "Log expenses in plain English, snap a receipt, or enter manually — everything stays on your device." : {
+
+    },
+    "Looks recurring: %@ %@ ×%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Looks recurring: %1$@ %2$@ ×%3$lld"
+          }
+        }
+      }
+    },
+    "Low Balance" : {
+
+    },
+    "Low confidence — please check the details below" : {
+
+    },
+    "Make a payment to a saved biller" : {
+
+    },
+    "Marketing" : {
+
+    },
+    "Matures today" : {
+
+    },
+    "Maturing to %@" : {
+
+    },
+    "Menu" : {
+
+    },
+    "Message" : {
+
+    },
+    "Mobile number" : {
+
+    },
+    "Money movement" : {
+
+    },
+    "Monthly EMI" : {
+
+    },
+    "Monthly limit" : {
+
+    },
+    "Name" : {
+
+    },
+    "Names, comma-separated" : {
+
+    },
+    "Natural-language parsing and receipt scanning run entirely on-device using Apple's on-device frameworks. Your expense text and receipt photos are never sent to a server, and no cloud AI processes them by default." : {
+
+    },
+    "Needs a look" : {
+
+    },
+    "Net worth" : {
+
+    },
+    "New Category" : {
+
+    },
+    "New consent" : {
+
+    },
+    "New FD" : {
+
+    },
+    "New Fixed Deposit" : {
+
+    },
+    "New goal" : {
+
+    },
+    "New instruction" : {
+
+    },
+    "New remaining tenure: %lld months" : {
+
+    },
+    "No budget set" : {
+
+    },
+    "No category data available" : {
+
+    },
+    "No expenses logged yet" : {
+
+    },
+    "No fixed deposits yet" : {
+
+    },
+    "No loans yet" : {
+
+    },
+    "No matching expenses" : {
+
+    },
+    "No recent activity" : {
+
+    },
+    "No spending data available" : {
+
+    },
+    "No spending last month to compare" : {
+
+    },
+    "No spending yet this month" : {
+
+    },
+    "No terms found matching \"%@\"" : {
+
+    },
+    "Not available on this device" : {
+
+    },
+    "Note" : {
+
+    },
+    "Nothing waiting." : {
+
+    },
+    "Nothing you do in this session will be saved. %@" : {
+
+    },
+    "Notifications" : {
+
+    },
+    "Notified immediately on every transaction" : {
+
+    },
+    "Off" : {
+
+    },
+    "Offers" : {
+
+    },
+    "OK" : {
+
+    },
+    "On" : {
+
+    },
+    "On-device AI" : {
+
+    },
+    "On-device assistant" : {
+
+    },
+    "One grammar reads Rs/INR amount, debit or credit, account or card last four, VPA or merchant, and UTR/RRN. A message that names a known bank is saved when those fields are present. Anything that only has an amount waits in Review." : {
+
+    },
+    "Online Transactions" : {
+
+    },
+    "Open" : {
+
+    },
+    "Open AI Assistant" : {
+
+    },
+    "Open notification settings" : {
+
+    },
+    "Open one to start earning interest on a lump sum" : {
+
+    },
+    "Open requests" : {
+
+    },
+    "or" : {
+
+    },
+    "Outstanding" : {
+
+    },
+    "Outstanding %@" : {
+
+    },
+    "Outstanding: %@" : {
+
+    },
+    "Passcode" : {
+
+    },
+    "Passcode entry: %lld of %lld digits entered" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Passcode entry: %1$lld of %2$lld digits entered"
+          }
+        }
+      }
+    },
+    "Pay" : {
+
+    },
+    "Pay %@ to %@?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pay %1$@ to %2$@?"
+          }
+        }
+      }
+    },
+    "Pay ${amount} to ${biller} from ${fromAccount}" : {
+
+    },
+    "Pay Biller" : {
+
+    },
+    "Pay Bills" : {
+
+    },
+    "Payee" : {
+
+    },
+    "Payee Details" : {
+
+    },
+    "Payments" : {
+
+    },
+    "PDF password" : {
+
+    },
+    "Permanently deletes every expense, category, and budget you've created here, and reverses their effect on your account balances. This does not affect your accounts, cards, or other banking activity." : {
+
+    },
+    "Personal Information" : {
+
+    },
+    "Personal, home, auto, or education — apply and track EMIs here" : {
+
+    },
+    "Planning" : {
+
+    },
+    "Preferences" : {
+
+    },
+    "Prepay %@" : {
+
+    },
+    "Prepay Loan" : {
+
+    },
+    "Prepay this month" : {
+
+    },
+    "Prepaying %@ now could save roughly %@ in interest and %lld months off the tenure." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Prepaying %1$@ now could save roughly %2$@ in interest and %3$lld months off the tenure."
+          }
+        }
+      }
+    },
+    "Prepayment tip" : {
+
+    },
+    "Privacy" : {
+
+    },
+    "Privacy & Data" : {
+
+    },
+    "Privacy & Security" : {
+
+    },
+    "Privacy Policy" : {
+
+    },
+    "Projected Returns" : {
+
+    },
+    "Promotional Offers" : {
+
+    },
+    "Push banner" : {
+
+    },
+    "Quick amount: %@" : {
+
+    },
+    "Rates shown are illustrative sample figures, not live bank rates." : {
+
+    },
+    "Rates shown are illustrative sample figures, not live lending rates." : {
+
+    },
+    "Reading receipt…" : {
+
+    },
+    "Reason" : {
+
+    },
+    "Recent imports" : {
+
+    },
+    "Recent Transactions" : {
+
+    },
+    "Recipient Account" : {
+
+    },
+    "Record a bank payment SMS in BankSecure" : {
+
+    },
+    "Region" : {
+
+    },
+    "Register this device" : {
+
+    },
+    "Remarks" : {
+
+    },
+    "Remarks (Optional)" : {
+
+    },
+    "Remove Budget" : {
+
+    },
+    "Replace physical card" : {
+
+    },
+    "Replacement in transit · expected 5–7 days" : {
+
+    },
+    "Replay" : {
+
+    },
+    "Request / split money" : {
+
+    },
+    "Request callback" : {
+
+    },
+    "Request money" : {
+
+    },
+    "Require passcode or biometrics when the app opens" : {
+
+    },
+    "Review imports" : {
+
+    },
+    "Revoke and delete imported AA data" : {
+
+    },
+    "Round each debit up to the next ₹10" : {
+
+    },
+    "Round-up" : {
+
+    },
+    "Round-up savings" : {
+
+    },
+    "Ru" : {
+
+    },
+    "Save" : {
+
+    },
+    "Save limits" : {
+
+    },
+    "Save passcode change" : {
+
+    },
+    "Save profile changes" : {
+
+    },
+    "Saved Payees" : {
+
+    },
+    "Savings goal" : {
+
+    },
+    "Savings goals" : {
+
+    },
+    "Scan QR Code" : {
+
+    },
+    "Scan Receipt" : {
+
+    },
+    "Scan this in a UPI app. This demo does not register a real VPA." : {
+
+    },
+    "Scanner would open here" : {
+
+    },
+    "Schedule" : {
+
+    },
+    "Scheduled" : {
+
+    },
+    "Scheduled & standing instructions" : {
+
+    },
+    "Search accounts" : {
+
+    },
+    "Search expenses" : {
+
+    },
+    "Search locations" : {
+
+    },
+    "Search terms" : {
+
+    },
+    "Search transactions" : {
+
+    },
+    "Security" : {
+
+    },
+    "Security activity" : {
+
+    },
+    "See All" : {
+
+    },
+    "See all transactions" : {
+
+    },
+    "Select Account" : {
+
+    },
+    "Select Biller" : {
+
+    },
+    "Select payment type" : {
+
+    },
+    "Send message" : {
+
+    },
+    "Send request" : {
+
+    },
+    "Send to %@" : {
+
+    },
+    "Senior Citizen" : {
+
+    },
+    "Services" : {
+
+    },
+    "Set Budget" : {
+
+    },
+    "Set duress passcode" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Share a read-only balance with a dependent. Full joint posting waits on the server-side identity model." : {
+
+    },
+    "Show balances" : {
+
+    },
+    "Show my UPI QR" : {
+
+    },
+    "Show this code at a participating ATM within 15 minutes." : {
+
+    },
+    "Sign in with %@" : {
+
+    },
+    "Signing in" : {
+
+    },
+    "Simulate Scan: rahul@upi" : {
+
+    },
+    "Skip" : {
+
+    },
+    "SMS setup" : {
+
+    },
+    "Snapshot today" : {
+
+    },
+    "Spending by Category" : {
+
+    },
+    "Spending limits" : {
+
+    },
+    "Spending This Month" : {
+
+    },
+    "Spent This Month" : {
+
+    },
+    "Split bill" : {
+
+    },
+    "Standing (monthly)" : {
+
+    },
+    "statement.csv" : {
+
+    },
+    "statement.pdf" : {
+
+    },
+    "Statements" : {
+
+    },
+    "Store metadata" : {
+
+    },
+    "Submit dispute" : {
+
+    },
+    "Summarize a passage into concise bullet points using on-device AI." : {
+
+    },
+    "Summarize Text" : {
+
+    },
+    "Summary & Reports" : {
+
+    },
+    "Support" : {
+
+    },
+    "Sweep into" : {
+
+    },
+    "SWIFT / wire" : {
+
+    },
+    "Switch payment type" : {
+
+    },
+    "Take a photo or choose one from your library" : {
+
+    },
+    "Tap a category to set or edit its monthly budget." : {
+
+    },
+    "Tap the + button to add your first one." : {
+
+    },
+    "Target" : {
+
+    },
+    "Tax certificates" : {
+
+    },
+    "Tax docs" : {
+
+    },
+    "Tenure" : {
+
+    },
+    "Tenure: %lld months" : {
+
+    },
+    "Terms of Service" : {
+
+    },
+    "Text" : {
+
+    },
+    "That account can't send money right now." : {
+
+    },
+    "That account couldn't be found." : {
+
+    },
+    "That account doesn't have enough available balance." : {
+
+    },
+    "That biller couldn't be found." : {
+
+    },
+    "That payment is over the limit." : {
+
+    },
+    "The on-device assistant couldn't resolve this. A live agent chat would attach here once the backend is live." : {
+
+    },
+    "The transaction couldn't be saved. Please try again in the app." : {
+
+    },
+    "Thinking about your spending…" : {
+
+    },
+    "This can't be undone. Consider exporting a CSV first." : {
+
+    },
+    "This device" : {
+
+    },
+    "This Month" : {
+
+    },
+    "This will remove the entry and restore the amount to your account balance." : {
+
+    },
+    "Time Format" : {
+
+    },
+    "Title" : {
+
+    },
+    "To" : {
+
+    },
+    "To Account Number" : {
+
+    },
+    "Toggle" : {
+
+    },
+    "Too many attempts. Try again in %llds." : {
+
+    },
+    "Top Categories" : {
+
+    },
+    "Total Balance" : {
+
+    },
+    "Total balance hidden" : {
+
+    },
+    "Total balance: %@" : {
+
+    },
+    "Total Interest" : {
+
+    },
+    "Total Invested" : {
+
+    },
+    "Total Outstanding" : {
+
+    },
+    "Track" : {
+
+    },
+    "Track spending, transfer money, and more." : {
+
+    },
+    "Track your spending" : {
+
+    },
+    "Transaction" : {
+
+    },
+    "Transaction Alerts" : {
+
+    },
+    "Transaction, low-balance, and marketing alerts live under Notifications so they are not configured in two places." : {
+
+    },
+    "Transfer %@ to %@?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Transfer %1$@ to %2$@?"
+          }
+        }
+      }
+    },
+    "Transfer ${amount} from ${fromAccount} to ${toAccount}" : {
+
+    },
+    "Transfer Complete" : {
+
+    },
+    "Transfer Money" : {
+
+    },
+    "Transfer money to another account" : {
+
+    },
+    "Transfers" : {
+
+    },
+    "Trust" : {
+
+    },
+    "Try a different search or filter." : {
+
+    },
+    "Type" : {
+
+    },
+    "Type naturally..." : {
+
+    },
+    "Unlike" : {
+
+    },
+    "Upcoming" : {
+
+    },
+    "UPI" : {
+
+    },
+    "UPI ID" : {
+
+    },
+    "UPI Payment" : {
+
+    },
+    "UPI QR" : {
+
+    },
+    "USD" : {
+
+    },
+    "Use %@" : {
+
+    },
+    "Use biometrics to unlock the app" : {
+
+    },
+    "VALID THRU" : {
+
+    },
+    "Vault" : {
+
+    },
+    "Verifying branch…" : {
+
+    },
+    "Version 1.0.0" : {
+
+    },
+    "Virtual cards" : {
+
+    },
+    "VISA" : {
+
+    },
+    "Voice input" : {
+
+    },
+    "Weekly Summary" : {
+
+    },
+    "Welcome to BankSecure" : {
+
+    },
+    "What text would you like me to summarize?" : {
+
+    },
+    "What this means" : {
+
+    },
+    "What-if" : {
+
+    },
+    "What-if loan" : {
+
+    },
+    "When" : {
+
+    },
+    "When balance falls below threshold" : {
+
+    },
+    "When enabled, the spare change from each completed debit is accumulated toward the selected bucket." : {
+
+    },
+    "You earned %@ cashback!" : {
+
+    },
+    "You said" : {
+
+    },
+    "You'll use this 4-digit passcode to unlock BankSecure." : {
+
+    },
+    "Your bank data could not be opened" : {
+
+    },
+    "Your Data" : {
+
+    },
+    "Your money is on its way." : {
+
+    },
+    "Your new %@ card is ready to use." : {
+
+    },
+    "Your trusted banking companion" : {
+
     }
   },
   "version" : "1.0"

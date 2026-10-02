@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct ImportReviewQueueView: View {
     @Environment(\.modelContext) private var context
@@ -39,18 +42,19 @@ struct SMSImportGuideView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Bank SMS via Shortcuts")
+                Text("Bank SMS")
                     .font(.title2.bold())
-                Text("BHIM and other UPI apps debit your bank account. The bank SMS is enough to record the payment. BankSecure keeps the parsed amount, payee, last four digits, and a hash. It drops messages that look like OTPs.")
-                Text("1. Open Shortcuts and create a Personal Automation.")
-                Text("2. Choose Message. Add a sender for each bank you use. The parser knows the public-sector banks, the private banks, the payments banks, the small-finance banks, and the larger co-operative banks.")
-                Text("3. Add the action Import Bank SMS from BankSecure and pass the message text.")
-                Text("4. Turn off Ask Before Running so it can record the payment immediately.")
-                Text("One grammar reads Rs/INR amount, debit or credit, account or card last four, VPA or merchant, and UTR/RRN. A message that names a known bank is saved when those fields are present. Anything that only has an amount waits in Review.")
+                Text("BankSecure records bank texts itself. You do not set up a Shortcut. When a bank SMS arrives, the message filter keeps the amount, payee, last four digits, and reference, then drops the text. OTP messages are ignored.")
+                Text("iOS still requires one switch, which only you can turn on: Settings, Messages, Unknown & Spam, then enable BankSecure.")
+                Button("Open Settings") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                }
+                .buttonStyle(.borderedProminent)
             }
             .padding()
         }
-        .navigationTitle("SMS setup")
+        .navigationTitle("SMS capture")
     }
 }
 

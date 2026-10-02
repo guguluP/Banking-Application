@@ -69,6 +69,9 @@ struct MainTabView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             hideForSwitcher = newPhase != .active
+            if newPhase == .active {
+                BankImportPipeline.ingestCapturedSMS(in: modelContext)
+            }
             if newPhase == .background, AppSettings.shared.isPasscodeLockEnabled {
                 authenticationService.isLocked = true
             }

@@ -136,7 +136,7 @@ struct TrackView: View {
                     NavigationLink {
                         SMSImportGuideView()
                     } label: {
-                        trackMenuRow(icon: "message", title: "Bank SMS setup", subtitle: "Shortcuts automation")
+                        trackMenuRow(icon: "message", title: "Bank SMS", subtitle: "Captured automatically")
                     }
 
                     NavigationLink {

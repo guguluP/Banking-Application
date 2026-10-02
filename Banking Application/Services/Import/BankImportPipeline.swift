@@ -87,7 +87,19 @@ enum BankSMSParser {
         guard !trimmed.isEmpty else { return nil }
         if looksLikeOTP(trimmed) { return nil }
 
-        if let event = IndianBankSMSGrammar.parse(trimmed, now: now) { return event }
+        if let captured = IndianBankSMSGrammar.parse(trimmed) {
+            return RawBankEvent(
+                amount: captured.amount,
+                direction: captured.isCredit ? .credit : .debit,
+                accountLast4: captured.accountLast4,
+                merchant: captured.merchant,
+                externalRef: captured.externalRef,
+                occurredAt: now,
+                bank: captured.bank,
+                source: .smsImport,
+                confidence: captured.confidence
+            )
+        }
 
         let draft = ExpenseParsingService.shared.parse(trimmed)
         guard let amount = draft.amount, amount > 0 else { return nil }
@@ -156,6 +168,12 @@ enum BankImportPipeline {
         context.insert(row)
         try? context.save()
         return row
+    }
+
+    static func ingestCapturedSMS(in context: ModelContext) {
+        for text in SMSInbox.drain() {
+            _ = ingestSMS(text, in: context)
+        }
     }
 
     static func ingestSMS(_ text: String, in context: ModelContext) -> ImportedEvent? {

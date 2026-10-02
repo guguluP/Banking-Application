@@ -70,6 +70,7 @@ struct BankApp: App {
                 }
             }
             .onAppear {
+                BankImportPipeline.ingestCapturedSMS(in: container.mainContext)
                 SpotlightIndexManager.shared.indexAllAccounts(accountViewModel.accounts)
                 let billerDescriptor = FetchDescriptor<Biller>()
                 if let billers = try? container.mainContext.fetch(billerDescriptor) {

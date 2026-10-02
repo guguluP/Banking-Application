@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		7F0F064C2FDE951100868AF8 /* AIAssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */; };
 		7F0F064E2FDE954700868AF8 /* SummarizeTextIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */; };
+		7FSMS00C2FCA900100SMS0C /* BankSMSFilter.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7FSMS0012FCA900100SMS01 /* BankSMSFilter.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,6 +27,13 @@
 			remoteGlobalIDString = 7FC33B1B2FCA7747004CB335;
 			remoteInfo = "Banking Application";
 		};
+		7FSMS00A2FCA900100SMS0A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7FC33B142FCA7747004CB335 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7FSMS0022FCA900100SMS02;
+			remoteInfo = BankSMSFilter;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -35,6 +43,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				7FSMS00C2FCA900100SMS0C /* BankSMSFilter.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -45,11 +54,19 @@
 		7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantService.swift; sourceTree = "<group>"; };
 		7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummarizeTextIntent.swift; sourceTree = "<group>"; };
 		7FBA10012FCA900100LIVE01 /* BankingLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BankingLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		7FTEST002FCA900100TEST00 /* Banking ApplicationTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Banking ApplicationTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FC33B1C2FCA7747004CB335 /* Banking Application.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Banking Application.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7FSMS0012FCA900100SMS01 /* BankSMSFilter.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BankSMSFilter.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7FTEST002FCA900100TEST00 /* Banking ApplicationTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Banking ApplicationTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7FSMS00E2FCA900100SMS0E /* Exceptions for "BankSMSFilter" folder in "BankSMSFilter" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7FSMS0022FCA900100SMS02 /* BankSMSFilter */;
+		};
 		7FBA100E2FCA900100LIVE0E /* Exceptions for "BankingLiveActivity" folder in "BankingLiveActivity" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -76,6 +93,19 @@
 		7FTEST012FCA900100TEST01 /* Banking ApplicationTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Banking ApplicationTests";
+			sourceTree = "<group>";
+		};
+		7FSMS0032FCA900100SMS03 /* BankSMSFilter */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7FSMS00E2FCA900100SMS0E /* Exceptions for "BankSMSFilter" folder in "BankSMSFilter" target */,
+			);
+			path = BankSMSFilter;
+			sourceTree = "<group>";
+		};
+		7FSMS0042FCA900100SMS04 /* SharedSMS */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SharedSMS;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -111,6 +141,8 @@
 				7FC33B1E2FCA7747004CB335 /* Banking Application */,
 				7FBA10032FCA900100LIVE03 /* BankingLiveActivity */,
 				7FTEST012FCA900100TEST01 /* Banking ApplicationTests */,
+				7FSMS0032FCA900100SMS03 /* BankSMSFilter */,
+				7FSMS0042FCA900100SMS04 /* SharedSMS */,
 				7FC33B1D2FCA7747004CB335 /* Products */,
 				7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */,
 				7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */,
@@ -123,6 +155,7 @@
 				7FC33B1C2FCA7747004CB335 /* Banking Application.app */,
 				7FBA10012FCA900100LIVE01 /* BankingLiveActivity.appex */,
 				7FTEST002FCA900100TEST00 /* Banking ApplicationTests.xctest */,
+				7FSMS0012FCA900100SMS01 /* BankSMSFilter.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -161,11 +194,13 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-				7FBA100B2FCA900100LIVE0B /* PBXTargetDependency */,
-			);
 			fileSystemSynchronizedGroups = (
 				7FC33B1E2FCA7747004CB335 /* Banking Application */,
+				7FSMS0042FCA900100SMS04 /* SharedSMS */,
+			);
+			dependencies = (
+				7FBA100B2FCA900100LIVE0B /* PBXTargetDependency */,
+				7FSMS00B2FCA900100SMS0B /* PBXTargetDependency */,
 			);
 			name = "Banking Application";
 			packageProductDependencies = (
@@ -195,6 +230,27 @@
 			productReference = 7FTEST002FCA900100TEST00 /* Banking ApplicationTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		7FSMS0022FCA900100SMS02 /* BankSMSFilter */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7FSMS0092FCA900100SMS09 /* Build configuration list for PBXNativeTarget "BankSMSFilter" */;
+			buildPhases = (
+				7FSMS0052FCA900100SMS05 /* Sources */,
+				7FSMS0062FCA900100SMS06 /* Frameworks */,
+				7FSMS0072FCA900100SMS07 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7FSMS0032FCA900100SMS03 /* BankSMSFilter */,
+				7FSMS0042FCA900100SMS04 /* SharedSMS */,
+			);
+			name = BankSMSFilter;
+			productName = BankSMSFilter;
+			productReference = 7FSMS0012FCA900100SMS01 /* BankSMSFilter.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -208,12 +264,12 @@
 					7FBA10022FCA900100LIVE02 = {
 						CreatedOnToolsVersion = 26.5;
 					};
+					7FC33B1B2FCA7747004CB335 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 					7FTEST022FCA900100TEST02 = {
 						CreatedOnToolsVersion = 26.5;
 						TestTargetID = 7FC33B1B2FCA7747004CB335;
-					};
-					7FC33B1B2FCA7747004CB335 = {
-						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
@@ -234,6 +290,7 @@
 				7FC33B1B2FCA7747004CB335 /* Banking Application */,
 				7FBA10022FCA900100LIVE02 /* BankingLiveActivity */,
 				7FTEST022FCA900100TEST02 /* Banking ApplicationTests */,
+				7FSMS0022FCA900100SMS02 /* BankSMSFilter */,
 			);
 		};
 /* End PBXProject section */
@@ -279,6 +336,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7FSMS0052FCA900100SMS05 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7FSMS0062FCA900100SMS06 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7FSMS0072FCA900100SMS07 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7FTEST032FCA900100TEST03 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -298,6 +376,11 @@
 			isa = PBXTargetDependency;
 			target = 7FC33B1B2FCA7747004CB335 /* Banking Application */;
 			targetProxy = 7FTEST072FCA900100TEST07 /* PBXContainerItemProxy */;
+		};
+		7FSMS00B2FCA900100SMS0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7FSMS0022FCA900100SMS02 /* BankSMSFilter */;
+			targetProxy = 7FSMS00A2FCA900100SMS0A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -485,6 +568,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = "Banking Application/Banking Application.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U65M73K349;
@@ -523,6 +607,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = "Banking Application/Banking Application.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U65M73K349;
@@ -555,7 +640,7 @@
 			};
 			name = Release;
 		};
-7FTEST082FCA900100TEST08 /* Debug */ = {
+		7FTEST082FCA900100TEST08 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -595,6 +680,58 @@
 			};
 			name = Release;
 		};
+7FSMS0082FCA900100SMS08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BankSMSFilter/BankSMSFilter.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U65M73K349;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BankSMSFilter/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "BankSecure SMS";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.piyushpatnaik.Banking-Application.BankSMSFilter";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7FSMS0102FCA900100SMS10 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BankSMSFilter/BankSMSFilter.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U65M73K349;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BankSMSFilter/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "BankSecure SMS";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.piyushpatnaik.Banking-Application.BankSMSFilter";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -625,11 +762,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-7FTEST092FCA900100TEST09 /* Build configuration list for PBXNativeTarget "Banking ApplicationTests" */ = {
+		7FTEST092FCA900100TEST09 /* Build configuration list for PBXNativeTarget "Banking ApplicationTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7FTEST082FCA900100TEST08 /* Debug */,
 				7FTEST102FCA900100TEST10 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+7FSMS0092FCA900100SMS09 /* Build configuration list for PBXNativeTarget "BankSMSFilter" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7FSMS0082FCA900100SMS08 /* Debug */,
+				7FSMS0102FCA900100SMS10 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

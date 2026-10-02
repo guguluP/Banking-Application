@@ -1,17 +1,22 @@
 import Foundation
 
-/// Scheduled commercial banks, payments banks, small finance banks, and the
-/// larger urban co-operative banks that send customer SMS in India.
-/// Matching is on the bank name or the sender fragment that appears in the
-/// message. Regional rural banks are matched by "gramin" / "grameen".
+struct CapturedBankSMS: Equatable {
+    var amount: Decimal
+    var isCredit: Bool
+    var accountLast4: String
+    var merchant: String?
+    var externalRef: String?
+    var bank: String
+    var confidence: Double
+}
+
 struct IndianBank: Equatable {
     var name: String
     var aliases: [String]
 }
 
-enum IndianBankCatalog {
+nonisolated enum IndianBankCatalog {
     static let banks: [IndianBank] = [
-        // Public sector
         bank("State Bank of India", "sbi", "sbin", "sbiinb", "state bank"),
         bank("Punjab National Bank", "pnb", "pnbbnk", "punjab national"),
         bank("Bank of Baroda", "bob", "baroda", "bank of baroda", "bobbnk"),
@@ -19,12 +24,11 @@ enum IndianBankCatalog {
         bank("Union Bank of India", "union bank", "ubin", "unionbk"),
         bank("Indian Bank", "indian bank", "idibn", "indbnk"),
         bank("Bank of India", "bank of india", "boibn", "bkiden"),
-        bank("Central Bank of India", "central bank", "cbin", "cbi"),
+        bank("Central Bank of India", "central bank", "cbin"),
         bank("Indian Overseas Bank", "indian overseas", "iob", "iobbnk"),
-        bank("UCO Bank", "uco bank", "ucobnk", "uco"),
+        bank("UCO Bank", "uco bank", "ucobnk"),
         bank("Bank of Maharashtra", "bank of maharashtra", "mahb", "mahabank"),
-        bank("Punjab and Sind Bank", "punjab and sind", "punjab & sind", "psb"),
-        // Private
+        bank("Punjab and Sind Bank", "punjab and sind", "punjab & sind"),
         bank("HDFC Bank", "hdfc", "hdfcbk"),
         bank("ICICI Bank", "icici", "icicib"),
         bank("Axis Bank", "axis", "axisbk", "utib"),
@@ -33,22 +37,20 @@ enum IndianBankCatalog {
         bank("Yes Bank", "yes bank", "yesbnk", "yesb"),
         bank("IDFC First Bank", "idfc", "idfc first", "idfb"),
         bank("Federal Bank", "federal", "fdrl", "fedbnk"),
-        bank("South Indian Bank", "south indian", "sibl", "sib"),
+        bank("South Indian Bank", "south indian", "sibl"),
         bank("Karnataka Bank", "karnataka bank", "karb"),
         bank("Karur Vysya Bank", "karur vysya", "kvbl", "karur"),
         bank("Tamilnad Mercantile Bank", "tmb", "tamilnad mercantile"),
-        bank("City Union Bank", "city union", "ciub", "cub"),
+        bank("City Union Bank", "city union", "ciub"),
         bank("CSB Bank", "csb", "catholic syrian"),
-        bank("DCB Bank", "dcb"),
-        bank("RBL Bank", "rbl"),
+        bank("DCB Bank", "dcb bank"),
+        bank("RBL Bank", "rbl bank", "rbl"),
         bank("Bandhan Bank", "bandhan", "bdbl"),
         bank("IDBI Bank", "idbi"),
         bank("Jammu and Kashmir Bank", "j&k bank", "jk bank", "jaka"),
         bank("Nainital Bank", "nainital"),
-        bank("Dhanlaxmi Bank", "dhanlaxmi", "dhanlaxmi", "dlxb"),
+        bank("Dhanlaxmi Bank", "dhanlaxmi", "dlxb"),
         bank("DBS Bank", "dbs", "lakshmi vilas"),
-        bank("Tamil Nadu Grama Bank", "tamil nadu grama"),
-        // Small finance
         bank("AU Small Finance Bank", "au bank", "au small", "aubl"),
         bank("Equitas Small Finance Bank", "equitas"),
         bank("Ujjivan Small Finance Bank", "ujjivan"),
@@ -60,14 +62,12 @@ enum IndianBankCatalog {
         bank("North East Small Finance Bank", "north east small"),
         bank("Shivalik Small Finance Bank", "shivalik"),
         bank("Unity Small Finance Bank", "unity small", "unity bank"),
-        // Payments banks
         bank("Airtel Payments Bank", "airtel payments", "airtel bank"),
         bank("India Post Payments Bank", "ippb", "india post payments"),
         bank("Fino Payments Bank", "fino"),
         bank("Paytm Payments Bank", "paytm payments", "paytmb"),
         bank("Jio Payments Bank", "jio payments", "jiopb"),
         bank("NSDL Payments Bank", "nsdl payments"),
-        // Foreign banks with Indian retail SMS
         bank("HSBC", "hsbc"),
         bank("Standard Chartered", "standard chartered", "scbl", "stan chart"),
         bank("Citibank", "citibank", "citi"),
@@ -75,11 +75,10 @@ enum IndianBankCatalog {
         bank("Barclays", "barclays"),
         bank("SBM Bank India", "sbm bank"),
         bank("Bank of America", "bank of america", "bofa"),
-        // Urban co-operative banks that customers commonly import
         bank("Saraswat Co-operative Bank", "saraswat"),
         bank("Cosmos Co-operative Bank", "cosmos"),
         bank("TJSB Sahakari Bank", "tjsb"),
-        bank("SVC Co-operative Bank", "svc bank", "svc co"),
+        bank("SVC Co-operative Bank", "svc bank"),
         bank("Abhyudaya Co-operative Bank", "abhyudaya"),
         bank("Bharat Co-operative Bank", "bharat co-operative", "bharat cooperative"),
         bank("NKGSB Co-operative Bank", "nkgsb"),
@@ -91,7 +90,6 @@ enum IndianBankCatalog {
         bank("Greater Bombay Co-operative Bank", "greater bombay"),
         bank("Bombay Mercantile Co-operative Bank", "bombay mercantile"),
         bank("New India Co-operative Bank", "new india co-operative"),
-        bank("Punjab and Maharashtra Co-operative Bank", "pmc bank"),
         bank("Regional Rural Bank", "gramin bank", "grameen bank", "regional rural")
     ]
 
@@ -113,35 +111,39 @@ enum IndianBankCatalog {
     }
 }
 
-enum IndianBankSMSGrammar {
-    /// Shared debit/credit grammar used by Indian bank SMS, whatever the sender.
-    static func parse(_ text: String, now: Date) -> RawBankEvent? {
-        guard let amount = amount(in: text), let direction = direction(in: text) else { return nil }
-        let bank = IndianBankCatalog.identify(in: text) ?? "Indian bank"
-        let last4 = accountLast4(in: text) ?? ""
-        let reference = externalRef(in: text)
-        let known = IndianBankCatalog.identify(in: text) != nil
+nonisolated enum IndianBankSMSGrammar {
+    static func parse(_ text: String) -> CapturedBankSMS? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !looksLikeOTP(trimmed) else { return nil }
+        guard let amount = amount(in: trimmed), let isCredit = directionIsCredit(in: trimmed) else { return nil }
+        let known = IndianBankCatalog.identify(in: trimmed)
+        let last4 = accountLast4(in: trimmed) ?? ""
+        let reference = externalRef(in: trimmed)
         let confidence: Double
-        if known && (!last4.isEmpty || reference != nil) {
+        if known != nil && (!last4.isEmpty || reference != nil) {
             confidence = 0.95
-        } else if known {
+        } else if known != nil {
             confidence = 0.82
         } else if !last4.isEmpty || reference != nil {
             confidence = 0.74
         } else {
             confidence = 0.55
         }
-        return RawBankEvent(
+        return CapturedBankSMS(
             amount: amount,
-            direction: direction,
+            isCredit: isCredit,
             accountLast4: last4,
-            merchant: merchant(in: text),
+            merchant: merchant(in: trimmed),
             externalRef: reference,
-            occurredAt: now,
-            bank: bank,
-            source: .smsImport,
+            bank: known ?? "Indian bank",
             confidence: confidence
         )
+    }
+
+    private static func looksLikeOTP(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let otpWord = lower.contains("otp") || lower.contains("one time") || lower.contains("do not share")
+        return otpWord && text.range(of: #"\b\d{4,8}\b"#, options: .regularExpression) != nil
     }
 
     private static func amount(in text: String) -> Decimal? {
@@ -158,12 +160,14 @@ enum IndianBankSMSGrammar {
         return nil
     }
 
-    private static func direction(in text: String) -> ImportDirection? {
+    private static func directionIsCredit(in text: String) -> Bool? {
         let lower = text.lowercased()
-        let credit = ["credited", "credit of", "received", "deposited", "has credit"]
-        let debit = ["debited", "debit of", "spent", "sent", "paid", "withdrawn", "purchase", "deducted"]
-        if credit.contains(where: { lower.contains($0) }) { return .credit }
-        if debit.contains(where: { lower.contains($0) }) { return .debit }
+        if ["credited", "credit of", "received", "deposited", "has credit"].contains(where: { lower.contains($0) }) {
+            return true
+        }
+        if ["debited", "debit of", "spent", "sent", "paid", "withdrawn", "purchase", "deducted"].contains(where: { lower.contains($0) }) {
+            return false
+        }
         return nil
     }
 
@@ -187,9 +191,7 @@ enum IndianBankSMSGrammar {
             #"\b((?:IMPS|NEFT|RTGS|UPI)[A-Z0-9]{8,})\b"#
         ]
         for pattern in patterns {
-            if let raw = firstGroup(pattern, in: text, group: 1) {
-                return raw
-            }
+            if let raw = firstGroup(pattern, in: text, group: 1) { return raw }
         }
         return nil
     }
@@ -204,9 +206,7 @@ enum IndianBankSMSGrammar {
         for pattern in patterns {
             guard let raw = firstGroup(pattern, in: text, group: 1) else { continue }
             let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            if cleaned.count >= 2, !cleaned.lowercased().hasPrefix("your ") {
-                return cleaned
-            }
+            if cleaned.count >= 2 { return cleaned }
         }
         return nil
     }
@@ -218,5 +218,37 @@ enum IndianBankSMSGrammar {
               hit.numberOfRanges > group,
               let slice = Range(hit.range(at: group), in: text) else { return nil }
         return String(text[slice])
+    }
+}
+
+nonisolated enum SMSInbox {
+    static let groupID = "group.com.piyushpatnaik.Banking-Application"
+
+    static func append(text: String) {
+        guard IndianBankSMSGrammar.parse(text) != nil else { return }
+        let url = fileURL()
+        let line = Data((text.replacingOccurrences(of: "\n", with: " ") + "\n").utf8)
+        if let handle = try? FileHandle(forWritingTo: url) {
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: line)
+            try? handle.close()
+        } else {
+            try? line.write(to: url, options: .atomic)
+        }
+        try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
+    }
+
+    static func drain() -> [String] {
+        let url = fileURL()
+        guard let data = try? Data(contentsOf: url),
+              let text = String(data: data, encoding: .utf8) else { return [] }
+        try? FileManager.default.removeItem(at: url)
+        return text.split(separator: "\n").map { String($0) }.filter { !$0.isEmpty }
+    }
+
+    private static func fileURL() -> URL {
+        let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
+            ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("bank-sms-inbox.txt")
     }
 }
