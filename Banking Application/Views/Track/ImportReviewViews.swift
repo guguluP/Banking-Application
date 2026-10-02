@@ -43,10 +43,10 @@ struct SMSImportGuideView: View {
                     .font(.title2.bold())
                 Text("BHIM and other UPI apps debit your bank account. The bank SMS is enough to record the payment. BankSecure keeps the parsed amount, payee, last four digits, and a hash. It drops messages that look like OTPs.")
                 Text("1. Open Shortcuts and create a Personal Automation.")
-                Text("2. Choose Message. Set the sender to your bank, such as HDFC, SBI, ICICI, or Axis.")
+                Text("2. Choose Message. Add a sender for each bank you use. The parser knows the public-sector banks, the private banks, the payments banks, the small-finance banks, and the larger co-operative banks.")
                 Text("3. Add the action Import Bank SMS from BankSecure and pass the message text.")
                 Text("4. Turn off Ask Before Running so it can record the payment immediately.")
-                Text("HDFC, SBI, ICICI, and Axis templates run first. Any other bank falls back to on-device parsing and lands in Review if the match is weak.")
+                Text("One grammar reads Rs/INR amount, debit or credit, account or card last four, VPA or merchant, and UTR/RRN. A message that names a known bank is saved when those fields are present. Anything that only has an amount waits in Review.")
             }
             .padding()
         }

@@ -97,6 +97,21 @@ final class PaymentServiceTests: XCTestCase {
         XCTAssertEqual(event?.direction, .debit)
     }
 
+    func testPublicPrivateAndPaymentsBanks() {
+        let samples: [(String, String, String)] = [
+            ("SBI: Rs.500.00 debited from A/c XX8891. UPI/store@oksbi/UTR 998877665544", "State Bank of India", "8891"),
+            ("INR 1,250.50 credited to your Canara Bank a/c XX4412. NEFT Ref No CANA12345678", "Canara Bank", "4412"),
+            ("Kotak Bank: INR 75.00 spent on card XX2200 at SWIGGY. Ref 556677889900", "Kotak Mahindra Bank", "2200"),
+            ("Paytm Payments Bank: Rs 20 debited from a/c XX1001 towards recharge. UPI Ref No 112233445566", "Paytm Payments Bank", "1001"),
+            ("Odisha Gramin Bank: Rs.300.00 debited from A/c XX7788. UTR 445566778899", "Regional Rural Bank", "7788")
+        ]
+        for (text, bank, last4) in samples {
+            let event = BankSMSParser.parse(text)
+            XCTAssertEqual(event?.bank, bank, text)
+            XCTAssertEqual(event?.accountLast4, last4, text)
+        }
+    }
+
     func testOTPMessageIsDropped() {
         XCTAssertNil(BankSMSParser.parse("Your OTP is 482193. Do not share it with anyone."))
     }

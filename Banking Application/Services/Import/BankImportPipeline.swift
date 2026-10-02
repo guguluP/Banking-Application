@@ -87,10 +87,7 @@ enum BankSMSParser {
         guard !trimmed.isEmpty else { return nil }
         if looksLikeOTP(trimmed) { return nil }
 
-        if let event = match(trimmed, bank: "HDFC", patterns: hdfc, now: now) { return event }
-        if let event = match(trimmed, bank: "SBI", patterns: sbi, now: now) { return event }
-        if let event = match(trimmed, bank: "ICICI", patterns: icici, now: now) { return event }
-        if let event = match(trimmed, bank: "Axis", patterns: axis, now: now) { return event }
+        if let event = IndianBankSMSGrammar.parse(trimmed, now: now) { return event }
 
         let draft = ExpenseParsingService.shared.parse(trimmed)
         guard let amount = draft.amount, amount > 0 else { return nil }
@@ -113,53 +110,6 @@ enum BankSMSParser {
         return otpWord && text.range(of: #"\b\d{4,8}\b"#, options: .regularExpression) != nil
     }
 
-    private static func match(_ text: String, bank: String, patterns: [String], now: Date) -> RawBankEvent? {
-        for pattern in patterns {
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
-            let range = NSRange(text.startIndex..., in: text)
-            guard let hit = regex.firstMatch(in: text, range: range) else { continue }
-            func group(_ index: Int) -> String? {
-                guard hit.numberOfRanges > index, let r = Range(hit.range(at: index), in: text) else { return nil }
-                return String(text[r])
-            }
-            guard let amountRaw = group(1), let amount = decimal(amountRaw) else { continue }
-            let direction: ImportDirection = (group(2) ?? text).lowercased().contains("credit") ? .credit : .debit
-            return RawBankEvent(
-                amount: amount,
-                direction: direction,
-                accountLast4: digits(group(3) ?? last4(in: text) ?? ""),
-                merchant: group(4) ?? utrMerchant(text),
-                externalRef: group(5) ?? utr(in: text),
-                occurredAt: now,
-                bank: bank,
-                source: .smsImport,
-                confidence: 0.95
-            )
-        }
-        return nil
-    }
-
-    private static let hdfc = [
-        #"Rs\.?\s*([0-9,]+(?:\.\d{1,2})?)\s+(debited|credited).*?(?:\*\*|xx)?(\d{4}).*?(?:to|from)\s+([A-Za-z0-9@.\- ]+?)\s+UTR\s+(\d{6,})"#
-    ]
-    private static let sbi = [
-        #"Rs\.?\s*([0-9,]+(?:\.\d{1,2})?)\s+(debited|credited).*?(?:XX|\*\*)(\d{4}).*?UPI/([^/]+)/UTR\s*(\d{6,})"#
-    ]
-    private static let icici = [
-        #"INR\s*([0-9,]+(?:\.\d{1,2})?)\s+(debited|credited).*?(?:XX|\*\*)(\d{4}).*?UPI/([^/]+)/UTR\s*(\d{6,})"#
-    ]
-    private static let axis = [
-        #"INR\s*([0-9,]+(?:\.\d{1,2})?)\s+(debited|credited).*?A/c\s+XX(\d{4}).*?UPI/([^/]+).*?Ref\s+(\d{6,})"#
-    ]
-
-    private static func decimal(_ raw: String) -> Decimal? {
-        Decimal(string: raw.replacingOccurrences(of: ",", with: ""))
-    }
-
-    private static func digits(_ raw: String) -> String {
-        String(raw.filter(\.isNumber).suffix(4))
-    }
-
     private static func last4(in text: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: #"(?:\*\*|XX|xx)(\d{4})"#) else { return nil }
         let range = NSRange(text.startIndex..., in: text)
@@ -174,8 +124,7 @@ enum BankSMSParser {
         return String(text[r])
     }
 
-    private static func utrMerchant(_ text: String) -> String? { nil }
-}
+    }
 
 @MainActor
 enum BankImportPipeline {
