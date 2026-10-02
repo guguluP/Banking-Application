@@ -1,6 +1,9 @@
 import SwiftUI
 import Combine
 import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct MainTabView: View {
     @EnvironmentObject var authenticationService: AuthenticationService
@@ -55,10 +58,14 @@ struct MainTabView: View {
                 .presentationDetents(PlatformUI.isMac ? [.large] : [.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in authenticationService.recordActivity() }
-        )
+        #if canImport(UIKit)
+        .overlay {
+            ActivityTouchRelay {
+                authenticationService.recordActivity()
+            }
+            .ignoresSafeArea()
+        }
+        #endif
         .onChange(of: authenticationService.isLocked) { _, locked in
             withAnimation(AppTheme.Animation.standard) {
                 showLockView = locked
@@ -255,6 +262,34 @@ enum AppTab: String, CaseIterable, Identifiable, Hashable {
         }
     }
 }
+
+#if canImport(UIKit)
+/// Sees every touch so the inactivity timer resets, and returns nil from
+/// hit testing so the navigation back button and the swipe-back gesture still receive the touch.
+private struct ActivityTouchRelay: UIViewRepresentable {
+    var onTouch: () -> Void
+
+    func makeUIView(context: Context) -> PassThroughView {
+        let view = PassThroughView()
+        view.onTouch = onTouch
+        view.backgroundColor = .clear
+        view.isAccessibilityElement = false
+        return view
+    }
+
+    func updateUIView(_ uiView: PassThroughView, context: Context) {
+        uiView.onTouch = onTouch
+    }
+
+    final class PassThroughView: UIView {
+        var onTouch: (() -> Void)?
+        override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+            if bounds.contains(point) { onTouch?() }
+            return nil
+        }
+    }
+}
+#endif
 
 // MARK: - Lock
 
