@@ -3,8 +3,8 @@ import Combine
 import SwiftData
 
 struct AccountOverviewView: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @EnvironmentObject var transactionViewModel: TransactionViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
+    @Environment(TransactionViewModel.self) var transactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var bannerStack = BannerStackManager.shared
@@ -501,7 +501,7 @@ struct AccountCardCompact: View {
 }
 
 struct IntelligenceBriefingCard: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
 
     var body: some View {
         if let headline = accountViewModel.briefingHeadline {
@@ -544,7 +544,7 @@ struct IntelligenceBriefingCard: View {
 /// week's spending. Hides itself entirely if the feature is unavailable or
 /// hasn't produced anything yet, rather than showing an empty or broken state.
 struct AIInsightCard: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
 
     var body: some View {
         if accountViewModel.isGeneratingInsight {
@@ -650,8 +650,8 @@ struct AccountOverviewView_Previews: PreviewProvider {
         let accountViewModel = AccountViewModel(modelContext: context, transactionViewModel: transactionViewModel)
         return NavigationStack {
             AccountOverviewView()
-                .environmentObject(accountViewModel)
-                .environmentObject(transactionViewModel)
+                .environment(accountViewModel)
+                .environment(transactionViewModel)
                 .environmentObject(AuthenticationService())
         }
         .modelContainer(container)

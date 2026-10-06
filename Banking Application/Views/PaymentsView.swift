@@ -3,7 +3,7 @@ import Combine
 import SwiftData
 
 struct PaymentsView: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @State private var selectedPaymentType: PaymentType = .upi
     @State private var searchText = ""
@@ -84,8 +84,8 @@ struct PaymentsView_Previews: PreviewProvider {
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         return NavigationStack {
             PaymentsView()
-                .environmentObject(avm)
-                .environmentObject(tvm)
+                .environment(avm)
+                .environment(tvm)
                 .environmentObject(AuthenticationService())
         }
         .modelContainer(container)

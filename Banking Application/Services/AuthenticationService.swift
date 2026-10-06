@@ -204,7 +204,7 @@ class AuthenticationService: ObservableObject {
     /// instant captured when the lockout started. Moving the wall clock does
     /// not clear it. A reboot (boot instant changed) restarts the stored
     /// cooldown instead of dropping it.
-    static func remainingLockout(keychain: KeychainService, nowUptime: TimeInterval = ProcessInfo.processInfo.systemUptime, nowWall: TimeInterval = Date().timeIntervalSince1970) -> Int {
+    static func remainingLockout(keychain: LockoutStore, nowUptime: TimeInterval = ProcessInfo.processInfo.systemUptime, nowWall: TimeInterval = Date().timeIntervalSince1970) -> Int {
         guard let deadlineRaw = keychain.getString(forKey: KeychainKey.lockoutUptimeDeadline),
               let deadline = TimeInterval(deadlineRaw),
               let bootRaw = keychain.getString(forKey: KeychainKey.lockoutBootAnchor),

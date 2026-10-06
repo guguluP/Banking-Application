@@ -203,6 +203,9 @@ enum TransactionService {
         if debugFailNextSave {
             debugFailNextSave = false
             rollback(legs, in: context)
+            // Persist the undo before the caller reads relationships. SwiftData
+            // keeps a deleted row in the inverse array until the context saves.
+            try? context.save()
             throw PaymentFailure.saveFailed
         }
 
@@ -210,6 +213,7 @@ enum TransactionService {
             try context.save()
         } catch {
             rollback(legs, in: context)
+            try? context.save()
             throw PaymentFailure.saveFailed
         }
 

@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 import SwiftData
 import SwiftUI
 
@@ -7,16 +6,17 @@ import SwiftUI
 /// real `Transaction`s (not a parallel store), so they debit/credit the
 /// chosen account the same way a payment would.
 @MainActor
-final class ExpenseTrackerViewModel: ObservableObject {
+@Observable
+final class ExpenseTrackerViewModel {
 
-    @Published private(set) var expenseEntries: [Transaction] = []
-    @Published private(set) var categories: [ExpenseCategory] = []
-    @Published private(set) var budgets: [Budget] = []
-    @Published var error: AppError?
+    private(set) var expenseEntries: [Transaction] = []
+    private(set) var categories: [ExpenseCategory] = []
+    private(set) var budgets: [Budget] = []
+    var error: AppError?
     /// True once the deferred initial `reload()` (see `init`) has run at
     /// least once. Lets `TrackView` avoid flashing its "no expenses yet"
     /// empty state for the one frame before that first load completes.
-    @Published private(set) var hasLoadedOnce = false
+    private(set) var hasLoadedOnce = false
 
     private let modelContext: ModelContext
     private let accountViewModel: AccountViewModel

@@ -3,7 +3,7 @@ import SwiftData
 
 struct LoanTrackerView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @Query(sort: \Loan.startDate, order: .reverse) private var allLoans: [Loan]
     @State private var showingApply = false
@@ -176,11 +176,11 @@ struct LoanCard: View {
 struct LoanDetailView: View {
     @Bindable var loan: Loan
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
     @State private var selectedAccount: Account?
     @State private var showingPrepaySheet = false
     @State private var prepayAmountText = ""
-    @StateObject private var viewModel = LoanViewModel()
+    @State private var viewModel = LoanViewModel()
     
     private var sourceAccount: Account? {
         accountViewModel.accounts.first { $0.id == loan.disbursementAccountId } ?? selectedAccount
@@ -280,7 +280,7 @@ struct PrepayLoanView: View {
     let sourceAccount: Account?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var viewModel = LoanViewModel()
+    @State private var viewModel = LoanViewModel()
     @State private var amountText = ""
     
     private var amount: Decimal? {
@@ -357,8 +357,8 @@ struct PrepayLoanView: View {
 struct ApplyForLoanView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @StateObject private var viewModel = LoanViewModel()
+    @Environment(AccountViewModel.self) var accountViewModel
+    @State private var viewModel = LoanViewModel()
     @State private var selectedAccount: Account?
     
     var body: some View {

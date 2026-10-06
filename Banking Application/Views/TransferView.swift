@@ -5,12 +5,12 @@ import SwiftData
 struct TransferView: View {
     /// When true, skip the inner `NavigationStack` (Payments tab already has one).
     var isEmbedded: Bool = false
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @EnvironmentObject var transactionViewModel: TransactionViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
+    @Environment(TransactionViewModel.self) var transactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Beneficiary.nickname) private var allBeneficiaries: [Beneficiary]
-    @StateObject private var viewModel = TransferViewModel()
+    @State private var viewModel = TransferViewModel()
     @State private var selectedFromAccount: Account?
     @State private var description: String = ""
     @State private var showingConfirmation = false
@@ -418,8 +418,8 @@ struct TransferView_Previews: PreviewProvider {
         let tvm = TransactionViewModel(modelContext: context)
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         return TransferView()
-            .environmentObject(avm)
-            .environmentObject(tvm)
+            .environment(avm)
+            .environment(tvm)
             .environmentObject(AuthenticationService())
             .modelContainer(container)
     }

@@ -1,18 +1,18 @@
 import Foundation
-import Combine
 import SwiftData
 
 @MainActor
-class TransactionViewModel: ObservableObject {
-    @Published private(set) var transactions: [Transaction] = []
-    @Published var isLoading: Bool = false
-    @Published var error: AppError?
+@Observable
+class TransactionViewModel {
+    private(set) var transactions: [Transaction] = []
+    var isLoading: Bool = false
+    var error: AppError?
 
     private let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
-        // Defer the initial load: mutating @Published state synchronously
+        // Defer the initial load: mutating state synchronously
         // inside init can run during a SwiftUI view update (e.g. when this
         // object is constructed inside another init that's itself building
         // a @StateObject), which triggers "Publishing changes from within

@@ -7,8 +7,8 @@ import UIKit
 
 struct MainTabView: View {
     @EnvironmentObject var authenticationService: AuthenticationService
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @EnvironmentObject var transactionViewModel: TransactionViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
+    @Environment(TransactionViewModel.self) var transactionViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -53,8 +53,8 @@ struct MainTabView: View {
         .sheet(isPresented: $showChatbot) {
             ChatbotView()
                 .environmentObject(authenticationService)
-                .environmentObject(accountViewModel)
-                .environmentObject(transactionViewModel)
+                .environment(accountViewModel)
+                .environment(transactionViewModel)
                 .presentationDetents(PlatformUI.isMac ? [.large] : [.medium, .large])
                 .presentationDragIndicator(.visible)
         }

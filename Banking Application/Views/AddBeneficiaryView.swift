@@ -5,7 +5,7 @@ struct AddBeneficiaryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var authenticationService: AuthenticationService
-    @StateObject private var viewModel = BeneficiaryViewModel()
+    @State private var viewModel = BeneficiaryViewModel()
     @FocusState private var focusedField: Field?
     
     var onSaved: (() -> Void)? = nil

@@ -4,7 +4,7 @@ import SwiftData
 import SwiftData
 
 struct AddCardView: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @Environment(\.dismiss) private var dismiss
 
@@ -263,7 +263,7 @@ struct AddCardView_Previews: PreviewProvider {
         let tvm = TransactionViewModel(modelContext: context)
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         return AddCardView()
-            .environmentObject(avm)
+            .environment(avm)
             .environmentObject(AuthenticationService())
             .modelContainer(container)
             .animatedAppBackground()

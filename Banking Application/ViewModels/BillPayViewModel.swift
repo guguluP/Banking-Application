@@ -1,14 +1,14 @@
 import Foundation
-import Combine
 import SwiftData
 
 @MainActor
-class BillPayViewModel: ObservableObject {
-    @Published var billerAccount = ""
-    @Published var amount = ""
-    @Published var error: AppError?
-    @Published var isProcessing = false
-    @Published var searchText = ""
+@Observable
+class BillPayViewModel {
+    var billerAccount = ""
+    var amount = ""
+    var error: AppError?
+    var isProcessing = false
+    var searchText = ""
 
     // MARK: - Validation Properties
     var isBillerValid: Bool {
@@ -57,7 +57,7 @@ class BillPayViewModel: ObservableObject {
 
     /// Set right before a successful `payBill` returns, so the view can show
     /// "You earned ₹X cashback" + fire confetti without recomputing anything.
-    @Published private(set) var lastCashbackEarned: Decimal?
+    private(set) var lastCashbackEarned: Decimal?
 
     private static let cashbackRate: Decimal = 0.01 // 1% — purely a delight feature, not a real loyalty program
 

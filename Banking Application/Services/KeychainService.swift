@@ -12,6 +12,26 @@ import LocalAuthentication
 ///   - are encrypted at rest using the device's Secure Enclave-backed keys,
 ///   - are only readable while the device is unlocked,
 ///   - never sync to iCloud Keychain or get included in device backups.
+/// Reads and writes the lockout clock without requiring the real Keychain.
+/// Tests use `MemoryLockoutStore` because a CI simulator often rejects
+/// `SecItemAdd` for an unsigned host.
+protocol LockoutStore: AnyObject {
+    func getString(forKey key: String) -> String?
+    @discardableResult func set(_ string: String, forKey key: String) -> Bool
+}
+
+final class MemoryLockoutStore: LockoutStore {
+    private var values: [String: String] = [:]
+
+    func getString(forKey key: String) -> String? { values[key] }
+
+    @discardableResult
+    func set(_ string: String, forKey key: String) -> Bool {
+        values[key] = string
+        return true
+    }
+}
+
 final class KeychainService {
 
     static let shared = KeychainService()
@@ -149,6 +169,8 @@ final class KeychainService {
 }
 
 // MARK: - Well-known keys
+
+extension KeychainService: LockoutStore {}
 
 enum KeychainKey {
     static let passcodeHash = "passcodeHash"

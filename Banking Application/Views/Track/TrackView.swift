@@ -7,16 +7,16 @@ import SwiftData
 /// the chosen account exactly like a payment or transfer would; this view
 /// is the home base for browsing, adding, and understanding that spending.
 struct TrackView: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @EnvironmentObject var transactionViewModel: TransactionViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
+    @Environment(TransactionViewModel.self) var transactionViewModel
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var tracker: ExpenseTrackerViewModel
+    @State private var tracker: ExpenseTrackerViewModel
 
     @State private var showingQuickAdd = false
     @State private var showingPrivacy = false
 
     init(accountViewModel: AccountViewModel, transactionViewModel: TransactionViewModel, modelContext: ModelContext) {
-        _tracker = StateObject(wrappedValue: ExpenseTrackerViewModel(
+        _tracker = State(initialValue: ExpenseTrackerViewModel(
             modelContext: modelContext,
             accountViewModel: accountViewModel,
             transactionViewModel: transactionViewModel
@@ -56,17 +56,17 @@ struct TrackView: View {
             }
             .sheet(isPresented: $showingQuickAdd) {
                 QuickAddExpenseView()
-                    .environmentObject(accountViewModel)
-                    .environmentObject(tracker)
+                    .environment(accountViewModel)
+                    .environment(tracker)
             }
             .sheet(isPresented: $showingPrivacy) {
                 ExpenseTrackerPrivacyView()
-                    .environmentObject(tracker)
+                    .environment(tracker)
             }
         }
         // Scoped to the NavigationStack itself -- see AccountOverviewView for why.
         .transparentChrome()
-        .environmentObject(tracker)
+        .environment(tracker)
     }
 
     private var dashboard: some View {
@@ -83,7 +83,7 @@ struct TrackView: View {
 
                 NavigationLink {
                     ExpenseAnalyticsDashboardView(tracker: tracker)
-                        .environmentObject(tracker)
+                        .environment(tracker)
                 } label: {
                     monthSummaryCard
                 }
@@ -92,13 +92,13 @@ struct TrackView: View {
 
                 VStack(spacing: AppSpacing.md) {
                     NavigationLink {
-                        ExpenseLedgerView().environmentObject(tracker)
+                        ExpenseLedgerView().environment(tracker)
                     } label: {
                         trackMenuRow(icon: "list.bullet.rectangle", title: "Ledger", subtitle: "\(tracker.expenseEntries.count) expenses logged")
                     }
 
                     NavigationLink {
-                        BudgetsView().environmentObject(tracker)
+                        BudgetsView().environment(tracker)
                     } label: {
                         trackMenuRow(icon: "chart.pie.fill", title: "Budgets", subtitle: "\(tracker.budgets.count) active budgets")
                     }

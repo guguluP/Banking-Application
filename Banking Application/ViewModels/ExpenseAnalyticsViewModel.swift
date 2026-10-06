@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 
 struct CategoryTotal: Identifiable {
 
@@ -18,51 +17,35 @@ struct CategoryTotal: Identifiable {
 /// No separate data store is used because this view model only performs
 /// aggregation over transactions that already exist.
 @MainActor
-final class ExpenseAnalyticsViewModel: ObservableObject {
+@Observable
+final class ExpenseAnalyticsViewModel {
 
     // MARK: - Published Properties
 
-    @Published private(set) var currentMonthTotal: Decimal = 0
+    private(set) var currentMonthTotal: Decimal = 0
 
-    @Published private(set) var previousMonthTotal: Decimal = 0
+    private(set) var previousMonthTotal: Decimal = 0
 
-    @Published private(set) var percentChange: Double?
+    private(set) var percentChange: Double?
 
-    @Published private(set) var topCategories: [CategoryTotal] = []
-
-    // MARK: - Private Properties
-
-    private var cancellable: AnyCancellable?
+    private(set) var topCategories: [CategoryTotal] = []
 
     // MARK: - Initialization
 
     init(tracker: ExpenseTrackerViewModel) {
+        recompute(entries: tracker.filteredEntries(searchText: ""))
+        observe(tracker)
+    }
 
-        // Calculate the initial analytics.
-        recompute(
-            entries: tracker.filteredEntries(searchText: "")
-        )
-
-        // Observe changes from the tracker.
-        cancellable = tracker.objectWillChange.sink {
-            [weak self, weak tracker] _ in
-
-            // objectWillChange is emitted before the underlying data
-            // has necessarily finished updating.
-            //
-            // Hop onto the Main Actor and the next run-loop turn so
-            // that we read the updated transaction data.
+    private func observe(_ tracker: ExpenseTrackerViewModel) {
+        withObservationTracking {
+            _ = tracker.expenseEntries
+        } onChange: { [weak self, weak tracker] in
             Task { @MainActor [weak self, weak tracker] in
-
-                guard let self, let tracker else {
-                    return
-                }
-
+                guard let self, let tracker else { return }
                 await Task.yield()
-
-                self.recompute(
-                    entries: tracker.filteredEntries(searchText: "")
-                )
+                self.recompute(entries: tracker.filteredEntries(searchText: ""))
+                self.observe(tracker)
             }
         }
     }

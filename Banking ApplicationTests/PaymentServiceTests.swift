@@ -76,10 +76,12 @@ final class PaymentServiceTests: XCTestCase {
             applyRoundUp: true,
             in: context
         ))
+        context.processPendingChanges()
         XCTAssertEqual(checking.balance, 1000)
         XCTAssertEqual(checking.availableBalance, 1000)
         XCTAssertEqual(savings.balance, 0)
-        XCTAssertEqual(checking.transactions?.isEmpty ?? true, true)
+        let leftover = (checking.transactions ?? []).filter { !$0.isDeleted }
+        XCTAssertTrue(leftover.isEmpty)
         AppSettings.shared.isRoundUpEnabled = false
     }
 
@@ -117,7 +119,7 @@ final class PaymentServiceTests: XCTestCase {
     }
 
     func testLockoutIgnoresWallClockJump() {
-        let keychain = KeychainService.shared
+        let keychain = MemoryLockoutStore()
         let uptime: TimeInterval = 1_000
         keychain.set("1030", forKey: KeychainKey.lockoutUptimeDeadline)
         keychain.set("500000", forKey: KeychainKey.lockoutBootAnchor)
@@ -126,8 +128,5 @@ final class PaymentServiceTests: XCTestCase {
         XCTAssertEqual(remaining, 30)
         let jumped = AuthenticationService.remainingLockout(keychain: keychain, nowUptime: uptime, nowWall: 9_000_000)
         XCTAssertEqual(jumped, 30)
-        keychain.delete(forKey: KeychainKey.lockoutUptimeDeadline)
-        keychain.delete(forKey: KeychainKey.lockoutBootAnchor)
-        keychain.delete(forKey: KeychainKey.lockoutDuration)
     }
 }

@@ -9,7 +9,8 @@ final class CryptoServiceTests: XCTestCase {
         let a = CryptoService.hash(passcode: "1234", salt: salt)
         let b = CryptoService.hash(passcode: "1234", salt: salt)
         XCTAssertEqual(a, b)
-        XCTAssertEqual(a.count, 64) // SHA-256 hex
+        XCTAssertTrue(a.hasPrefix("pbkdf2$\(CryptoService.pbkdfRounds)$"))
+        XCTAssertEqual(a.split(separator: "$").last?.count, 64)
     }
 
     func testDifferentSaltsProduceDifferentHashes() {

@@ -1,9 +1,9 @@
 import Foundation
-import Combine
 import SwiftData
 
 @MainActor
-class BeneficiaryViewModel: ObservableObject {
+@Observable
+class BeneficiaryViewModel {
     init(
         nickname: String = "",
         accountNumber: String = "",
@@ -24,19 +24,19 @@ class BeneficiaryViewModel: ObservableObject {
         self.error = error
     }
     
-    @Published var nickname = ""
-    @Published var accountNumber = ""
-    @Published var confirmAccountNumber = ""
-    @Published var ifscCode = ""
-    @Published var resolvedBranch: IFSCLookupService.BranchDetails?
-    @Published var isLookingUp = false
-    @Published var lookupError: String?
-    @Published var error: AppError?
+    var nickname = ""
+    var accountNumber = ""
+    var confirmAccountNumber = ""
+    var ifscCode = ""
+    var resolvedBranch: IFSCLookupService.BranchDetails?
+    var isLookingUp = false
+    var lookupError: String?
+    var error: AppError?
     /// Whether this payee should be marked favorite on save. Previously
     /// `Beneficiary.isFavorite` existed on the model with a working
     /// `toggleFavorite` method but no UI ever set it — this is the first
     /// real entry point for it.
-    @Published var isFavorite = false
+    var isFavorite = false
 
     // MARK: - Validation
 

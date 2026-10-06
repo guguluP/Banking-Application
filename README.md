@@ -64,14 +64,14 @@ Two screen recordings walking through the app's flows are included in [`docs/vid
 | **AI Assistant** | On-device chatbot for account insights and support (Apple Intelligence / Foundation Models where available, with graceful fallback) |
 | **Siri & Spotlight** | App Intents for quick actions and Spotlight search integration |
 | **Settings** | Appearance, language & region, notifications, privacy & security — all backed by persisted `AppSettings` |
-| **Sync** | Optional private CloudKit sync across a user's own devices — no shared or public data |
+| **Sync** | On-device SwiftData only. CloudKit, Push, App Groups, and the Data Protection entitlement are not in the signed app, because a free Personal Team cannot provision them |
 
 ## Tech stack
 
 - **SwiftUI** — declarative UI across all screens
-- **SwiftData** — local persistence for accounts, transactions, cards, beneficiaries, billers, FDs, and loans
-- **CloudKit (private database, optional)** — per-user sync only; no backend server involved
+- **SwiftData** — on-device persistence for accounts, transactions, cards, beneficiaries, billers, FDs, and loans (`cloudKitDatabase: .none`)
 - **Keychain Services** — passcode hash, salt, and session token storage
+- **PrivacyInfo.xcprivacy** — App Store privacy manifest. The app does not track. UserDefaults is declared for app preferences (`CA92.1`)
 - **App Intents** — Siri shortcuts and Spotlight indexing
 - **Foundation Models / Apple Intelligence** — on-device AI assistant, with fallback for unsupported devices/OS versions
 
@@ -102,7 +102,7 @@ Banking Application/
 
 - **Xcode 26** or later
 - **iOS 26+** target device or simulator (the project's `IPHONEOS_DEPLOYMENT_TARGET` is 26.0; earlier-OS Material-style fallback code exists in a few places like `LiquidGlass.swift` and `AIChatbotService` but is currently unreachable at this deployment target — lower it only after confirming those paths still build and behave correctly)
-- An Apple Developer account **only if** you plan to enable CloudKit sync
+- A free Apple Personal Team can run the app. Paid capabilities (Push, iCloud, App Groups, the Data Protection entitlement) are not enabled
 
 ## Getting started
 
@@ -114,27 +114,31 @@ Banking Application/
 
 No environment variables, API keys, or backend setup are required to run the app locally.
 
-## CloudKit setup (optional)
+## Signing on a free team
 
-CloudKit sync is **off by default in practice** unless you configure your own container — the bundled entitlements reference a placeholder container ID and will not sync until you do the following:
+The entitlements files are empty. A free Personal Team cannot provision these capabilities, so they are not in the app:
 
-1. In Xcode, select the app target → **Signing & Capabilities**.
-2. Under the **iCloud** capability, replace the placeholder container (`iCloud.com.banksecure.app`) with a container scoped to your own Apple Developer team.
-3. Ensure **CloudKit** is checked under iCloud services.
-4. Build and run signed in with a real iCloud account (a simulator without an iCloud account will fall back to local-only storage automatically rather than crashing).
+- Push Notifications (`aps-environment`)
+- iCloud / CloudKit, including the old `iCloud.com.banksecure.app` container
+- App Groups (`group.com.piyushpatnaik.Banking-Application`)
+- The Data Protection entitlement (`com.apple.developer.default-data-protection`)
 
-Only the signed-in user's own private CloudKit database is used — there is no shared or public database, and no other user's data is ever accessible.
+SwiftData stays on device. File protection is still applied with `FileManager.setAttributes` where the store is written, which does not need that entitlement. After pulling these changes, use Product → Clean Build Folder so Xcode regenerates the provisioning profile.
+
+The Messages filter (`BankSMSFilter`) records a bank SMS only after you turn it on once in Settings → Messages → Unknown & Spam → BankSecure. Without an App Group, that extension and the app do not share an inbox, so automatic import from the filter waits on a paid Developer Program membership. The Shortcut intent `ImportBankSMSIntent` is still in the app.
 
 ## Security model
 
 BankSecure follows realistic mobile banking security patterns, scoped appropriately for a demo:
 
-- **Passcode** — 4-digit passcode, salted SHA-256 in the Keychain (`WhenUnlockedThisDeviceOnly`). SHA-256 is not a stretching KDF; brute-force resistance comes from exponential lockout in `AuthenticationService`, not from the hash.
-- **Biometrics** — optional Face ID / Touch ID, user-toggleable
-- **Session handling** — background lock and inactivity timeout, governed by the "App Passcode Lock" setting
-- **Lockout** — failed passcode attempts trigger a temporary lockout
-- **Card data** — only the last four digits of a card number are ever stored; the CVV field is marked `@Transient` and is never persisted
-- **Minimal network surface** — no general-purpose HTTP client and no backend; the only outbound call is `IFSCLookupService`'s IFSC-code lookup against a public third-party API (see Tech stack above). Everything else, including banking data, never leaves the device except via the user's own private CloudKit sync.
+- **Passcode** — 4-digit passcode, stored as PBKDF2-HMAC-SHA256 (`pbkdf2$120000$` plus 32 bytes) with a random salt in the Keychain (`WhenUnlockedThisDeviceOnly`). Older salted SHA-256 hashes still verify and are replaced with PBKDF2 on the next successful check. Failed attempts use an exponential lockout measured with `ProcessInfo.systemUptime` and a stored boot anchor, so changing the wall clock does not clear it.
+- **Step-up** — paying asks for the passcode or biometrics again and does not treat that success as a fresh login.
+- **Decoy passcode** — a second code opens an empty home and blocks money movement.
+- **Biometrics** — optional Face ID / Touch ID, user-toggleable, with the app passcode as the fallback.
+- **Session handling** — background lock and inactivity timeout, governed by the "App Passcode Lock" setting.
+- **Card data** — only the last four digits of a card number are ever stored; the CVV field is marked `@Transient` and is never persisted.
+- **Imports** — bank SMS and the sandbox Account Aggregator share one pipeline (parse, dedupe, review under confidence 0.7, then post). The parser keeps fields and a hash, not the raw SMS. OTP-style texts are dropped.
+- **Network** — `IFSCLookupService` sends only the IFSC code you type to Razorpay's public branch API. The Account Aggregator screen talks to `http://127.0.0.1:8787` when `aggregator-backend/server.js` is running. That server is a local stand-in: one demo debit, deleted after the first fetch. It is not Setu, Finvu, or Anumati.
 
 This is a portfolio/architecture demonstration, **not** a PCI-DSS or SOC 2 certified system, and should not be used to store real card numbers, CVVs, or banking credentials.
 

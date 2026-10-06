@@ -8,8 +8,8 @@ import UIKit
 @main
 struct BankApp: App {
     @StateObject private var authenticationService = AuthenticationService()
-    @StateObject private var transactionViewModel: TransactionViewModel
-    @StateObject private var accountViewModel: AccountViewModel
+    @State private var transactionViewModel: TransactionViewModel
+    @State private var accountViewModel: AccountViewModel
     @ObservedObject private var settings = AppSettings.shared
 
     private let container: ModelContainer
@@ -21,8 +21,8 @@ struct BankApp: App {
         let context = container.mainContext
         let tvm = TransactionViewModel(modelContext: context)
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
-        _transactionViewModel = StateObject(wrappedValue: tvm)
-        _accountViewModel = StateObject(wrappedValue: avm)
+        _transactionViewModel = State(initialValue: tvm)
+        _accountViewModel = State(initialValue: avm)
 
         Self.configureChrome()
     }
@@ -46,8 +46,8 @@ struct BankApp: App {
                 } else if authenticationService.isAuthenticated {
                     MainTabView()
                         .environmentObject(authenticationService)
-                        .environmentObject(accountViewModel)
-                        .environmentObject(transactionViewModel)
+                        .environment(accountViewModel)
+                        .environment(transactionViewModel)
                 } else {
                     LoginView()
                         .environmentObject(authenticationService)

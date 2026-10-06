@@ -6,7 +6,7 @@ import SwiftUI
 /// history) and what happens to it, which is a different promise than the
 /// banking app's account-security settings.
 struct ExpenseTrackerPrivacyView: View {
-    @EnvironmentObject var tracker: ExpenseTrackerViewModel
+    @Environment(ExpenseTrackerViewModel.self) var tracker
     @Environment(\.dismiss) private var dismiss
     @State private var showingWipeConfirmation = false
     @State private var exportURL: URL?

@@ -20,15 +20,15 @@ struct BillPayView: View {
 /// tab. Previously these were two separately maintained near-duplicates —
 /// this is the single source of truth now.
 struct BillPayContent: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @EnvironmentObject var transactionViewModel: TransactionViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
+    @Environment(TransactionViewModel.self) var transactionViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Biller.name) private var billers: [Biller]
     @State private var selectedBiller: Biller?
     @State private var selectedAccount: Account?
     @State private var amount = ""
-    @StateObject private var viewModel = BillPayViewModel()
+    @State private var viewModel = BillPayViewModel()
     @State private var showingConfirmation = false
     @State private var showingBiometric = false
     @State private var showingConfetti = false
@@ -227,8 +227,8 @@ struct BillPayView_Previews: PreviewProvider {
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         return NavigationStack {
             BillPayView()
-                .environmentObject(avm)
-                .environmentObject(tvm)
+                .environment(avm)
+                .environment(tvm)
                 .environmentObject(AuthenticationService())
         }
         .modelContainer(container)

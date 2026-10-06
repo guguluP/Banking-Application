@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct ExpenseAnalyticsDashboardView: View {
-    @EnvironmentObject var tracker: ExpenseTrackerViewModel
-    @StateObject private var analytics: ExpenseAnalyticsViewModel
+    @Environment(ExpenseTrackerViewModel.self) var tracker
+    @State private var analytics: ExpenseAnalyticsViewModel
 
     init(tracker: ExpenseTrackerViewModel) {
-        _analytics = StateObject(wrappedValue: ExpenseAnalyticsViewModel(tracker: tracker))
+        _analytics = State(initialValue: ExpenseAnalyticsViewModel(tracker: tracker))
     }
 
     var body: some View {

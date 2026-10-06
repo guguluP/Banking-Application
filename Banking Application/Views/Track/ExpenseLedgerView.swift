@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ExpenseLedgerView: View {
-    @EnvironmentObject var tracker: ExpenseTrackerViewModel
+    @Environment(ExpenseTrackerViewModel.self) var tracker
     @State private var searchText = ""
     @State private var selectedCategoryId: String?
     @State private var editingTransaction: Transaction?

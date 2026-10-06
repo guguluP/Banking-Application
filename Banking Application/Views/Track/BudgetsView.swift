@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct BudgetsView: View {
-    @EnvironmentObject var tracker: ExpenseTrackerViewModel
+    @Environment(ExpenseTrackerViewModel.self) var tracker
     @State private var editingCategory: ExpenseCategory?
     @State private var showingNewCategory = false
 
@@ -44,7 +44,7 @@ struct BudgetsView: View {
 }
 
 private struct BudgetRow: View {
-    @EnvironmentObject var tracker: ExpenseTrackerViewModel
+    @Environment(ExpenseTrackerViewModel.self) var tracker
     let category: ExpenseCategory
 
     private var budget: Budget? { tracker.budget(for: category.id) }
@@ -117,7 +117,7 @@ private struct BudgetRow: View {
 }
 
 private struct BudgetEditorView: View {
-    @EnvironmentObject var tracker: ExpenseTrackerViewModel
+    @Environment(ExpenseTrackerViewModel.self) var tracker
     @Environment(\.dismiss) private var dismiss
     let category: ExpenseCategory
     @State private var limitText: String = ""
@@ -178,7 +178,7 @@ private struct BudgetEditorView: View {
 }
 
 private struct NewCategoryView: View {
-    @EnvironmentObject var tracker: ExpenseTrackerViewModel
+    @Environment(ExpenseTrackerViewModel.self) var tracker
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var selectedIcon = "tag.fill"

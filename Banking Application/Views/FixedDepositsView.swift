@@ -3,7 +3,7 @@ import SwiftData
 
 struct FixedDepositsView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @Query(sort: \FixedDeposit.startDate, order: .reverse) private var allDeposits: [FixedDeposit]
     @State private var showingOpenDeposit = false
@@ -166,8 +166,8 @@ struct FixedDepositCard: View {
 struct OpenFixedDepositView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @StateObject private var viewModel = FixedDepositViewModel()
+    @Environment(AccountViewModel.self) var accountViewModel
+    @State private var viewModel = FixedDepositViewModel()
     @State private var selectedSourceAccount: Account?
     @FocusState private var isPrincipalFocused: Bool
     

@@ -3,7 +3,7 @@ import Combine
 import SwiftData
 
 struct CardManagementView: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
     @Query private var cards: [Card]
     @State private var showingAddCard = false
 
@@ -72,7 +72,7 @@ struct CardManagementView: View {
             .accessibilityElement(children: .contain)
             .sheet(isPresented: $showingAddCard) {
                 AddCardView()
-                    .environmentObject(accountViewModel)
+                    .environment(accountViewModel)
             }
         }
         // Scoped to the NavigationStack itself -- see AccountOverviewView for why.
@@ -184,7 +184,7 @@ struct CardManagementView_Previews: PreviewProvider {
         let tvm = TransactionViewModel(modelContext: context)
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         return CardManagementView()
-            .environmentObject(avm)
+            .environment(avm)
             .modelContainer(container)
             .animatedAppBackground()
     }

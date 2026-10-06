@@ -4,7 +4,7 @@ import CommonCrypto
 import Security
 
 /// Handles one-way hashing for the app passcode. The passcode itself is never
-/// stored anywhere — only a salted SHA-256 digest is persisted (in the Keychain,
+/// stored anywhere — only a PBKDF2-HMAC-SHA256 digest is persisted (in the Keychain,
 /// via `AuthenticationService`).
 ///
 nonisolated enum CryptoService {

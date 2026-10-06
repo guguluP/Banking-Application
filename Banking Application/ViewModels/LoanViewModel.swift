@@ -1,14 +1,14 @@
 import Foundation
 import SwiftData
-import Combine
 
 @MainActor
-class LoanViewModel: ObservableObject {
-    @Published var nickname = ""
-    @Published var loanType: LoanType = .personal
-    @Published var principalText = ""
-    @Published var tenureMonths: Int = 24
-    @Published var error: AppError?
+@Observable
+class LoanViewModel {
+    var nickname = ""
+    var loanType: LoanType = .personal
+    var principalText = ""
+    var tenureMonths: Int = 24
+    var error: AppError?
 
     var principal: Decimal? {
         let cleaned = principalText.replacingOccurrences(of: ",", with: "")

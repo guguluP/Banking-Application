@@ -9,11 +9,11 @@ import AVFoundation
 
 struct ChatbotView: View {
     @EnvironmentObject var authenticationService: AuthenticationService
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @EnvironmentObject var transactionViewModel: TransactionViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
+    @Environment(TransactionViewModel.self) var transactionViewModel
     @Query private var budgets: [Budget]
     @Query private var loans: [Loan]
-    @StateObject private var chatbot = AIChatbotService.shared
+    @State private var chatbot = AIChatbotService.shared
 
     @State private var messages: [ChatMessage] = []
     @State private var draft: String = ""
@@ -291,7 +291,7 @@ struct ChatbotView_Previews: PreviewProvider {
         let accountViewModel = AccountViewModel(modelContext: context, transactionViewModel: transactionViewModel)
         return ChatbotView()
             .environmentObject(AuthenticationService())
-            .environmentObject(accountViewModel)
-            .environmentObject(transactionViewModel)
+            .environment(accountViewModel)
+            .environment(transactionViewModel)
     }
 }

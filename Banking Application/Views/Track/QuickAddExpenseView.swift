@@ -5,7 +5,7 @@ import SwiftUI
 /// below it (item 2) for when the user would rather just fill out fields
 /// directly. Both paths converge on the same `ExpenseConfirmationView`.
 struct QuickAddExpenseView: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var nlText: String = ""

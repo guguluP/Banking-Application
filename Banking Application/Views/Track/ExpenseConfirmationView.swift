@@ -6,8 +6,8 @@ import SwiftData
 /// Nothing from NL parsing or OCR is ever saved without passing through
 /// this editable confirmation step first.
 struct ExpenseConfirmationView: View {
-    @EnvironmentObject var accountViewModel: AccountViewModel
-    @EnvironmentObject var tracker: ExpenseTrackerViewModel
+    @Environment(AccountViewModel.self) var accountViewModel
+    @Environment(ExpenseTrackerViewModel.self) var tracker
     @Environment(\.dismiss) private var dismiss
 
     /// `nil` when creating a new entry; set when editing an existing one

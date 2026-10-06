@@ -1,14 +1,15 @@
 import Foundation
-import Combine
 import SwiftData
 
-@MainActor class TransferViewModel: ObservableObject {
-    @Published var recipientAccount = ""
-    @Published var amount = ""
-    @Published var description = ""
-    @Published var error: AppError?
-    @Published var isProcessing = false
-    @Published var searchText = ""
+@MainActor
+@Observable
+class TransferViewModel {
+    var recipientAccount = ""
+    var amount = ""
+    var description = ""
+    var error: AppError?
+    var isProcessing = false
+    var searchText = ""
 
     private static let maxTransferAmount: Decimal = 10_000
 

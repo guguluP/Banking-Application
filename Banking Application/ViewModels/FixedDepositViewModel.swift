@@ -1,15 +1,15 @@
 import Foundation
 import SwiftData
-import Combine
 
 @MainActor
-class FixedDepositViewModel: ObservableObject {
+@Observable
+class FixedDepositViewModel {
     
-    @Published var nickname = ""
-    @Published var principalText = ""
-    @Published var tenureMonths: Int = 12
-    @Published var isSeniorCitizen = false
-    @Published var error: AppError?
+    var nickname = ""
+    var principalText = ""
+    var tenureMonths: Int = 12
+    var isSeniorCitizen = false
+    var error: AppError?
 
     var principal: Decimal? {
         let cleaned = principalText.replacingOccurrences(of: ",", with: "")

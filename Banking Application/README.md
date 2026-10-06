@@ -6,7 +6,8 @@ Educational iOS banking client built with **SwiftUI**, **SwiftData**, and option
 
 - A full-featured **demo** of mobile banking UX: accounts, transfers, UPI-style pay, bill pay, cards, FDs, loans, map locator, profile, and an on-device assistant.
 - Data lives **on device** (SwiftData). Optional private CloudKit sync for the same iCloud user.
-- Passcode is hashed (SHA-256 + salt) in the **Keychain**; biometrics and inactivity lock are supported.
+- Passcode is stored as PBKDF2-HMAC-SHA256 (older SHA-256 hashes still verify and are upgraded) in the **Keychain**; biometrics and inactivity lock are supported.
+- Data stays on device. Push, iCloud, App Groups, and the Data Protection entitlement are omitted so a free Personal Team can sign the app.
 - UI shows a persistent **Demo mode** banner so users never confuse sample balances with real funds.
 
 ## What this app is not
@@ -19,7 +20,7 @@ Educational iOS banking client built with **SwiftUI**, **SwiftData**, and option
 
 - Xcode 26+ recommended
 - iOS 26+ (matches the project's actual `IPHONEOS_DEPLOYMENT_TARGET`; some Material-style fallback code for earlier OS versions exists but is currently unreachable and unverified at this target)
-- Apple Developer account if enabling CloudKit (`iCloud` capability + container)
+- A free Personal Team is enough. CloudKit is not enabled (`cloudKitDatabase: .none`)
 
 ## Project layout
 
@@ -47,7 +48,7 @@ Unit tests live in the sibling folder `Banking ApplicationTests/` (outside the a
 
 ## Security notes (demo)
 
-- Passcode hash + salt + session token: Keychain, `WhenUnlockedThisDeviceOnly`. Salted SHA-256 is not a stretching KDF; the 4-digit PIN is protected by exponential lockout, not hash cost.
+- Passcode hash + salt + session token: Keychain, `WhenUnlockedThisDeviceOnly`. New hashes are PBKDF2-HMAC-SHA256 with 120,000 rounds (`pbkdf2$120000$…`). A stored SHA-256 digest from an older build still matches and is rewritten as PBKDF2 after a correct passcode. Lockout uses uptime plus a boot anchor.
 - CVV: `@Transient` only
 - Card number field: last four digits only
 - Preferences (biometrics on/off, notification toggles, hide balances): `UserDefaults` via `AppSettings`
@@ -57,7 +58,7 @@ Unit tests live in the sibling folder `Banking ApplicationTests/` (outside the a
 1. Open `Banking Application.xcodeproj` in Xcode.
 2. Select a simulator or device.
 3. Build & run. First launch: onboarding → create passcode → demo data is seeded automatically.
-4. Optional: enable iCloud → CloudKit and set a real container ID in Signing & Capabilities.
+4. Signing uses empty entitlements. Do not add Push, iCloud, or App Groups on a free Personal Team; the profile will fail to install. `PrivacyInfo.xcprivacy` is the App Store privacy manifest (no tracking; UserDefaults reason `CA92.1`).
 
 ## Tests
 

@@ -1,27 +1,27 @@
 import Foundation
-import Combine
 import SwiftData
 import SwiftUI
 
 @MainActor
-class AccountViewModel: ObservableObject {
-    @Published private(set) var accounts: [Account] = []
-    @Published private(set) var upiTransactions: [UPITransaction] = []
-    @Published var weeklySpending: [SpendingDataPoint] = []
-    @Published var categoryBreakdown: [CategorySpending] = []
-    @Published var isLoading: Bool = false
-    @Published var error: AppError?
+@Observable
+class AccountViewModel {
+    private(set) var accounts: [Account] = []
+    private(set) var upiTransactions: [UPITransaction] = []
+    var weeklySpending: [SpendingDataPoint] = []
+    var categoryBreakdown: [CategorySpending] = []
+    var isLoading: Bool = false
+    var error: AppError?
 
     /// Natural-language spending summary generated on-device by Apple
     /// Intelligence (Foundation Models). `nil` until `refreshAIInsight()` has
     /// completed, or if the feature is unavailable on this device/OS.
-    @Published var aiInsight: String?
-    @Published var isGeneratingInsight: Bool = false
-    @Published var briefingHeadline: String?
-    @Published var healthScore: Int = 0
-    @Published var cashFlowNote: String?
-    @Published var recurringCandidates: [FinancialIntelligenceService.RecurringCandidate] = []
-    @Published var anomalies: [FinancialIntelligenceService.Anomaly] = []
+    var aiInsight: String?
+    var isGeneratingInsight: Bool = false
+    var briefingHeadline: String?
+    var healthScore: Int = 0
+    var cashFlowNote: String?
+    var recurringCandidates: [FinancialIntelligenceService.RecurringCandidate] = []
+    var anomalies: [FinancialIntelligenceService.Anomaly] = []
 
     private let modelContext: ModelContext
     private let transactionViewModel: TransactionViewModel
