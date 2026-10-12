@@ -21,6 +21,16 @@ An educational **mobile banking client** built with SwiftUI and SwiftData. Data 
 |---|---|
 | ![Transfer money](docs/screenshots/04-transfer.png) | ![Notifications](docs/screenshots/05-notifications.png) |
 
+### macOS
+
+| Home | Track Overview | Ledger |
+|---|---|---|
+| ![macOS home dashboard](docs/screenshots/macos/macos-home.png) | ![macOS Track overview](docs/screenshots/macos/macos-track-overview.png) | ![macOS ledger](docs/screenshots/macos/macos-ledger.png) |
+
+| Analytics | Budgets | Bill Calendar |
+|---|---|---|
+| ![macOS spending analytics](docs/screenshots/macos/macos-analytics.png) | ![macOS budgets](docs/screenshots/macos/macos-budgets.png) | ![macOS bill calendar](docs/screenshots/macos/macos-bill-calendar.png) |
+
 ## Demo videos
 
 Two screen recordings walking through the app's flows are included in [`docs/videos`](docs/videos). GitHub doesn't autoplay video inline in a README, so click a thumbnail below to open/download the clip.
