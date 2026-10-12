@@ -3,7 +3,6 @@ import Combine
 
 struct LoginView: View {
     @EnvironmentObject var authenticationService: AuthenticationService
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var passcode = ""
     @State private var error: AppError?
     @State private var shakeTrigger = false
@@ -16,17 +15,8 @@ struct LoginView: View {
             AnimatedMeshBackground()
                 .ignoresSafeArea()
 
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isTextFieldFocused = false
-                }
-
-            ScrollView {
-                VStack(spacing: 0) {
-                    Spacer()
-                        .frame(height: sizeClass == .regular ? AppSpacing.xxxl : AppSpacing.xxl)
-
+            GeometryReader { proxy in
+                ScrollView {
                     VStack(spacing: AppSpacing.xl) {
                         brandHeader
 
@@ -34,27 +24,10 @@ struct LoginView: View {
                             VStack(spacing: AppSpacing.lg) {
                                 Text("Enter Passcode")
                                     .font(.headline)
+                                    .frame(maxWidth: .infinity)
 
                                 passcodeDots
-
-                                SecureField("", text: $passcode)
-                                    .textContentType(.oneTimeCode)
-                                    .frame(width: 0, height: 0)
-                                    .opacity(0)
-                                    .focused($isTextFieldFocused)
-                                    .onAppear { isTextFieldFocused = true }
-                                    .onChange(of: passcode) { _, newValue in
-                                        if newValue.count > maxPasscodeLength {
-                                            passcode = String(newValue.prefix(maxPasscodeLength))
-                                        }
-                                    }
-                                    .submitLabel(.done)
-                                    .onSubmit {
-                                        if isFormValid { attemptLogin() }
-                                    }
-                                    #if os(iOS)
-                                    .keyboardType(.numberPad)
-                                    #endif
+                                    .background { passcodeCapture }
 
                                 KeypadView(passcode: $passcode, onDelete: {
                                     if !passcode.isEmpty {
@@ -64,6 +37,7 @@ struct LoginView: View {
                                 })
                                 .disabled(isLockedOut)
                                 .opacity(isLockedOut ? 0.4 : 1)
+                                .frame(maxWidth: .infinity)
                             }
                             .padding(.vertical, AppSpacing.xl)
                             .padding(.horizontal, AppSpacing.lg)
@@ -71,52 +45,46 @@ struct LoginView: View {
 
                         if authenticationService.isBiometricsLoginEnabled {
                             biometricsButton
+                                .frame(maxWidth: .infinity)
                         }
 
                         DemoModeBanner(compact: true)
-                            .padding(.top, AppSpacing.sm)
 
                         if authenticationService.isAuthenticating {
                             ProgressView()
                                 .progressViewStyle(.circular)
                                 .accessibilityLabel("Signing in")
                         }
+
+                        if let error {
+                            ErrorBannerModern(error: error)
+                        }
+
+                        if isLockedOut {
+                            LockoutBanner(secondsRemaining: authenticationService.lockoutRemainingSeconds)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        } else if let message = authenticationService.errorMessage {
+                            Text(message)
+                                .font(.footnote)
+                                .foregroundStyle(Color.bankDanger)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .transition(.opacity)
+                        }
+
+                        Text("Version 1.0.0")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, AppSpacing.lg)
-                    .adaptiveContentWidth(420)
-
-                    if let error {
-                        ErrorBannerModern(error: error)
-                            .padding(.horizontal, AppSpacing.lg)
-                            .padding(.top, AppSpacing.lg)
-                            .adaptiveContentWidth(420)
-                    }
-
-                    if isLockedOut {
-                        LockoutBanner(secondsRemaining: authenticationService.lockoutRemainingSeconds)
-                            .padding(.horizontal, AppSpacing.lg)
-                            .padding(.top, AppSpacing.lg)
-                            .adaptiveContentWidth(420)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    } else if let message = authenticationService.errorMessage {
-                        Text(message)
-                            .font(.footnote)
-                            .foregroundStyle(Color.bankDanger)
-                            .padding(.horizontal, AppSpacing.lg)
-                            .padding(.top, AppSpacing.sm)
-                            .transition(.opacity)
-                    }
-
-                    Spacer(minLength: AppSpacing.xxl)
-
-                    Text("Version 1.0.0")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.bottom, AppSpacing.lg)
+                    .padding(.vertical, AppSpacing.xl)
+                    .frame(maxWidth: 420)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: proxy.size.height, alignment: .center)
                 }
-                .frame(maxWidth: .infinity)
+                .scrollBounceBehavior(.basedOnSize)
+                .bankSoftScrollEdges()
             }
-            .bankSoftScrollEdges()
         }
         .offset(x: shakeTrigger ? 10 : 0)
         .animation(shakeTrigger ? .easeInOut(duration: 0.1).repeatCount(5) : .default, value: shakeTrigger)
@@ -187,6 +155,28 @@ struct LoginView: View {
         .accessibilityLabel("Passcode entry: \(passcode.count) of \(maxPasscodeLength) digits entered")
     }
 
+    /// Hardware keyboard entry. Kept out of the stack so a Mac text field cannot stretch the card.
+    private var passcodeCapture: some View {
+        SecureField("", text: $passcode)
+            .textContentType(.oneTimeCode)
+            .focused($isTextFieldFocused)
+            .onAppear { isTextFieldFocused = true }
+            .onChange(of: passcode) { _, newValue in
+                let digits = String(newValue.filter(\.isNumber).prefix(maxPasscodeLength))
+                if digits != newValue { passcode = digits }
+            }
+            .submitLabel(.done)
+            .onSubmit {
+                if isFormValid { attemptLogin() }
+            }
+            #if os(iOS) && !targetEnvironment(macCatalyst)
+            .keyboardType(.numberPad)
+            #endif
+            .opacity(0)
+            .frame(width: 1, height: 1)
+            .accessibilityHidden(true)
+    }
+
     private var biometricsButton: some View {
         Button(action: {
             hideKeyboard()
@@ -242,57 +232,59 @@ struct KeypadView: View {
         PlatformUI.isMac ? 64 : AppTheme.Control.keypadButton
     }
 
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.fixed(buttonSize), spacing: 12, alignment: .center), count: 3)
+    }
+
+    private var gridWidth: CGFloat { buttonSize * 3 + 24 }
+
     var body: some View {
         LiquidGlass.container(spacing: 12) {
-            VStack(spacing: 12) {
-                ForEach(0..<3, id: \.self) { row in
-                    HStack(spacing: 12) {
-                        ForEach(1..<4, id: \.self) { column in
-                            let number = row * 3 + column
-                            keypadButton(label: "\(number)") {
-                                if passcode.count < 4 {
-                                    passcode.append(String(number))
-                                    HapticFeedbackService.shared.lightImpact()
-                                }
-                            }
-                            .disabled(passcode.count >= 4)
-                        }
-                    }
-                }
-
-                HStack(spacing: 12) {
-                    Button(action: onDelete) {
-                        Image(systemName: "delete.backward")
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(.primary)
-                            .frame(width: buttonSize, height: buttonSize)
-                            .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
-                    }
-                    .buttonStyle(ScalePressButtonStyle())
-                    .accessibilityLabel("Delete")
-
-                    keypadButton(label: "0") {
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(1...9, id: \.self) { number in
+                    keypadButton(label: "\(number)") {
                         if passcode.count < 4 {
-                            passcode.append("0")
+                            passcode.append(String(number))
                             HapticFeedbackService.shared.lightImpact()
                         }
                     }
                     .disabled(passcode.count >= 4)
-
-                    // Spacer to balance delete + 0 layout on 3-column grid
-                    Color.clear.frame(width: buttonSize, height: buttonSize)
                 }
+
+                Button(action: onDelete) {
+                    Image(systemName: "delete.backward")
+                        .font(.title3.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .frame(width: buttonSize, height: buttonSize)
+                        .glassControl(cornerRadius: buttonSize / 2)
+                }
+                .buttonStyle(ScalePressButtonStyle())
+                .accessibilityLabel("Delete")
+
+                keypadButton(label: "0") {
+                    if passcode.count < 4 {
+                        passcode.append("0")
+                        HapticFeedbackService.shared.lightImpact()
+                    }
+                }
+                .disabled(passcode.count >= 4)
+
+                Color.clear
+                    .frame(width: buttonSize, height: buttonSize)
+                    .accessibilityHidden(true)
             }
+            .frame(width: gridWidth)
         }
+        .frame(width: gridWidth)
     }
 
     private func keypadButton(label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.title.weight(.medium))
+                .font(.title2.weight(.medium))
                 .foregroundStyle(.primary)
                 .frame(width: buttonSize, height: buttonSize)
-                .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
+                .glassControl(cornerRadius: buttonSize / 2)
         }
         .buttonStyle(ScalePressButtonStyle())
     }

@@ -12,7 +12,7 @@ struct UPIPaymentView: View {
     var body: some View {
         NavigationStack {
             UPIPaymentContent()
-                .navigationTitle("UPI Payment")
+                .navigationTitle("UPI Pay")
         }
     }
 }
@@ -78,9 +78,17 @@ struct UPIPaymentContent: View {
                                 .background(Color.bankGroupedBackground)
                                 .cornerRadius(AppTheme.CornerRadius.pill)
                         }
-                        .accessibilityLabel("Scan QR Code")
+                        .accessibilityLabel("Fill a sample UPI ID")
                         .buttonStyle(PlainButtonStyle())
                     }
+                    Text("This demo does not scan a QR code or send money through UPI. Saving the ID starts the cooling wait for large payments.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Button("Save this UPI ID") {
+                        saveUPIPayee()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .disabled(!isValidUPIId)
                 }
                 .padding(.horizontal)
                 
@@ -310,6 +318,37 @@ struct UPIPaymentContent: View {
         }
     }
     
+    private func saveUPIPayee() {
+        let vpa = upiId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard vpa.contains("@") else { return }
+        guard let userId = authenticationService.user?.id else {
+            error = .unknownError("Sign in again before saving a UPI ID.")
+            return
+        }
+        let existing = (try? modelContext.fetch(FetchDescriptor<Beneficiary>())) ?? []
+        if existing.contains(where: { $0.upiId.caseInsensitiveCompare(vpa) == .orderedSame }) {
+            error = .unknownError("This UPI ID is already saved. The cooling wait started when it was first saved.")
+            return
+        }
+        let nick = vpa.split(separator: "@").first.map(String.init) ?? vpa
+        let beneficiary = Beneficiary(
+            userId: userId,
+            nickname: nick,
+            accountNumber: "",
+            bankName: "UPI",
+            accountType: .checking,
+            upiId: vpa
+        )
+        modelContext.insert(beneficiary)
+        do {
+            try modelContext.save()
+            HapticFeedbackService.shared.success()
+            error = nil
+        } catch {
+            self.error = .unknownError("Couldn't save this UPI ID.")
+        }
+    }
+
     private func resetForm() {
         selectedAccount = nil
         upiId = ""
@@ -333,8 +372,8 @@ struct UPITransactionRow: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-                Text(CurrencyFormatter.shared.string(from: transaction.amount))
-                    .foregroundColor(.green)
+                Text("−\(CurrencyFormatter.shared.string(from: transaction.amount))")
+                    .foregroundColor(.primary)
             }
             .padding()
         }
@@ -356,16 +395,22 @@ struct UPCScannerView: View {
                     .accessibilityHidden(true)
                     .padding()
                 
-                Text("Scanner would open here")
+                Text("This demo does not open the camera.")
                     .font(.title3)
+                    .multilineTextAlignment(.center)
+                Text("Fill a sample UPI ID to try the form. Nothing is read from a QR code.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
                 
-                Button("Simulate Scan: rahul@upi") {
+                Button("Use sample ID: rahul@upi") {
                     upiId = "rahul@upi"
                     dismiss()
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .navigationTitle("Scan QR Code")
+            .navigationTitle("Sample UPI ID")
             .toolbar {
                 Button("Cancel") { dismiss() }
                     .accessibilityLabel("Cancel scanning")

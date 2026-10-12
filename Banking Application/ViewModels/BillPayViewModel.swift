@@ -69,9 +69,14 @@ class BillPayViewModel {
         clearError()
         lastCashbackEarned = nil
 
-        guard validateForm() else { return false }
-        guard let amountDecimal = Decimal(string: amount) else {
+        guard !biller.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            error = .invalidInput
+            HapticFeedbackService.shared.errorOccurred()
+            return false
+        }
+        guard let amountDecimal = Decimal(string: amount), amountDecimal > 0 else {
             error = .invalidAmount
+            HapticFeedbackService.shared.errorOccurred()
             return false
         }
 

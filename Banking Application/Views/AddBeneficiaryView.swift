@@ -11,7 +11,7 @@ struct AddBeneficiaryView: View {
     var onSaved: (() -> Void)? = nil
     
     enum Field {
-        case nickname, accountNumber, confirmAccountNumber, ifsc
+        case nickname, accountNumber, confirmAccountNumber, ifsc, upi
     }
     
     var body: some View {
@@ -30,10 +30,22 @@ struct AddBeneficiaryView: View {
                                 systemImage: "tag.fill"
                             )
                             .focused($focusedField, equals: .nickname)
+
+                            ModernTextField(
+                                label: "UPI ID (optional)",
+                                placeholder: "name@upi",
+                                text: $viewModel.upiId,
+                                isValid: viewModel.upiId.isEmpty || viewModel.isUPIValid,
+                                errorMessage: "Enter a UPI ID that contains @",
+                                systemImage: "at",
+                                keyboardType: .emailAddress
+                            )
+                            .focused($focusedField, equals: .upi)
+                            .textInputAutocapitalization(.never)
                             
                             ModernTextField(
                                 label: "Account Number",
-                                placeholder: "8–18 digit account number",
+                                placeholder: "Optional if you save a UPI ID",
                                 text: $viewModel.accountNumber,
                                 isValid: viewModel.accountNumber.isEmpty || viewModel.isAccountNumberValid,
                                 errorMessage: "Enter a valid 8–18 digit account number",

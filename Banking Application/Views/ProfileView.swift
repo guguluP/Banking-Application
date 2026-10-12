@@ -114,6 +114,11 @@ struct ProfileView: View {
                         SettingsRow(icon: "sparkles", title: "Advanced features", subtitle: "Goals, wires, statements", showsChevron: false)
                     }
                     NavigationLink {
+                        LocationView()
+                    } label: {
+                        SettingsRow(icon: "mappin.and.ellipse", title: "ATMs & branches", subtitle: "Sample hours and locations", showsChevron: false)
+                    }
+                    NavigationLink {
                         DeviceManagementView()
                     } label: {
                         SettingsRow(icon: "laptopcomputer.and.iphone", title: "Devices", subtitle: "Sessions on this Apple ID", showsChevron: false)

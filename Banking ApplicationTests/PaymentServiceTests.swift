@@ -118,6 +118,104 @@ final class PaymentServiceTests: XCTestCase {
         XCTAssertNil(BankSMSParser.parse("Your OTP is 482193. Do not share it with anyone."))
     }
 
+    func testUnpunctuatedAmountStaysWhole() {
+        let event = BankSMSParser.parse("INR 10000 debited from HDFC Bank A/c **0400. UTR 123456789012")
+        XCTAssertEqual(event?.amount, 10000)
+        XCTAssertEqual(event?.direction, .debit)
+    }
+
+    func testDebitThatMentionsCreditedToStaysDebit() {
+        let text = "INR 10000 debited from HDFC Bank A/c **0400 and credited to merchant@okhdfc. UTR 123456789012"
+        let event = BankSMSParser.parse(text)
+        XCTAssertEqual(event?.amount, 10000)
+        XCTAssertEqual(event?.direction, .debit)
+    }
+
+    func testDebitAlertWithDistantOTPWarningStillParses() {
+        let text = "Rs.250.00 debited from HDFC Bank A/c **0400 on 02-10-26 towards SWIGGY BANGALORE for dinner. UTR 123456789012. Never share OTP with anyone."
+        let event = BankSMSParser.parse(text)
+        XCTAssertEqual(event?.amount, Decimal(string: "250.00"))
+        XCTAssertEqual(event?.direction, .debit)
+        XCTAssertEqual(event?.accountLast4, "0400")
+    }
+
+    func testRoundUpWithNoOtherSavingsDebitsOnlyThePayment() throws {
+        let context = container.mainContext
+        let checking = Account(userId: "u", accountNumber: "100200300400", accountType: .checking, balance: 1000, availableBalance: 1000)
+        context.insert(checking)
+        AppSettings.shared.isRoundUpEnabled = true
+        defer { AppSettings.shared.isRoundUpEnabled = false }
+        _ = try TransactionService.post(
+            from: checking,
+            amount: Decimal(string: "12.50")!,
+            rail: .transfer,
+            counterparty: "200300400500",
+            description: "Out",
+            category: "Transfer",
+            recipientAccountNumber: "200300400500",
+            applyRoundUp: true,
+            in: context
+        )
+        XCTAssertEqual(checking.balance, Decimal(string: "987.50"))
+        XCTAssertEqual(checking.availableBalance, Decimal(string: "987.50"))
+    }
+
+    func testClosedDestinationDoesNotLeaveADebit() {
+        let context = container.mainContext
+        let checking = Account(userId: "u", accountNumber: "100200300400", accountType: .checking, balance: 1000, availableBalance: 1000)
+        let closed = Account(userId: "u", accountNumber: "100200300499", accountType: .savings, accountStatus: .closed, balance: 20, availableBalance: 20)
+        context.insert(checking)
+        context.insert(closed)
+        XCTAssertThrowsError(try TransactionService.post(
+            from: checking,
+            amount: 40,
+            rail: .transfer,
+            counterparty: closed.accountNumber,
+            description: "Move",
+            category: "Transfer",
+            recipientAccountNumber: closed.accountNumber,
+            in: context
+        )) { error in
+            XCTAssertEqual(error as? PaymentFailure, .destinationNotMovable)
+        }
+        XCTAssertEqual(checking.balance, 1000)
+        XCTAssertEqual(checking.availableBalance, 1000)
+        XCTAssertEqual(closed.balance, 20)
+        XCTAssertTrue((checking.transactions ?? []).isEmpty)
+    }
+
+    func testHoldSurvivesATransfer() throws {
+        let context = container.mainContext
+        let checking = Account(userId: "u", accountNumber: "100200300400", accountType: .checking, balance: 1000, availableBalance: Decimal(string: "849.50")!)
+        checking.reservedHold = Decimal(string: "150.50")!
+        context.insert(checking)
+        _ = try TransactionService.post(
+            from: checking,
+            amount: 100,
+            rail: .transfer,
+            counterparty: "200300400500",
+            description: "Out",
+            category: "Transfer",
+            recipientAccountNumber: "200300400500",
+            in: context
+        )
+        XCTAssertEqual(checking.balance, 900)
+        XCTAssertEqual(checking.availableBalance, Decimal(string: "749.50"))
+    }
+
+    func testBillPayDoesNotNeedBillerAccountField() throws {
+        let context = container.mainContext
+        let checking = Account(userId: "u", accountNumber: "100200300400", accountType: .checking, balance: 100, availableBalance: 100)
+        let biller = Biller(userId: "u", name: "Electricity", accountNumber: "99887766")
+        context.insert(checking)
+        context.insert(biller)
+        let viewModel = BillPayViewModel()
+        viewModel.amount = "25"
+        viewModel.billerAccount = ""
+        XCTAssertTrue(viewModel.payBill(biller: biller, from: checking, in: context))
+        XCTAssertEqual(checking.balance, Decimal(string: "75.25"))
+    }
+
     func testLockoutIgnoresWallClockJump() {
         let keychain = MemoryLockoutStore()
         let uptime: TimeInterval = 1_000

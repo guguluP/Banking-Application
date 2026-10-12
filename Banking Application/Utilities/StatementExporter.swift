@@ -26,16 +26,35 @@ enum StatementExporter {
     }
 
     static func taxSummary(fds: [FixedDeposit], year: Int) -> String {
-        let cal = Calendar.current
-        let earned = fds.filter {
-            cal.component(.year, from: $0.startDate) <= year && $0.status != .closed
-        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone.current
         var lines = ["Form 16A-style interest certificate (illustrative)", "Year: \(year)"]
+        guard
+            let yearStart = calendar.date(from: DateComponents(year: year, month: 1, day: 1)),
+            let yearEnd = calendar.date(from: DateComponents(year: year + 1, month: 1, day: 1))
+        else {
+            return lines.joined(separator: "\n")
+        }
+
         var total: Decimal = 0
-        for fd in earned {
-            let interest = fd.maturityValue - fd.principal
-            total += max(0, interest)
-            lines.append("\(fd.nickname): interest \(CurrencyFormatter.shared.string(from: max(0, interest)))")
+        let ordered = fds.sorted {
+            $0.nickname.localizedCaseInsensitiveCompare($1.nickname) == .orderedAscending
+        }
+        for fd in ordered {
+            // No break or close date is stored, so the term runs through maturityDate.
+            // Interval is [start, maturity): days the deposit is outstanding.
+            let termStart = calendar.startOfDay(for: fd.startDate)
+            let termEnd = calendar.startOfDay(for: fd.maturityDate)
+            let overlapStart = max(termStart, yearStart)
+            let overlapEnd = min(termEnd, yearEnd)
+            let termDays = calendar.dateComponents([.day], from: termStart, to: termEnd).day ?? 0
+            let overlapDays = calendar.dateComponents([.day], from: overlapStart, to: overlapEnd).day ?? 0
+            guard termDays > 0, overlapDays > 0 else { continue }
+            // A broken deposit returns principal only. Matured and active deposits still use the illustrative maturity interest.
+            let fullInterest: Decimal = fd.status == .closed ? 0 : max(0, fd.maturityValue - fd.principal)
+            let interest = fullInterest * Decimal(overlapDays) / Decimal(termDays)
+            total += interest
+            lines.append("\(fd.nickname): interest \(CurrencyFormatter.shared.string(from: interest))")
         }
         lines.append("Total interest: \(CurrencyFormatter.shared.string(from: total))")
         lines.append("TDS (illustrative 10%): \(CurrencyFormatter.shared.string(from: total * Decimal(0.10)))")
@@ -58,12 +77,64 @@ enum StatementExporter {
 
     static func passwordProtectedPDF(for transactions: [Transaction], accountLabel: String, password: String) -> Data? {
         #if canImport(UIKit)
-        let page = CGRect(x: 0, y: 0, width: 612, height: 792)
-        let renderer = UIGraphicsPDFRenderer(bounds: page)
+        let pageRect = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let margin: CGFloat = 36
+        let headerFont = UIFont.systemFont(ofSize: 12, weight: .semibold)
+        let bodyFont = UIFont.monospacedSystemFont(ofSize: 9, weight: .regular)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
+        let bodyAttributes: [NSAttributedString.Key: Any] = [
+            .font: bodyFont,
+            .paragraphStyle: paragraph
+        ]
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: headerFont
+        ]
+        let textWidth = pageRect.width - margin * 2
+        let contentTop = margin + headerFont.lineHeight + 8
+        let contentBottom = pageRect.height - margin
+        let lines = csv(for: transactions, accountLabel: accountLabel).components(separatedBy: "\n")
+
+        func lineHeight(_ line: String) -> CGFloat {
+            let sample = line.isEmpty ? " " : line
+            let bounds = (sample as NSString).boundingRect(
+                with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: bodyAttributes,
+                context: nil
+            )
+            return max(ceil(bounds.height), bodyFont.lineHeight)
+        }
+
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
         let raw = renderer.pdfData { ctx in
-            ctx.beginPage()
-            let body = csv(for: transactions, accountLabel: accountLabel)
-            body.draw(in: page.insetBy(dx: 36, dy: 36), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 9, weight: .regular)])
+            var index = 0
+            var pageNumber = 0
+            repeat {
+                ctx.beginPage()
+                pageNumber += 1
+                let header = "\(accountLabel) statement  ·  Page \(pageNumber)"
+                (header as NSString).draw(at: CGPoint(x: margin, y: margin), withAttributes: headerAttributes)
+                var y = contentTop
+                var drewOnPage = false
+                while index < lines.count {
+                    let line = lines[index]
+                    let height = lineHeight(line)
+                    if drewOnPage && y + height > contentBottom {
+                        break
+                    }
+                    let rect = CGRect(x: margin, y: y, width: textWidth, height: height)
+                    ((line.isEmpty ? " " : line) as NSString).draw(
+                        with: rect,
+                        options: [.usesLineFragmentOrigin, .usesFontLeading],
+                        attributes: bodyAttributes,
+                        context: nil
+                    )
+                    y += height
+                    index += 1
+                    drewOnPage = true
+                }
+            } while index < lines.count
         }
         guard let document = PDFDocument(data: raw) else { return nil }
         return document.dataRepresentation(options: [

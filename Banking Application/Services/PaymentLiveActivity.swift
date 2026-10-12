@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 import ActivityKit
 #endif
 
@@ -16,7 +16,7 @@ nonisolated struct PaymentActivityAttributes: Codable, Hashable, Sendable {
     var counterparty: String
 }
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 extension PaymentActivityAttributes: ActivityAttributes {
     nonisolated struct ContentState: Codable, Hashable, Sendable {
         var status: String
@@ -40,7 +40,7 @@ final class LiveActivityManager: ObservableObject {
 
     @Published var banner: Banner?
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
     private var activity: Activity<PaymentActivityAttributes>?
 #endif
 
@@ -48,7 +48,7 @@ final class LiveActivityManager: ObservableObject {
         let amountText = CurrencyFormatter.shared.string(from: amount)
         banner = Banner(title: "\(kind) in progress", subtitle: "\(amountText) · \(counterparty)", isComplete: false)
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = PaymentActivityAttributes(paymentKind: kind, counterparty: counterparty)
         let state = PaymentActivityAttributes.ContentState(
@@ -96,7 +96,7 @@ final class LiveActivityManager: ObservableObject {
     }
 
     @MainActor private func endActivity(status: String) async {
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
         guard let currentActivity = self.activity else { return }
         let amountText = currentActivity.content.state.amountText
         self.activity = nil

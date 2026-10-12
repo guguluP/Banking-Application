@@ -18,8 +18,7 @@ struct LocationView: View {
     @State private var searchText = ""
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 VStack(spacing: 0) {
                     Map(position: $position) {
                         ForEach(locations) { location in
@@ -39,13 +38,23 @@ struct LocationView: View {
                     .padding()
                     
                     LazyVStack(spacing: AppSpacing.md) {
-                        ForEach(filteredLocations) { location in
-                            LocationRow(location: location)
-                                .onTapGesture {
-                                    selectedLocation = location
-                                    showingLocationDetail = true
-                                }
+                        if filteredLocations.isEmpty {
+                            Text("No ATMs or branches match that search.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
                                 .padding(.horizontal)
+                                .padding(.top, AppSpacing.md)
+                        } else {
+                            ForEach(filteredLocations) { location in
+                                LocationRow(location: location)
+                                    .onTapGesture {
+                                        selectedLocation = location
+                                        showingLocationDetail = true
+                                    }
+                                    .padding(.horizontal)
+                            }
                         }
                     }
                     .padding(.bottom)
@@ -58,8 +67,7 @@ struct LocationView: View {
                     LocationDetailView(location: location)
                 }
             }
-        }
-        .accessibilityElement(children: .contain)
+            .accessibilityElement(children: .contain)
     }
     
     var filteredLocations: [BankLocation] {
@@ -143,7 +151,7 @@ struct LocationRow: View {
                     
                     Spacer()
                     
-                    StatusPill(isOpen: location.isOpenNow)
+                    HoursStatusBadge(location: location)
                 }
                 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -177,6 +185,26 @@ struct LocationRow: View {
         case .atm: return .blue
         case .branch: return .green
         case .atmAndBranch: return .purple
+        }
+    }
+}
+
+private struct HoursStatusBadge: View {
+    let location: BankLocation
+
+    var body: some View {
+        switch location.hoursStatus() {
+        case .open:
+            StatusPill(isOpen: true)
+        case .closed:
+            StatusPill(isOpen: false)
+        case .unspecified(let text):
+            Text(text)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(4)
+                .frame(maxWidth: 140, alignment: .trailing)
         }
     }
 }
@@ -320,6 +348,6 @@ struct InfoRow: View {
 
 struct LocationView_Previews: PreviewProvider {
     static var previews: some View {
-        LocationView()
+        NavigationStack { LocationView() }
     }
 }

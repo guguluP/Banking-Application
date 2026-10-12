@@ -120,9 +120,21 @@ class AccountViewModel {
         error = nil
     }
 
+    private func isHomeSpending(_ transaction: Transaction) -> Bool {
+        guard transaction.isDebit, transaction.type != .transfer else { return false }
+        for label in [transaction.category, transaction.categoryRef?.name] {
+            guard let label else { continue }
+            if label.caseInsensitiveCompare("Transfer") == .orderedSame
+                || label.caseInsensitiveCompare("Savings") == .orderedSame {
+                return false
+            }
+        }
+        return true
+    }
+
     private func calculateWeeklySpending() -> [SpendingDataPoint] {
         let sevenDaysAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
-        let recentTransactions = transactionViewModel.recentTransactions.filter { $0.transactionDate >= sevenDaysAgo && $0.isDebit }
+        let recentTransactions = transactionViewModel.recentTransactions.filter { $0.transactionDate >= sevenDaysAgo && isHomeSpending($0) }
 
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: recentTransactions) { transaction in
@@ -143,7 +155,7 @@ class AccountViewModel {
     }
 
     private func calculateCategoryBreakdown() -> [CategorySpending] {
-        let expenseTransactions = transactionViewModel.recentTransactions.filter { $0.isDebit }
+        let expenseTransactions = transactionViewModel.recentTransactions.filter(isHomeSpending)
 
         let grouped = Dictionary(grouping: expenseTransactions) { $0.category ?? "Uncategorized" }
 
@@ -181,8 +193,9 @@ class AccountViewModel {
         let fds = (try? modelContext.fetch(FetchDescriptor<FixedDeposit>())) ?? []
         let billers = (try? modelContext.fetch(FetchDescriptor<Biller>())) ?? []
 
+        let categories = (try? modelContext.fetch(FetchDescriptor<ExpenseCategory>())) ?? []
         healthScore = FinancialIntelligenceService.computeHealth(
-            accounts: accounts, transactions: txs, budgets: budgetRows, loans: loans
+            accounts: accounts, transactions: txs, budgets: budgetRows, loans: loans, categories: categories
         )
         let cal = Calendar.current
         let thisMonth = cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()

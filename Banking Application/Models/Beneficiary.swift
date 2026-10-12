@@ -12,6 +12,8 @@ nonisolated final class Beneficiary {
     var accountTypeRaw: String = AccountType.checking.rawValue
     var isFavorite: Bool = false
     var createdAt: Date = Date()
+    /// UPI VPA. Empty for account-number payees. Default keeps existing stores readable.
+    var upiId: String = ""
 
     var accountType: AccountType {
         get { AccountType(rawValue: accountTypeRaw) ?? .checking }
@@ -27,7 +29,8 @@ nonisolated final class Beneficiary {
         bankCode: String? = nil,
         accountType: AccountType,
         isFavorite: Bool = false,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        upiId: String = ""
     ) {
         self.id = id
         self.userId = userId
@@ -38,9 +41,13 @@ nonisolated final class Beneficiary {
         self.accountTypeRaw = accountType.rawValue
         self.isFavorite = isFavorite
         self.createdAt = createdAt
+        self.upiId = upiId
     }
 
     var displayName: String {
-        "\(nickname) (\(accountNumber.suffix(4)))"
+        if accountNumber.isEmpty {
+            return upiId.isEmpty ? nickname : "\(nickname) (\(upiId))"
+        }
+        return "\(nickname) (\(accountNumber.suffix(4)))"
     }
 }

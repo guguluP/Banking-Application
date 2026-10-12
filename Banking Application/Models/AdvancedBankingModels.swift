@@ -27,6 +27,9 @@ nonisolated final class ScheduledInstruction {
     var statusRaw: String = InstructionStatus.scheduled.rawValue
     var isStandingInstruction: Bool = false
     var createdAt: Date = Date()
+    var lastError: String = ""
+    var lastAttempt: Date = Date.distantPast
+    var scheduledDay: Int = 0
 
     var frequency: InstructionFrequency {
         get { InstructionFrequency(rawValue: frequencyRaw) ?? .once }
@@ -45,7 +48,10 @@ nonisolated final class ScheduledInstruction {
         executeOn: Date,
         frequency: InstructionFrequency = .once,
         isStandingInstruction: Bool = false,
-        note: String = ""
+        note: String = "",
+        lastError: String = "",
+        lastAttempt: Date = Date.distantPast,
+        scheduledDay: Int = 0
     ) {
         self.userId = userId
         self.fromAccountId = fromAccountId
@@ -55,6 +61,9 @@ nonisolated final class ScheduledInstruction {
         self.frequencyRaw = frequency.rawValue
         self.isStandingInstruction = isStandingInstruction
         self.note = note
+        self.lastError = lastError
+        self.lastAttempt = lastAttempt
+        self.scheduledDay = scheduledDay
     }
 }
 

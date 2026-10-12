@@ -1,5 +1,12 @@
 import Foundation
 
+struct NamedSpend: Identifiable {
+    var id: String { name }
+    var name: String
+    var amount: Decimal
+    var percentOfTotal: Double
+}
+
 struct CategoryTotal: Identifiable {
 
     var id: String {
@@ -29,6 +36,10 @@ final class ExpenseAnalyticsViewModel {
     private(set) var percentChange: Double?
 
     private(set) var topCategories: [CategoryTotal] = []
+    private(set) var categorySlices: [NamedSpend] = []
+    private(set) var dailySpend: [NamedSpend] = []
+    private(set) var merchants: [NamedSpend] = []
+    private(set) var accounts: [NamedSpend] = []
 
     // MARK: - Initialization
 
@@ -139,6 +150,21 @@ final class ExpenseAnalyticsViewModel {
             from: currentMonthEntries,
             grandTotal: currentMonthTotal
         )
+        categorySlices = Self.namedTotals(currentMonthEntries, total: currentMonthTotal) { entry in
+            entry.categoryRef?.name ?? entry.category ?? "Uncategorized"
+        }
+        merchants = Self.namedTotals(currentMonthEntries, total: currentMonthTotal) { entry in
+            let name = entry.merchant ?? entry.counterparty ?? entry.description
+            return name.isEmpty ? "Unknown" : name
+        }
+        accounts = Self.namedTotals(currentMonthEntries, total: currentMonthTotal) { entry in
+            entry.account?.nickname ?? entry.account?.accountType.rawValue ?? "Account"
+        }
+        let byDay = Dictionary(grouping: currentMonthEntries) { calendar.startOfDay(for: $0.transactionDate) }
+        dailySpend = byDay.keys.sorted().map { day in
+            let amount = byDay[day]?.reduce(Decimal(0)) { $0 + $1.amount } ?? 0
+            return NamedSpend(name: day.formatted(.dateTime.day().month(.abbreviated)), amount: amount, percentOfTotal: 0)
+        }
     }
 
     // MARK: - Month Helpers
@@ -160,6 +186,23 @@ final class ExpenseAnalyticsViewModel {
     }
 
     // MARK: - Category Analytics
+
+    private static func namedTotals(
+        _ entries: [Transaction],
+        total: Decimal,
+        name: (Transaction) -> String
+    ) -> [NamedSpend] {
+        var sums: [String: Decimal] = [:]
+        for entry in entries {
+            let key = name(entry)
+            sums[key, default: 0] += entry.amount
+        }
+        return sums.map { key, amount in
+            let percent = total > 0 ? NSDecimalNumber(decimal: amount / total).doubleValue * 100 : 0
+            return NamedSpend(name: key, amount: amount, percentOfTotal: percent)
+        }
+        .sorted { $0.amount > $1.amount }
+    }
 
     private static func categoryTotals(
         from entries: [Transaction],

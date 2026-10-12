@@ -11,16 +11,17 @@ struct CategoryBreakdownView: View {
                 Text("Spending by Category")
                     .font(.headline)
                 
-                if categories.isEmpty {
+                let slices = categories.filter { $0.amount > 0 }
+                if slices.isEmpty {
                     Text("No category data available")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding()
                 } else {
-                    Chart(categories) { category in
+                    Chart(slices) { category in
                         SectorMark(
-                            angle: .value("Amount", animate ? category.amount : 0),
+                            angle: .value("Amount", category.amount),
                             innerRadius: .ratio(0.6),
                             angularInset: 1
                         )

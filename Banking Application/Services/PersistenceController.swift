@@ -82,7 +82,6 @@ enum PersistenceController {
         seedDefaultCategoriesIfNeeded(container: container)
         sanitizeStoredCards(container: container)
         TransactionService.adoptLedgerBaselines(in: container.mainContext)
-        ScheduledPaymentRunner.processDue(in: container.mainContext)
     }
 
     private static func protectStore(at url: URL) {
@@ -126,8 +125,8 @@ enum PersistenceController {
             userId: userId,
             accountNumber: "100200300401",
             accountType: .savings,
-            balance: 12800.00,
-            availableBalance: 12800.00,
+            balance: 7800,
+            availableBalance: 7800,
             nickname: "Rainy Day Savings",
             interestRate: 3.25
         )
@@ -187,7 +186,7 @@ enum PersistenceController {
         let fdTenureMonths = 12
         let fdRate = FDRateCard.rate(forMonths: fdTenureMonths)
         let fdMaturityDate = calendar.date(byAdding: .month, value: fdTenureMonths, to: fdStartDate) ?? Date()
-        let fdPrincipal: Decimal = 50000
+        let fdPrincipal: Decimal = 5000
         let fd = FixedDeposit(
             userId: userId,
             nickname: "1-Year Deposit",
@@ -200,6 +199,20 @@ enum PersistenceController {
             sourceAccountId: savings.id
         )
         context.insert(fd)
+
+        // Balance is already net of this funding. Leave it out of the ledger so adoption does not apply it again.
+        let funding = Transaction(
+            accountId: savings.id,
+            type: .transfer,
+            amount: fdPrincipal,
+            description: "Funded 1-Year Deposit",
+            counterparty: fd.nickname,
+            transactionDate: fdStartDate,
+            category: "Fixed Deposit"
+        )
+        funding.countsInLedger = false
+        funding.account = savings
+        context.insert(funding)
 
         try? context.save()
     }

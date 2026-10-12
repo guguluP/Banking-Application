@@ -10,6 +10,11 @@ enum AppError: Identifiable {
     case invalidAmount
     case sameAccount
     case transactionFailed
+    case overLimit
+    case payeeCooling
+    case accountNotMovable
+    case destinationNotMovable
+    case cardBlocked
     case unknownError(String)
     
     var id: String {
@@ -25,6 +30,11 @@ enum AppError: Identifiable {
         case .invalidAmount: return "invalidAmount"
         case .sameAccount: return "sameAccount"
         case .transactionFailed: return "transactionFailed"
+        case .overLimit: return "overLimit"
+        case .payeeCooling: return "payeeCooling"
+        case .accountNotMovable: return "accountNotMovable"
+        case .destinationNotMovable: return "destinationNotMovable"
+        case .cardBlocked: return "cardBlocked"
         }
     }
     
@@ -39,6 +49,11 @@ enum AppError: Identifiable {
         case .invalidAmount: return "Invalid Amount"
         case .sameAccount: return "Same Account"
         case .transactionFailed: return "Transaction Failed"
+        case .overLimit: return "Over the Limit"
+        case .payeeCooling: return "Payee Cooling Off"
+        case .accountNotMovable: return "Account Unavailable"
+        case .destinationNotMovable: return "Destination Unavailable"
+        case .cardBlocked: return "Card Not Available"
         case .unknownError(let message): return message
         }
     }
@@ -54,6 +69,11 @@ enum AppError: Identifiable {
         case .invalidAmount: return "Please enter a valid amount."
         case .sameAccount: return "Please select different accounts."
         case .transactionFailed: return "The transaction could not be completed. Please try again."
+        case .overLimit: return "This payment is over the limit for that payment type."
+        case .payeeCooling: return "Large payments to a new payee wait until the cooling period ends. Save the payee and try again after that wait."
+        case .accountNotMovable: return "This account can't send money."
+        case .destinationNotMovable: return "The destination account can't receive money."
+        case .cardBlocked: return "UPI and bill pay need an active card with online transactions turned on."
         case .unknownError(let message): return message
         }
     }
@@ -65,6 +85,9 @@ enum AppError: Identifiable {
         case .biometricFailed: return "Ensure your Face ID or Touch ID is set up correctly."
         case .authenticationFailed: return "Try entering your passcode or check biometric settings."
         case .invalidAmount: return "Enter a valid amount greater than zero."
+        case .overLimit: return "Try a smaller amount, or wait until the daily or monthly limit resets."
+        case .payeeCooling: return "Payments under the cooling threshold can still go through."
+        case .cardBlocked: return "Unfreeze a card and turn online transactions on, or remove every card to use the demo without one."
         default: return nil
         }
     }
@@ -86,6 +109,10 @@ enum AppError: Identifiable {
         case .serverError: return "server.rack"
         case .authenticationFailed: return "lock.slash"
         case .transactionFailed: return "xmark.circle"
+        case .overLimit: return "gauge.with.dots.needle.67percent"
+        case .payeeCooling: return "clock.badge.exclamationmark"
+        case .accountNotMovable, .destinationNotMovable: return "lock.fill"
+        case .cardBlocked: return "creditcard.trianglebadge.exclamationmark"
         case .unknownError: return "questionmark.circle"
         }
     }

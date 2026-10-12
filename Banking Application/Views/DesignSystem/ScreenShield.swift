@@ -32,7 +32,9 @@ struct ScreenShield<Content: View>: View {
     #if canImport(UIKit) && os(iOS)
     @ViewBuilder
     private var shielded: some View {
-        if ProcessInfo.processInfo.isiOSAppOnMac {
+        // Mac Catalyst and iOS-on-Mac do not have the iPhone secure canvas.
+        // Putting the login into that field sizes it to a text line and shifts it.
+        if PlatformUI.isMac {
             content
         } else {
             SecureContentHost(content: content)
@@ -58,6 +60,8 @@ private final class ShieldController<Content: View>: UIViewController {
     let hosting: UIHostingController<Content>
     private let field = UITextField()
     private var installed = false
+    private var installAttempts = 0
+    private var attachedParent: UIView?
 
     init(root: Content) {
         hosting = UIHostingController(rootView: root)
@@ -81,27 +85,46 @@ private final class ShieldController<Content: View>: UIViewController {
         ])
     }
 
+    /// UIKit inserts the private secure canvas after the field is on screen.
+    /// Stay uninstalled until `field.subviews.first` is that canvas, not the
+    /// field itself, and retry on later layouts. After a few misses, show the
+    /// hosting view on this controller unshielded instead of a blank screen.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        guard !installed else {
-            hosting.view.frame = canvas.bounds
+        if installed {
+            hosting.view.frame = (attachedParent ?? view).bounds
             return
         }
-        let canvas = canvas
-        guard canvas !== view, !view.isDescendant(of: canvas) else {
-            attach(hosting.view, to: view)
-            installed = true
+        // A zero-sized pass is not an attempt; the canvas appears once the field has bounds.
+        guard !field.bounds.isEmpty else { return }
+
+        installAttempts += 1
+        if let canvas = secureCanvas, canvas !== view, !view.isDescendant(of: canvas) {
+            install(on: canvas, shielded: true)
             return
         }
-        canvas.isUserInteractionEnabled = true
-        attach(hosting.view, to: canvas)
-        addChild(hosting)
-        hosting.didMove(toParent: self)
-        installed = true
+        if installAttempts >= 5 {
+            install(on: view, shielded: false)
+        }
     }
 
-    private var canvas: UIView {
-        field.subviews.first ?? field
+    /// The secure canvas UIKit adds inside the field. Nil until that subview exists.
+    private var secureCanvas: UIView? {
+        guard let canvas = field.subviews.first, canvas !== field else { return nil }
+        return canvas
+    }
+
+    private func install(on parent: UIView, shielded: Bool) {
+        if shielded {
+            parent.isUserInteractionEnabled = true
+        }
+        attachedParent = parent
+        installed = true
+        attach(hosting.view, to: parent)
+        if hosting.parent == nil {
+            addChild(hosting)
+            hosting.didMove(toParent: self)
+        }
     }
 
     private func attach(_ child: UIView, to parent: UIView) {

@@ -15,16 +15,15 @@ class TransferViewModel {
 
     // MARK: - Validation Properties
     var isRecipientValid: Bool {
-        let cleaned = recipientAccount.trimmingCharacters(in: .whitespaces)
-        return cleaned.count >= 8 && cleaned.count <= 12 && cleaned.allSatisfy({ $0.isNumber })
+        TransactionService.isAccountNumber(recipientAccount)
     }
 
     var recipientError: String {
         guard !recipientAccount.isEmpty else { return "" }
         let cleaned = recipientAccount.trimmingCharacters(in: .whitespaces)
-        if cleaned.count < 8 { return "Account must be at least 8 digits" }
-        if cleaned.count > 12 { return "Account must be at most 12 digits" }
         if !cleaned.allSatisfy({ $0.isNumber }) { return "Account must contain only numbers" }
+        if cleaned.count < TransactionService.accountNumberLength.lowerBound { return "Account must be at least 8 digits" }
+        if cleaned.count > TransactionService.accountNumberLength.upperBound { return "Account must be at most 18 digits" }
         return ""
     }
 
@@ -96,11 +95,9 @@ class TransferViewModel {
             return false
         }
 
-        // Re-check the balance against the account's *current* value at the
-        // moment of execution, not a value captured earlier in the UI — this
-        // closes a race where two transfers submitted in quick succession
-        // could otherwise both pass an earlier balance check.
-        guard amountDecimal <= account.availableBalance else {
+        // Round-up spare is part of the debit. Cashback is not used here, and it must not cover the payment.
+        let spare = TransactionService.roundUpDebit(for: amountDecimal, from: account, in: context)
+        guard amountDecimal + spare <= account.availableBalance else {
             error = .insufficientFunds
             HapticFeedbackService.shared.errorOccurred()
             return false
@@ -154,14 +151,16 @@ class TransferViewModel {
 extension PaymentFailure {
     var appError: AppError {
         switch self {
-        case .invalidAmount, .overSingleCap, .overPeriodLimit: return .invalidAmount
+        case .invalidAmount: return .invalidAmount
+        case .overSingleCap, .overPeriodLimit: return .overLimit
         case .invalidAccountNumber: return .invalidInput
         case .sameAccount: return .sameAccount
         case .insufficientFunds: return .insufficientFunds
         case .notAuthenticated, .movementBlocked: return .authenticationFailed
-        case .accountNotMovable, .payeeCoolingOff: return .unknownError(self == .payeeCoolingOff
-            ? "This payee is still in the cooling-off period for large transfers."
-            : "This account can't send money.")
+        case .accountNotMovable: return .accountNotMovable
+        case .destinationNotMovable: return .destinationNotMovable
+        case .payeeCoolingOff: return .payeeCooling
+        case .cardBlocked: return .cardBlocked
         case .duplicate, .saveFailed: return .transactionFailed
         }
     }

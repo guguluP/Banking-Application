@@ -113,6 +113,7 @@ struct ChangePasscodeView: View {
         switch currentStep {
         case .current:
             guard authenticationService.verifyPasscode(currentPasscode) else {
+                authenticationService.recordFailedPasscodeAttempt()
                 error = .authenticationFailed
                 HapticFeedbackService.shared.errorOccurred()
                 currentPasscode = ""
@@ -131,12 +132,26 @@ struct ChangePasscodeView: View {
                 newPasscode = ""
                 return
             }
+            guard !authenticationService.verifyDuressPasscode(newPasscode) else {
+                error = .unknownError("That PIN is already used for the limited session.")
+                HapticFeedbackService.shared.errorOccurred()
+                newPasscode = ""
+                return
+            }
             currentStep = .confirm
         case .confirm:
             guard newPasscode == confirmPasscode else {
                 error = .unknownError("Passcodes do not match")
                 HapticFeedbackService.shared.errorOccurred()
                 confirmPasscode = ""
+                return
+            }
+            guard !authenticationService.verifyDuressPasscode(newPasscode) else {
+                error = .unknownError("That PIN is already used for the limited session.")
+                HapticFeedbackService.shared.errorOccurred()
+                newPasscode = ""
+                confirmPasscode = ""
+                currentStep = .new
                 return
             }
             guard authenticationService.setPasscode(newPasscode) else {

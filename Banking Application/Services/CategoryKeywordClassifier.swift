@@ -59,7 +59,7 @@ final class CategoryKeywordClassifier: CategoryClassifying {
         let lowercased = text.lowercased()
 
         for entry in Self.keywordTable {
-            for keyword in entry.keywords where lowercased.contains(keyword) {
+            for keyword in entry.keywords where matches(keyword, in: lowercased) {
                 return CategoryClassification(
                     categoryName: entry.category,
                     merchant: extractMerchant(from: text, matchedKeyword: keyword),
@@ -80,6 +80,15 @@ final class CategoryKeywordClassifier: CategoryClassifying {
             merchant: extractMerchant(from: text, matchedKeyword: nil),
             confidence: 0.3
         )
+    }
+
+    /// Single words match on a boundary so "ola" does not hit "chocolate" and "cab" does not hit "cabbage".
+    private func matches(_ keyword: String, in text: String) -> Bool {
+        if keyword.contains(where: { !$0.isLetter && !$0.isNumber }) {
+            return text.contains(keyword)
+        }
+        let pattern = "\\b\(NSRegularExpression.escapedPattern(for: keyword))\\b"
+        return text.range(of: pattern, options: .regularExpression) != nil
     }
 
     /// Best-effort merchant/description extraction: strips amount-looking

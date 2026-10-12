@@ -1,6 +1,6 @@
 import Foundation
 
-struct CapturedBankSMS: Equatable {
+nonisolated struct CapturedBankSMS: Equatable {
     var amount: Decimal
     var isCredit: Bool
     var accountLast4: String
@@ -8,9 +8,10 @@ struct CapturedBankSMS: Equatable {
     var externalRef: String?
     var bank: String
     var confidence: Double
+    var occurredAt: Date = Date()
 }
 
-struct IndianBank: Equatable {
+nonisolated struct IndianBank: Equatable {
     var name: String
     var aliases: [String]
 }
@@ -112,7 +113,7 @@ nonisolated enum IndianBankCatalog {
 }
 
 nonisolated enum IndianBankSMSGrammar {
-    static func parse(_ text: String) -> CapturedBankSMS? {
+    static func parse(_ text: String, now: Date = Date()) -> CapturedBankSMS? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !looksLikeOTP(trimmed) else { return nil }
         guard let amount = amount(in: trimmed), let isCredit = directionIsCredit(in: trimmed) else { return nil }
@@ -136,20 +137,67 @@ nonisolated enum IndianBankSMSGrammar {
             merchant: merchant(in: trimmed),
             externalRef: reference,
             bank: known ?? "Indian bank",
-            confidence: confidence
+            confidence: confidence,
+            occurredAt: occurredAt(in: trimmed, now: now)
         )
     }
 
-    private static func looksLikeOTP(_ text: String) -> Bool {
+    /// OTP only when the word sits next to a 4–8 digit code. A distant "Never share OTP" does not drop a debit alert.
+    static func looksLikeOTP(_ text: String) -> Bool {
         let lower = text.lowercased()
-        let otpWord = lower.contains("otp") || lower.contains("one time") || lower.contains("do not share")
-        return otpWord && text.range(of: #"\b\d{4,8}\b"#, options: .regularExpression) != nil
+        let keywords = ["one-time password", "one time password", "one time", "otp"]
+        guard let regex = try? NSRegularExpression(pattern: #"\b\d{4,8}\b"#) else { return false }
+        let nsRange = NSRange(lower.startIndex..., in: lower)
+        let codes = regex.matches(in: lower, range: nsRange).compactMap { Range($0.range, in: lower) }
+        guard !codes.isEmpty else { return false }
+        for keyword in keywords {
+            var search = lower.startIndex..<lower.endIndex
+            while let found = lower.range(of: keyword, range: search) {
+                search = found.upperBound..<lower.endIndex
+                guard isIsolatedToken(found, in: lower) else { continue }
+                for code in codes {
+                    let gap: Int
+                    if code.lowerBound >= found.upperBound {
+                        gap = lower.distance(from: found.upperBound, to: code.lowerBound)
+                    } else if found.lowerBound >= code.upperBound {
+                        gap = lower.distance(from: code.upperBound, to: found.lowerBound)
+                    } else {
+                        gap = 0
+                    }
+                    if gap <= 40 { return true }
+                }
+            }
+        }
+        return false
+    }
+
+    private static func isIsolatedToken(_ range: Range<String.Index>, in text: String) -> Bool {
+        if range.lowerBound > text.startIndex {
+            let before = text[text.index(before: range.lowerBound)]
+            if before.isLetter || before.isNumber { return false }
+        }
+        if range.upperBound < text.endIndex {
+            let after = text[range.upperBound]
+            if after.isLetter || after.isNumber { return false }
+        }
+        return true
+    }
+
+    static func occurredAt(in text: String, now: Date = Date()) -> Date {
+        if let date = dateMatch(in: text, pattern: #"\b(\d{1,2})[\/\-.]([A-Za-z]{3})[\/\-.](\d{2,4})\b"#, namedMonth: true) {
+            return date
+        }
+        if let date = dateMatch(in: text, pattern: #"\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b"#, namedMonth: false) {
+            return date
+        }
+        return now
     }
 
     private static func amount(in text: String) -> Decimal? {
+        let number = #"(?:[0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]+)(?:\.[0-9]{1,2})?"#
         let patterns = [
-            #"(?:₹|Rs\.?|INR)\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)"#,
-            #"([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{1,2})?)\s*(?:₹|Rs\.?|INR|rupees)"#
+            "(?:₹|Rs\\.?|INR)\\s*(\(number))",
+            "(\(number))\\s*(?:₹|Rs\\.?|INR|rupees)"
         ]
         for pattern in patterns {
             guard let raw = firstGroup(pattern, in: text, group: 1) else { continue }
@@ -162,11 +210,57 @@ nonisolated enum IndianBankSMSGrammar {
 
     private static func directionIsCredit(in text: String) -> Bool? {
         let lower = text.lowercased()
-        if ["credited", "credit of", "received", "deposited", "has credit"].contains(where: { lower.contains($0) }) {
-            return true
+        let strongCredit = ["credited", "credit of", "deposited"]
+        let weakCredit = ["received", "has credit"]
+        let debitWords = ["debited", "debit of", "spent", "sent", "paid", "withdrawn", "purchase", "deducted"]
+        func earliest(_ words: [String]) -> String.Index? {
+            words.compactMap { lower.range(of: $0)?.lowerBound }.min()
         }
-        if ["debited", "debit of", "spent", "sent", "paid", "withdrawn", "purchase", "deducted"].contains(where: { lower.contains($0) }) {
+        switch (earliest(strongCredit), earliest(debitWords)) {
+        case let (credit?, debit?):
+            return credit < debit
+        case (.some, .none):
+            return true
+        case (.none, .some):
             return false
+        case (.none, .none):
+            return earliest(weakCredit) == nil ? nil : true
+        }
+    }
+
+    private static func dateMatch(in text: String, pattern: String, namedMonth: Bool) -> Date? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        for hit in regex.matches(in: text, range: range) {
+            guard hit.numberOfRanges > 3,
+                  let dayRange = Range(hit.range(at: 1), in: text),
+                  let midRange = Range(hit.range(at: 2), in: text),
+                  let yearRange = Range(hit.range(at: 3), in: text),
+                  let day = Int(text[dayRange]),
+                  (1...31).contains(day) else { continue }
+            let month: Int
+            if namedMonth {
+                let key = String(text[midRange]).lowercased()
+                let names = ["jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12]
+                guard let value = names[key] else { continue }
+                month = value
+            } else if let value = Int(text[midRange]), (1...12).contains(value) {
+                month = value
+            } else {
+                continue
+            }
+            var year = Int(text[yearRange]) ?? 0
+            if year < 100 { year += 2000 }
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = .current
+            var parts = DateComponents()
+            parts.calendar = calendar
+            parts.timeZone = .current
+            parts.year = year
+            parts.month = month
+            parts.day = day
+            parts.hour = 12
+            if let date = calendar.date(from: parts) { return date }
         }
         return nil
     }

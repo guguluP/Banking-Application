@@ -196,9 +196,21 @@ final class AIChatbotService: ObservableObject {
             (.greeting, ["hi", "hello", "hey"])
         ]
         for (intent, keys) in ranked {
-            if keys.contains(where: { t.contains($0) }) { return intent }
+            if intent == .greeting {
+                if containsWholeWord(t, anyOf: ["hi", "hello", "hey"]) { return intent }
+            } else if keys.contains(where: { t.contains($0) }) {
+                return intent
+            }
         }
         return .unknown
+    }
+
+    /// Whole words only, so "hi" does not match "this" or "shipping".
+    private func containsWholeWord(_ text: String, anyOf words: [String]) -> Bool {
+        words.contains { word in
+            let pattern = "\\b\(NSRegularExpression.escapedPattern(for: word))\\b"
+            return text.range(of: pattern, options: .regularExpression) != nil
+        }
     }
 
     private func extractAmount(from text: String) -> Decimal? {
@@ -286,7 +298,7 @@ final class AIChatbotService: ObservableObject {
         }
 
         if text.contains("scan") || text.contains("qr") || text.contains("upi") {
-            return "Dear Customer, the Payments tab has Scan & Pay for UPI QR codes, plus bill pay."
+            return "Dear Customer, UPI Pay in this demo does not scan a QR code. Enter a UPI ID on the Payments tab. Bill pay is there too."
         }
 
         if text.contains("bill") {
@@ -305,7 +317,7 @@ final class AIChatbotService: ObservableObject {
             return "Dear Customer, you can manage Face ID/Touch ID and your passcode under Profile > Privacy & Security."
         }
 
-        if text.contains("hi") || text.contains("hello") || text.contains("hey") {
+        if containsWholeWord(text, anyOf: ["hi", "hello", "hey"]) {
             return "Dear Customer, how can I help with your account today?"
         }
 

@@ -200,6 +200,28 @@ final class AppSettings: ObservableObject {
     var regionLabel: String {
         Self.regionOptions.indices.contains(regionIndex) ? Self.regionOptions[regionIndex] : Self.regionOptions[0]
     }
+
+    /// Date only, using the saved order. Locale is pinned so the device region cannot reorder it.
+    func formattedDate(_ date: Date) -> String {
+        dateFormatter(dateFormat.pattern).string(from: date)
+    }
+
+    func formattedTime(_ date: Date) -> String {
+        dateFormatter(timeFormat.pattern).string(from: date)
+    }
+
+    /// Date and time together, using the saved date order and 12/24-hour choice.
+    func formattedDateTime(_ date: Date) -> String {
+        dateFormatter("\(dateFormat.pattern) \(timeFormat.pattern)").string(from: date)
+    }
+
+    private func dateFormatter(_ pattern: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_IN")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = pattern
+        return formatter
+    }
 }
 
 /// User-selectable appearance override. `.system` means "no override" —
@@ -232,9 +254,24 @@ enum BankDateFormat: String, CaseIterable {
     case monthDayYear = "MM/DD/YYYY"
     case dayMonthYear = "DD/MM/YYYY"
     case yearMonthDay = "YYYY/MM/DD"
+
+    var pattern: String {
+        switch self {
+        case .monthDayYear: return "MM/dd/yyyy"
+        case .dayMonthYear: return "dd/MM/yyyy"
+        case .yearMonthDay: return "yyyy/MM/dd"
+        }
+    }
 }
 
 enum BankTimeFormat: String, CaseIterable {
     case twelveHour = "12-Hour"
     case twentyFourHour = "24-Hour"
+
+    var pattern: String {
+        switch self {
+        case .twelveHour: return "h:mm a"
+        case .twentyFourHour: return "HH:mm"
+        }
+    }
 }

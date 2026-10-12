@@ -218,8 +218,11 @@ struct LoanDetailView: View {
                 if loan.status == .active, let account = sourceAccount {
                     HStack(spacing: AppSpacing.md) {
                         ModernButton(title: "Pay EMI", systemImage: "checkmark.circle.fill", variant: .filled) {
-                            _ = viewModel.payEMI(for: loan, from: account, in: modelContext)
-                            HapticFeedbackService.shared.success()
+                            if viewModel.payEMI(for: loan, from: account, in: modelContext) {
+                                HapticFeedbackService.shared.success()
+                            } else {
+                                HapticFeedbackService.shared.errorOccurred()
+                            }
                         }
                         ModernButton(title: "Prepay", systemImage: "arrow.down.circle.fill", variant: .outlined) {
                             showingPrepaySheet = true

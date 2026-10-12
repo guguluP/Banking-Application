@@ -69,6 +69,7 @@ class AuthenticationService: ObservableObject {
     init() {
         checkBiometricsAvailability()
         refreshLockoutState()
+        Self.movementBlocked = persistedDuressActive()
     }
 
     private func checkBiometricsAvailability() {
@@ -104,6 +105,7 @@ class AuthenticationService: ObservableObject {
     @discardableResult
     func setPasscode(_ passcode: String) -> Bool {
         guard passcode.count == 4, passcode.allSatisfy({ $0.isNumber }) else { return false }
+        guard !verifyDuressPasscode(passcode) else { return false }
         let salt = CryptoService.generateSalt()
         let hash = CryptoService.hash(passcode: passcode, salt: salt)
         let saltStored = keychain.set(salt, forKey: KeychainKey.passcodeSalt)
@@ -237,6 +239,11 @@ class AuthenticationService: ObservableObject {
         }
     }
 
+    /// Same counter and cooldown as a failed sign-in.
+    func recordFailedPasscodeAttempt() {
+        registerFailedAttempt()
+    }
+
     private func registerFailedAttempt() {
         let attempts = (keychain.getInt(forKey: KeychainKey.failedAttempts) ?? 0) + 1
         keychain.set(attempts, forKey: KeychainKey.failedAttempts)
@@ -321,18 +328,30 @@ class AuthenticationService: ObservableObject {
     }
 
     private func completeAuthentication() {
+        storeDuressActive(isDecoySession)
+        Self.movementBlocked = isDecoySession
+        keychain.set(UUID().uuidString, forKey: KeychainKey.sessionToken)
+        Self.sessionIsLive = true
         isAuthenticated = true
         isLocked = false
         errorMessage = nil
         resetFailedAttempts()
-        let token = UUID().uuidString
-        keychain.set(token, forKey: KeychainKey.sessionToken)
-        Self.sessionIsLive = true
-        Self.movementBlocked = isDecoySession
         recordActivity()
         startInactivityMonitor()
         NotificationService.shared.notifyLogin(decoy: isDecoySession)
         SecurityLog.record(kind: "sign_in", detail: isDecoySession ? "restricted session" : "new sign-in")
+    }
+
+    func persistedDuressActive() -> Bool {
+        keychain.getString(forKey: KeychainKey.duressActive) == "1"
+    }
+
+    private func storeDuressActive(_ active: Bool) {
+        if active {
+            keychain.set("1", forKey: KeychainKey.duressActive)
+        } else {
+            keychain.delete(forKey: KeychainKey.duressActive)
+        }
     }
 
     /// True only when this process completed login and the keychain still holds that token.
@@ -387,7 +406,8 @@ class AuthenticationService: ObservableObject {
         }
     }
 
-    func logout() {
+    /// `clearDuress` false ends the UI session but keeps the keychain flag, so a killed limited session stays blocked.
+    func logout(clearDuress: Bool = true) {
         isAuthenticated = false
         isLocked = false
         isDecoySession = false
@@ -395,7 +415,12 @@ class AuthenticationService: ObservableObject {
         errorMessage = nil
         keychain.delete(forKey: KeychainKey.sessionToken)
         Self.sessionIsLive = false
-        Self.movementBlocked = false
+        if clearDuress {
+            storeDuressActive(false)
+            Self.movementBlocked = false
+        } else {
+            Self.movementBlocked = persistedDuressActive()
+        }
         stopInactivityMonitor()
     }
 

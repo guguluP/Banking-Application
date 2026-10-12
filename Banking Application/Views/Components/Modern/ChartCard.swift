@@ -76,16 +76,18 @@ struct CategoryBreakdownChartCard: View {
     
     var body: some View {
         ChartCard(title: "Spending by Category", systemImage: "chart.pie.fill") {
-            if categories.isEmpty {
+            let slices = categories.filter { $0.amount > 0 }
+            if slices.isEmpty {
                 Text("No category data available")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 40)
             } else {
-                Chart(categories) { category in
+                // A first frame of all-zero angles makes Charts divide by zero and trap.
+                Chart(slices) { category in
                     SectorMark(
-                        angle: .value("Amount", animateChart ? category.amount : 0),
+                        angle: .value("Amount", category.amount),
                         innerRadius: .ratio(0.6),
                         angularInset: 1
                     )

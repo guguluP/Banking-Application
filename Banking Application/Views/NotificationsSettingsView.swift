@@ -54,7 +54,7 @@ struct NotificationsSettingsView: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Large Transactions")
                                             .font(.body)
-                                        Text("For transactions above ₹50,000")
+                                        Text("For transactions above \(CurrencyFormatter.shared.string(from: settings.largeTransactionAmount))")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
@@ -101,7 +101,7 @@ struct NotificationsSettingsView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Promotional Offers")
                                         .font(.body)
-                                    Text("Exclusive deals and rewards")
+                                    Text("Saved on this device. This demo does not send offers.")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }

@@ -90,6 +90,7 @@ class FixedDepositViewModel {
             transactionDate: startDate,
             category: "Savings & Investments"
         )
+        debitTransaction.countsInLedger = true
         debitTransaction.account = sourceAccount
 
         context.insert(deposit)

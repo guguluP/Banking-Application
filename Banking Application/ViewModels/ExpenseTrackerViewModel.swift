@@ -47,9 +47,12 @@ final class ExpenseTrackerViewModel {
 
     var amountSpentThisMonth: Decimal {
         let start = Self.startOfMonth(Date())
-        return expenseEntries
-            .filter { $0.isDebit && $0.transactionDate >= start }
+        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? .distantFuture
+        let rows = expenseEntries.filter { $0.transactionDate >= start && $0.transactionDate < end }
+        let debits = rows.filter(\.isDebit).reduce(Decimal(0)) { $0 + $1.amount }
+        let credits = rows.filter { $0.isCredit && ($0.category ?? "") != "Income" && $0.categoryRef?.name != "Income" }
             .reduce(Decimal(0)) { $0 + $1.amount }
+        return max(0, debits - credits)
     }
 
     func filteredEntries(searchText: String, categoryId: String? = nil) -> [Transaction] {
@@ -116,8 +119,9 @@ final class ExpenseTrackerViewModel {
         )
         txn.account = account
         modelContext.insert(txn)
-
+        adjustEnvelope(named: category?.name ?? categoryName, by: isIncome ? -amount : amount)
         persistAndReload()
+        noteBudgetThresholds()
         if error == nil {
             NotificationService.shared.notifyTransaction(
                 amount: amount,
@@ -162,6 +166,10 @@ final class ExpenseTrackerViewModel {
 
         applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
 
+        let previousName = transaction.category ?? transaction.categoryRef?.name ?? ""
+        let previousEffect = transaction.isCredit ? -transaction.amount : transaction.amount
+        adjustEnvelope(named: previousName, by: -previousEffect)
+
         let category = category(named: categoryName)
         transaction.accountId = account.id
         transaction.account = account
@@ -173,15 +181,19 @@ final class ExpenseTrackerViewModel {
         transaction.category = category?.name ?? categoryName
         transaction.categoryRef = category
         transaction.transactionDate = date
+        adjustEnvelope(named: category?.name ?? categoryName, by: isIncome ? -amount : amount)
 
         persistAndReload()
+        noteBudgetThresholds()
     }
 
     func deleteExpense(_ transaction: Transaction) {
         error = nil
         reverseBalanceChange(for: transaction, on: originalAccount(for: transaction))
+        adjustEnvelope(named: transaction.category ?? transaction.categoryRef?.name ?? "", by: transaction.isCredit ? transaction.amount : -transaction.amount)
         modelContext.delete(transaction)
         persistAndReload()
+        noteBudgetThresholds()
     }
 
     func wipeAllTrackerData() {
@@ -255,15 +267,48 @@ final class ExpenseTrackerViewModel {
         persistAndReload()
     }
 
+    func matchesCategory(_ transaction: Transaction, categoryId: String) -> Bool {
+        if transaction.categoryRef?.id == categoryId { return true }
+        guard transaction.categoryRef == nil, let name = transaction.category else { return false }
+        return categories.first { $0.id == categoryId }?.name.caseInsensitiveCompare(name) == .orderedSame
+    }
+
+    var uncategorizedThisMonth: [Transaction] {
+        let start = Self.startOfMonth(Date())
+        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? .distantFuture
+        return expenseEntries.filter { tx in
+            tx.isDebit && tx.countsTowardSpending &&
+            tx.transactionDate >= start && tx.transactionDate < end &&
+            tx.categoryRef == nil &&
+            !categories.contains { $0.name.caseInsensitiveCompare(tx.category ?? "") == .orderedSame }
+        }
+    }
+
+    var tightestBudget: (category: ExpenseCategory, budget: Budget, status: BudgetStatus)? {
+        let ranked = budgets.compactMap { budget -> (ExpenseCategory, Budget, BudgetStatus)? in
+            guard let category = categories.first(where: { $0.id == budget.categoryId }) else { return nil }
+            let status = status(for: budget)
+            guard status != .onTrack else { return nil }
+            return (category, budget, status)
+        }
+        return ranked.max { lhs, rhs in
+            amountSpent(categoryId: lhs.1.categoryId) / max(lhs.1.limitAmount, 1)
+                < amountSpent(categoryId: rhs.1.categoryId) / max(rhs.1.limitAmount, 1)
+        }.map { (category: $0.0, budget: $0.1, status: $0.2) }
+    }
+
     func amountSpent(categoryId: String) -> Decimal {
         let start = Self.startOfMonth(Date())
-        return expenseEntries
-            .filter {
-                $0.isDebit &&
-                $0.categoryRef?.id == categoryId &&
-                $0.transactionDate >= start
-            }
+        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? .distantFuture
+        let rows = expenseEntries.filter {
+            matchesCategory($0, categoryId: categoryId) &&
+            $0.transactionDate >= start &&
+            $0.transactionDate < end
+        }
+        let debits = rows.filter(\.isDebit).reduce(Decimal(0)) { $0 + $1.amount }
+        let credits = rows.filter { $0.isCredit && $0.categoryRef?.name != "Income" }
             .reduce(Decimal(0)) { $0 + $1.amount }
+        return max(0, debits - credits)
     }
 
     func status(for budget: Budget) -> BudgetStatus {
@@ -289,7 +334,11 @@ final class ExpenseTrackerViewModel {
         )
 
         do {
-            expenseEntries = try modelContext.fetch(txnDescriptor).filter(\.isExpenseTrackerEntry)
+            let all = try modelContext.fetch(txnDescriptor)
+            expenseEntries = all.filter { tx in
+                if tx.isCredit { return tx.type != .interest }
+                return tx.countsTowardSpending
+            }
             categories = try modelContext.fetch(categoryDescriptor)
             budgets = try modelContext.fetch(budgetDescriptor)
         } catch {
@@ -331,6 +380,28 @@ final class ExpenseTrackerViewModel {
     private func reverseBalanceChange(for transaction: Transaction, on account: Account?) {
         guard let account else { return }
         applyBalanceChange(to: account, amount: transaction.amount, isIncome: transaction.isDebit)
+    }
+
+    private func adjustEnvelope(named name: String, by delta: Decimal) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, delta != 0 else { return }
+        let envelopes = (try? modelContext.fetch(FetchDescriptor<Envelope>())) ?? []
+        guard let envelope = envelopes.first(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        envelope.spent = max(0, envelope.spent + delta)
+    }
+
+    private func noteBudgetThresholds() {
+        let defaults = UserDefaults.standard
+        for budget in budgets {
+            let status = status(for: budget)
+            guard status != .onTrack else { continue }
+            let key = "budget-noted-\(budget.id)"
+            let marker = status == .over ? "over" : "near"
+            guard defaults.string(forKey: key) != marker else { continue }
+            defaults.set(marker, forKey: key)
+            let name = categories.first { $0.id == budget.categoryId }?.name ?? "A category"
+            NotificationService.shared.notifyBudget(category: name, overLimit: status == .over)
+        }
     }
 
     private static func startOfMonth(_ date: Date) -> Date {

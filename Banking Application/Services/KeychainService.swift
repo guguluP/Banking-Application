@@ -58,14 +58,18 @@ final class KeychainService {
 
     @discardableResult
     func set(_ data: Data, forKey key: String) -> Bool {
-        var query = baseQuery(for: key)
+        let existing = baseQuery(for: key)
+        SecItemDelete(existing as CFDictionary)
+
+        var query = existing
         query[kSecValueData as String] = data
         query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
 
-        // Remove any existing item first so this behaves as an upsert.
-        SecItemDelete(query as CFDictionary)
-
         let status = SecItemAdd(query as CFDictionary, nil)
+        if status == errSecDuplicateItem {
+            let update = [kSecValueData as String: data]
+            return SecItemUpdate(existing as CFDictionary, update as CFDictionary) == errSecSuccess
+        }
         return status == errSecSuccess
     }
 
@@ -115,11 +119,16 @@ final class KeychainService {
     // MARK: - Helpers
 
     private func baseQuery(for key: String) -> [String: Any] {
-        [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key
         ]
+        // Mac Catalyst rejects iOS accessibility constants unless the item is in the data-protection keychain.
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        query[kSecUseDataProtectionKeychain as String] = true
+        #endif
+        return query
     }
 
     /// Wipes every secure item this app owns. Called on logout-and-erase or when a
@@ -137,13 +146,16 @@ final class KeychainService {
             nil
         ) else { return false }
         let secret = Data(UUID().uuidString.utf8)
-        let query: [String: Any] = [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: KeychainKey.biometricGate,
             kSecValueData as String: secret,
             kSecAttrAccessControl as String: access
         ]
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        query[kSecUseDataProtectionKeychain as String] = true
+        #endif
         return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
     }
 
@@ -162,7 +174,10 @@ final class KeychainService {
     func removeAll() {
         let classes: [CFString] = [kSecClassGenericPassword, kSecClassInternetPassword, kSecClassKey]
         for secClass in classes {
-            let query: [String: Any] = [kSecClass as String: secClass, kSecAttrService as String: service]
+            var query: [String: Any] = [kSecClass as String: secClass, kSecAttrService as String: service]
+            #if targetEnvironment(macCatalyst) || os(macOS)
+            query[kSecUseDataProtectionKeychain as String] = true
+            #endif
             SecItemDelete(query as CFDictionary)
         }
     }
@@ -184,4 +199,5 @@ enum KeychainKey {
     static let biometricGate = "biometricGate"
     static let duressPasscodeHash = "duressPasscodeHash"
     static let duressPasscodeSalt = "duressPasscodeSalt"
+    static let duressActive = "duressActive"
 }

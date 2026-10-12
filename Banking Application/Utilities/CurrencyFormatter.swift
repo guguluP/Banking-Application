@@ -20,6 +20,7 @@ nonisolated final class CurrencyFormatter: @unchecked Sendable {
     
     private init() {
         let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_IN")
         formatter.numberStyle = .currency
         formatter.currencyCode = "INR"
         formatter.maximumFractionDigits = 2
@@ -40,6 +41,7 @@ nonisolated final class CurrencyFormatter: @unchecked Sendable {
 
     func string(from amount: Decimal, currencyCode: String) -> String {
         let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_IN")
         formatter.numberStyle = .currency
         formatter.currencyCode = currencyCode
         formatter.maximumFractionDigits = 2

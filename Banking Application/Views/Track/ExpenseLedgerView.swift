@@ -65,7 +65,9 @@ struct ExpenseLedgerView: View {
                 transactionPendingDelete = nil
             }
         } message: {
-            Text("This will remove the entry and restore the amount to your account balance.")
+            Text(transactionPendingDelete?.isCredit == true
+                 ? "This will remove the income from your account balance."
+                 : "This will remove the entry and restore the amount to your account balance.")
         }
     }
 

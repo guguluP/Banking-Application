@@ -7,6 +7,7 @@ import UIKit
 struct ImportReviewQueueView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \ImportedEvent.occurredAt, order: .reverse) private var rows: [ImportedEvent]
+    @State private var saveFailed = false
 
     var body: some View {
         List {
@@ -18,11 +19,15 @@ struct ImportReviewQueueView: View {
                 ForEach(pending) { row in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(row.merchant.isEmpty ? row.bank : row.merchant)
-                        Text("\(row.amount.description) · •••• \(row.accountLast4) · \(row.categoryName)")
+                        Text("\(CurrencyFormatter.shared.string(from: row.amount)) · •••• \(row.accountLast4) · \(row.categoryName)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HStack {
-                            Button("Save") { _ = BankImportPipeline.approve(row, in: context) }
+                            Button("Save") {
+                                if !BankImportPipeline.approve(row, in: context) {
+                                    saveFailed = true
+                                }
+                            }
                             Button("Skip") { BankImportPipeline.reject(row, in: context) }
                         }
                     }
@@ -35,6 +40,11 @@ struct ImportReviewQueueView: View {
             }
         }
         .navigationTitle("Review imports")
+        .alert("Couldn't save this import", isPresented: $saveFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("The account didn't match, or this import was already posted.")
+        }
     }
 }
 

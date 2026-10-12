@@ -121,6 +121,11 @@ private struct BudgetEditorView: View {
     @Environment(\.dismiss) private var dismiss
     let category: ExpenseCategory
     @State private var limitText: String = ""
+    @State private var formError: String?
+
+    private var limitAmount: Decimal? {
+        Decimal(string: limitText.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
 
     var body: some View {
         NavigationStack {
@@ -159,14 +164,26 @@ private struct BudgetEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        if let amount = Decimal(string: limitText) {
-                            tracker.setBudget(categoryId: category.id, limitAmount: amount)
+                        guard let amount = limitAmount, amount > 0 else { return }
+                        tracker.setBudget(categoryId: category.id, limitAmount: amount)
+                        if let error = tracker.error {
+                            formError = error.message
+                            tracker.error = nil
+                        } else {
+                            dismiss()
                         }
-                        dismiss()
                     }
                     .fontWeight(.semibold)
-                    .disabled(Decimal(string: limitText) == nil)
+                    .disabled((limitAmount ?? 0) <= 0)
                 }
+            }
+            .alert("Couldn't save", isPresented: Binding(
+                get: { formError != nil },
+                set: { if !$0 { formError = nil } }
+            )) {
+                Button("OK", role: .cancel) { formError = nil }
+            } message: {
+                Text(formError ?? "")
             }
             .onAppear {
                 if let existing = tracker.budget(for: category.id) {
@@ -183,6 +200,7 @@ private struct NewCategoryView: View {
     @State private var name = ""
     @State private var selectedIcon = "tag.fill"
     @State private var selectedColorHex = "6C5CE7"
+    @State private var formError: String?
 
     private let iconChoices = [
         "tag.fill", "cart.fill", "fork.knife", "car.fill", "airplane",
@@ -241,11 +259,24 @@ private struct NewCategoryView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         tracker.addCategory(name: name, systemImage: selectedIcon, colorHex: selectedColorHex)
-                        if tracker.error == nil { dismiss() }
+                        if let error = tracker.error {
+                            formError = error.message
+                            tracker.error = nil
+                        } else {
+                            dismiss()
+                        }
                     }
                     .fontWeight(.semibold)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
+            }
+            .alert("Couldn't add category", isPresented: Binding(
+                get: { formError != nil },
+                set: { if !$0 { formError = nil } }
+            )) {
+                Button("OK", role: .cancel) { formError = nil }
+            } message: {
+                Text(formError ?? "")
             }
         }
     }

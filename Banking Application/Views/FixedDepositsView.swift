@@ -3,6 +3,7 @@ import SwiftData
 
 struct FixedDepositsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Environment(AccountViewModel.self) var accountViewModel
     @EnvironmentObject var authenticationService: AuthenticationService
     @Query(sort: \FixedDeposit.startDate, order: .reverse) private var allDeposits: [FixedDeposit]
@@ -75,8 +76,11 @@ struct FixedDepositsView: View {
                         .padding(.top, 40)
                     } else {
                         ForEach(myDeposits) { deposit in
-                            FixedDepositCard(deposit: deposit)
-                                .padding(.horizontal)
+                            NavigationLink(destination: FixedDepositDetailView(deposit: deposit)) {
+                                FixedDepositCard(deposit: deposit)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .padding(.horizontal)
                         }
                     }
                     
@@ -96,6 +100,9 @@ struct FixedDepositsView: View {
             }
         }
         .swipeDownToDismiss()
+        .onAppear {
+            DepositService.processMatured(in: modelContext)
+        }
     }
 }
 
@@ -160,6 +167,130 @@ struct FixedDepositCard: View {
         case .matured: return .green
         case .closed: return .secondary
         }
+    }
+}
+
+struct FixedDepositDetailView: View {
+    @Bindable var deposit: FixedDeposit
+    @Environment(\.modelContext) private var modelContext
+    @Environment(AccountViewModel.self) var accountViewModel
+    @State private var confirmingBreak = false
+    @State private var breakFailed = false
+
+    private var fundingAccount: Account? {
+        accountViewModel.accounts.first { $0.id == deposit.sourceAccountId }
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: AppSpacing.lg) {
+                GlassCard {
+                    VStack(spacing: AppSpacing.sm) {
+                        Image(systemName: "banknote.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(Color.bankPrimary)
+                        Text(deposit.nickname)
+                            .font(.title3.bold())
+                        Text("\(String(format: "%.2f", deposit.interestRate))% p.a. · \(deposit.payoutType.rawValue)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Divider().padding(.vertical, 4)
+
+                        HStack {
+                            statColumn(title: "Principal", value: deposit.formattedPrincipal)
+                            Divider().frame(height: 30)
+                            statColumn(title: "At Maturity", value: deposit.formattedMaturityValue)
+                        }
+
+                        if deposit.status == .active {
+                            Text(deposit.daysRemaining > 0 ? "\(deposit.daysRemaining) days to maturity" : "Matures today")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text(deposit.status.rawValue)
+                                .font(.caption.bold())
+                                .foregroundColor(deposit.status == .matured ? .green : .secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                }
+                .padding(.horizontal)
+
+                if deposit.status == .active {
+                    if let fundingAccount {
+                        Text("Funding account: \(fundingAccount.nickname ?? fundingAccount.accountNumber)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                    }
+
+                    Text("Breaking returns the principal only. Interest is not paid.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+
+                    ModernButton(title: "Break Deposit", systemImage: "arrow.uturn.backward.circle.fill", variant: .outlined) {
+                        confirmingBreak = true
+                    }
+                    .padding(.horizontal)
+
+                    if breakFailed {
+                        Text("Couldn't break this deposit.")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .padding(.horizontal)
+                    }
+                }
+            }
+            .padding(.vertical)
+        }
+        .bankSoftScrollEdges()
+        .navigationTitle("Deposit Details")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            DepositService.processMatured(in: modelContext)
+        }
+        .confirmationDialog("Break this fixed deposit?", isPresented: $confirmingBreak, titleVisibility: .visible) {
+            Button("Break and return principal", role: .destructive) {
+                breakDeposit()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You receive the principal only. Interest is not paid.")
+        }
+    }
+
+    private func breakDeposit() {
+        // A deposit that is already due should pay maturity value, not forfeit interest.
+        if deposit.maturityDate <= Date() {
+            DepositService.processMatured(in: modelContext)
+            if deposit.status != .active {
+                breakFailed = false
+                HapticFeedbackService.shared.success()
+                return
+            }
+        }
+        if DepositService.breakDeposit(deposit, in: modelContext) {
+            breakFailed = false
+            HapticFeedbackService.shared.success()
+        } else {
+            breakFailed = true
+            HapticFeedbackService.shared.errorOccurred()
+        }
+    }
+
+    private func statColumn(title: String, value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.subheadline.bold())
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

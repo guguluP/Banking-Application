@@ -26,7 +26,7 @@ struct MainTabView: View {
             Group {
                 if authenticationService.isDecoySession {
                     DecoyHomeView()
-                } else if sizeClass == .regular {
+                } else if usesSidebar {
                     regularLayout
                 } else {
                     compactLayout
@@ -76,8 +76,10 @@ struct MainTabView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             hideForSwitcher = newPhase != .active
-            if newPhase == .active {
-                BankImportPipeline.ingestCapturedSMS(in: modelContext)
+            if newPhase == .active, authenticationService.isAuthenticated, !authenticationService.isDecoySession {
+                BankingSessionTasks.runAfterUnlock(in: modelContext)
+                accountViewModel.loadAccounts()
+                transactionViewModel.loadAllTransactions()
             }
             if newPhase == .background, AppSettings.shared.isPasscodeLockEnabled {
                 authenticationService.isLocked = true
@@ -87,6 +89,18 @@ struct MainTabView: View {
             await NotificationService.shared.requestAuthorizationIfNeeded()
             NotificationService.shared.rescheduleWeeklySummary()
         }
+    }
+
+    /// Full-screen iPad and a Mac window use the sidebar. A phone in landscape stays on the tab bar.
+    private var usesSidebar: Bool {
+        #if os(iOS)
+        if PlatformUI.isMac {
+            return sizeClass != .compact
+        }
+        return UIDevice.current.userInterfaceIdiom == .pad && sizeClass != .compact
+        #else
+        return sizeClass == .regular
+        #endif
     }
 
     // MARK: - Compact (iPhone)
@@ -189,12 +203,16 @@ struct MainTabView: View {
                 } label: {
                     Label("Assistant", systemImage: "sparkles")
                         .font(.subheadline.weight(.semibold))
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
+                        .background {
+                            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                                .fill(Color.bankPrimaryGradient)
+                        }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.bankPrimary)
-                .glassControl(cornerRadius: AppTheme.CornerRadius.medium, tint: Color.bankPrimary)
                 .padding(.horizontal, AppSpacing.md)
                 .padding(.bottom, AppSpacing.lg)
             }
@@ -343,8 +361,7 @@ struct LockView: View {
                         systemImage: "lock.rectangle",
                         variant: .outlined
                     ) {
-                        authenticationService.isAuthenticated = false
-                        authenticationService.isLocked = false
+                        authenticationService.logout(clearDuress: false)
                         isVisible = false
                     }
                     .padding(.horizontal)

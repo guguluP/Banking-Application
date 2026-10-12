@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ModernTransactionRow: View {
     let transaction: Transaction
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         HStack(spacing: AppSpacing.md) {
@@ -38,7 +39,7 @@ struct ModernTransactionRow: View {
                         .lineLimit(1)
                 }
 
-                Text(transaction.transactionDate, style: .date)
+                Text(settings.formattedDate(transaction.transactionDate))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }

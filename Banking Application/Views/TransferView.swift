@@ -168,6 +168,15 @@ struct TransferView: View {
                             }
                         }
                         .bankSoftScrollEdges()
+                        if transferSpare > 0 {
+                            Text("Round-up adds \(CurrencyFormatter.shared.string(from: transferSpare)) to your other savings account. UPI and bills are not rounded.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else if AppSettings.shared.isRoundUpEnabled {
+                            Text("Round-up is on, but there is no other active savings account, so only this amount leaves.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .padding(.horizontal)
                     
@@ -226,8 +235,12 @@ struct TransferView: View {
                     requestBiometricAuth()
                 }
             } message: {
-                let amountText = CurrencyFormatter.shared.string(from: Decimal(string: viewModel.amount) ?? 0)
-                Text("Transfer \(amountText) to \(viewModel.recipientAccount)?")
+                let amountDecimal = Decimal(string: viewModel.amount) ?? 0
+                let amountText = CurrencyFormatter.shared.string(from: amountDecimal)
+                let spareText = CurrencyFormatter.shared.string(from: transferSpare)
+                Text(transferSpare > 0
+                     ? "Transfer \(amountText) to \(viewModel.recipientAccount)? Another \(spareText) moves to your other savings account."
+                     : "Transfer \(amountText) to \(viewModel.recipientAccount)?")
                     .accessibilityLabel("Confirm transfer of \(amountText) to account ending in \(viewModel.recipientAccount.suffix(4))")
             }
             .sheet(isPresented: $showingAddBeneficiary) {
@@ -236,10 +249,15 @@ struct TransferView: View {
             .accessibilityElement(children: .contain)
     }
     
+    private var transferSpare: Decimal {
+        guard let from = selectedFromAccount, let amountDecimal = Decimal(string: viewModel.amount), amountDecimal > 0 else { return 0 }
+        return TransactionService.roundUpDebit(for: amountDecimal, from: from, in: modelContext)
+    }
+
     private var isFormValid: Bool {
         guard let from = selectedFromAccount else { return false }
         guard let amountDecimal = Decimal(string: viewModel.amount), amountDecimal > 0 else { return false }
-        guard amountDecimal <= from.availableBalance else { return false }
+        guard amountDecimal + transferSpare <= from.availableBalance else { return false }
         return viewModel.isFormValid
     }
     
@@ -273,7 +291,7 @@ struct TransferView: View {
             return
         }
         
-        guard amountDecimal <= from.availableBalance else {
+        guard amountDecimal + transferSpare <= from.availableBalance else {
             viewModel.error = .insufficientFunds
             HapticFeedbackService.shared.errorOccurred()
             return

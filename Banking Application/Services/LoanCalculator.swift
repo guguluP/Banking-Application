@@ -112,13 +112,19 @@ enum LoanCalculator {
     }
 
     /// Months to zero out `balance` at a fixed EMI and monthly rate:
-    /// n = -log(1 - r·P/EMI) / log(1+r).
-    private static func monthsToPayoff(balance: Decimal, monthlyRate: Double, emi: Decimal) -> Int {
+    /// n = -log(1 - r·P/EMI) / log(1+r). `log(1 + r)` is 0 when the rate is 0.
+    static func monthsToPayoff(balance: Decimal, monthlyRate: Double, emi: Decimal) -> Int {
         let emiDouble = NSDecimalNumber(decimal: emi).doubleValue
         let balanceDouble = NSDecimalNumber(decimal: balance).doubleValue
+        guard emiDouble > 0, balanceDouble > 0 else { return 0 }
+        if monthlyRate == 0 {
+            return Int(ceil(balanceDouble / emiDouble))
+        }
         let ratio = 1 - (monthlyRate * balanceDouble / emiDouble)
         guard ratio > 0 else { return 0 }
-        return Int(ceil(-log(ratio) / log(1 + monthlyRate)))
+        let months = -log(ratio) / log(1 + monthlyRate)
+        guard months.isFinite, months > 0, months < Double(Int.max) else { return 0 }
+        return Int(ceil(months))
     }
 }
 

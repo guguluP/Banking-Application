@@ -10,7 +10,7 @@ struct AdvancedBankingHub: View {
             Section("Money movement") {
                 NavigationLink("Scheduled & standing instructions") { ScheduledTransfersView() }
                 NavigationLink("Request / split money") { RequestMoneyView() }
-                NavigationLink("International wire") { InternationalWireView() }
+                NavigationLink("International wire quote") { InternationalWireView() }
                 NavigationLink("Round-up savings") { RoundUpSavingsView() }
             }
             Section("Planning") {
@@ -53,16 +53,32 @@ struct ScheduledTransfersView: View {
     @State private var amount = ""
     @State private var date = Date().addingTimeInterval(86400)
     @State private var standing = false
+    @State private var fromAccountId = ""
+
+    private var accountChoices: [Account] {
+        accounts.sorted {
+            let left = $0.nickname ?? $0.accountType.rawValue
+            let right = $1.nickname ?? $1.accountType.rawValue
+            return left.localizedCaseInsensitiveCompare(right) == .orderedAscending
+        }
+    }
 
     var body: some View {
         Form {
             Section("New instruction") {
+                Picker("From account", selection: $fromAccountId) {
+                    Text("Select an account").tag("")
+                    ForEach(accountChoices) { account in
+                        Text(account.nickname ?? account.accountType.rawValue).tag(account.id)
+                    }
+                }
                 TextField("Payee", text: $payee)
                 TextField("Amount", text: $amount)
                     .keyboardType(.decimalPad)
                 DatePicker("When", selection: $date, displayedComponents: .date)
                 Toggle("Standing (monthly)", isOn: $standing)
                 Button("Schedule") { add() }
+                    .disabled(fromAccountId.isEmpty)
             }
             Section("Upcoming") {
                 ForEach(items) { item in
@@ -70,6 +86,11 @@ struct ScheduledTransfersView: View {
                         Text(item.payeeName).font(.headline)
                         Text("\(CurrencyFormatter.shared.string(from: item.amount)) · \(item.frequency.rawValue)")
                             .font(.caption).foregroundStyle(.secondary)
+                        if !item.lastError.isEmpty {
+                            Text(item.lastError)
+                                .font(.caption2)
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
             }
@@ -78,19 +99,29 @@ struct ScheduledTransfersView: View {
     }
 
     private func add() {
-        guard let amt = Decimal(string: amount), amt > 0, !payee.isEmpty else { return }
-        let row = ScheduledInstruction(
+        guard let amt = Decimal(string: amount), amt > 0, !payee.isEmpty, !fromAccountId.isEmpty else { return }
+        let calendar = Calendar.current
+        var parts = calendar.dateComponents([.year, .month, .day], from: date)
+        parts.hour = 9
+        parts.minute = 0
+        parts.second = 0
+        let executeOn = calendar.date(from: parts) ?? date
+        let instruction = ScheduledInstruction(
             userId: "user_001",
-            fromAccountId: accounts.first?.id ?? "",
+            fromAccountId: fromAccountId,
             payeeName: payee,
             amount: amt,
-            executeOn: date,
+            executeOn: executeOn,
             frequency: standing ? .monthly : .once,
             isStandingInstruction: standing
         )
-        context.insert(row)
+        if standing {
+            instruction.scheduledDay = calendar.component(.day, from: executeOn)
+        }
+        context.insert(instruction)
         try? context.save()
-        payee = ""; amount = ""
+        payee = ""
+        amount = ""
     }
 }
 
@@ -111,7 +142,7 @@ struct RequestMoneyView: View {
                 TextField("Note", text: $note)
                 Toggle("Split bill", isOn: $split)
                 if split { TextField("Names, comma-separated", text: $names) }
-                Button("Send request") {
+                Button("Save request") {
                     guard let amt = Decimal(string: amount), amt > 0 else { return }
                     let req = MoneyRequest(
                         userId: "user_001",
@@ -126,6 +157,9 @@ struct RequestMoneyView: View {
                     try? context.save()
                     name = ""; amount = ""; note = ""
                 }
+                Text("Saves the request on this device. Nothing is sent.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Open requests") {
                 ForEach(requests) { r in
@@ -147,7 +181,7 @@ struct InternationalWireView: View {
     @State private var fx = "USD"
     var body: some View {
         Form {
-            Section("SWIFT / wire") {
+            Section("Quote only — this does not send a wire") {
                 Picker("Currency", selection: $fx) {
                     Text("USD").tag("USD")
                     Text("EUR").tag("EUR")
@@ -157,25 +191,21 @@ struct InternationalWireView: View {
                 ForEach(beneficiaries) { b in
                     Text("\(b.nickname) · \(b.bankCode ?? "SWIFT")")
                 }
-                Text("Indicative INR debit uses a demo FX table. Live rates require a treasury feed.")
+                Text("This is a quote. It does not send a wire. Indicative rates are a demo table, not a live treasury feed.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
-        .navigationTitle("International")
+        .navigationTitle("Wire quote")
     }
 }
 
 struct RoundUpSavingsView: View {
-    @AppStorage("roundUpEnabled") private var enabled = false
-    @AppStorage("roundUpBucket") private var bucket = "Goal"
+    @ObservedObject private var settings = AppSettings.shared
+
     var body: some View {
         Form {
-            Toggle("Round each debit up to the next ₹10", isOn: $enabled)
-            Picker("Sweep into", selection: $bucket) {
-                Text("Savings goal").tag("Goal")
-                Text("New FD").tag("FD")
-            }
-            Text("When enabled, the spare change from each completed debit is accumulated toward the selected bucket.")
+            Toggle("Round each debit up to the next ₹10", isOn: $settings.isRoundUpEnabled)
+            Text("Spare change moves to another active savings account. It is skipped when there is nowhere to put it. UPI and bills are not rounded.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .navigationTitle("Round-up")
@@ -185,6 +215,7 @@ struct RoundUpSavingsView: View {
 struct SavingsGoalsView: View {
     @Environment(\.modelContext) private var context
     @Query private var goals: [SavingsGoal]
+    @Query private var deposits: [FixedDeposit]
     @State private var name = "Trip"
     @State private var target = "50000"
     @State private var date = Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? Date()
@@ -203,16 +234,32 @@ struct SavingsGoalsView: View {
             }
             Section {
                 ForEach(goals) { g in
+                    let saved = linkedSavings(for: g)
                     VStack(alignment: .leading) {
                         Text(g.name)
-                        ProgressView(value: g.progress)
-                        Text("\(CurrencyFormatter.shared.string(from: g.currentAmount)) of \(CurrencyFormatter.shared.string(from: g.targetAmount))")
+                        ProgressView(value: progress(saved: saved, target: g.targetAmount))
+                        Text("\(CurrencyFormatter.shared.string(from: saved)) of \(CurrencyFormatter.shared.string(from: g.targetAmount))")
                             .font(.caption)
+                        Text(g.linkedFDId == nil ? "Not linked to a deposit yet. The bar stays at the saved amount." : "Includes the linked fixed deposit.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
         }
         .navigationTitle("Goals")
+    }
+
+    private func linkedSavings(for goal: SavingsGoal) -> Decimal {
+        if let id = goal.linkedFDId, let deposit = deposits.first(where: { $0.id == id && $0.status == .active }) {
+            return deposit.principal + goal.currentAmount
+        }
+        return goal.currentAmount
+    }
+
+    private func progress(saved: Decimal, target: Decimal) -> Double {
+        guard target > 0 else { return 0 }
+        return min(1, NSDecimalNumber(decimal: saved / target).doubleValue)
     }
 }
 
@@ -233,10 +280,16 @@ struct EnvelopesView: View {
                 }
             }
             ForEach(envelopes) { e in
-                HStack {
-                    Text(e.name)
-                    Spacer()
-                    Text(CurrencyFormatter.shared.string(from: e.remaining))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(e.name)
+                        Spacer()
+                        Text(CurrencyFormatter.shared.string(from: e.remaining))
+                    }
+                    ProgressView(value: e.allocated > 0 ? min(1, NSDecimalNumber(decimal: e.spent / e.allocated).doubleValue) : 0)
+                    Text("\(CurrencyFormatter.shared.string(from: e.spent)) spent of \(CurrencyFormatter.shared.string(from: e.allocated)). A matching expense category reduces this.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -247,22 +300,42 @@ struct EnvelopesView: View {
 struct BillCalendarView: View {
     @Query private var loans: [Loan]
     @Query private var fds: [FixedDeposit]
-    @Query private var billers: [Biller]
+    @Query private var scheduled: [ScheduledInstruction]
+
+    private struct Item: Identifiable {
+        var id: String
+        var date: Date
+        var title: String
+        var detail: String
+    }
+
+    private var items: [Item] {
+        var rows: [Item] = []
+        for loan in loans where loan.status == .active {
+            rows.append(Item(id: "loan-\(loan.id)", date: loan.nextDueDate, title: loan.nickname, detail: "EMI \(loan.formattedEMI)"))
+        }
+        for deposit in fds where deposit.status == .active {
+            rows.append(Item(id: "fd-\(deposit.id)", date: deposit.maturityDate, title: deposit.nickname, detail: "Matures \(CurrencyFormatter.shared.string(from: deposit.maturityValue))"))
+        }
+        for item in scheduled where item.status == .scheduled {
+            let detail = item.lastError.isEmpty ? CurrencyFormatter.shared.string(from: item.amount) : item.lastError
+            rows.append(Item(id: "sched-\(item.id)", date: item.executeOn, title: item.payeeName, detail: detail))
+        }
+        return rows.sorted { $0.date < $1.date }
+    }
+
     var body: some View {
         List {
-            Section("EMIs") {
-                ForEach(loans.filter { $0.status == .active }) { l in
-                    LabeledContent(l.nickname, value: l.nextDueDate.formatted(date: .abbreviated, time: .omitted))
-                }
+            if items.isEmpty {
+                Text("No EMIs, deposit maturities, or scheduled payments yet.")
+                    .foregroundStyle(.secondary)
             }
-            Section("FD maturities") {
-                ForEach(fds.filter { $0.status == .active }) { fd in
-                    LabeledContent(fd.nickname, value: fd.maturityDate.formatted(date: .abbreviated, time: .omitted))
-                }
-            }
-            Section("Billers") {
-                ForEach(billers) { b in
-                    Text(b.displayName)
+            ForEach(items) { item in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                    Text("\(item.date.formatted(date: .abbreviated, time: .omitted)) · \(item.detail)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -544,11 +617,18 @@ struct MerchantOffersView: View {
 }
 
 struct SupportHandoffView: View {
+    @State private var showCallbackNote = false
+
     var body: some View {
         Form {
             Text("The on-device assistant couldn't resolve this. A live agent chat would attach here once the backend is live.")
-            Button("Request callback") {}
+            Button("Request callback") { showCallbackNote = true }
         }
         .navigationTitle("Support")
+        .alert("Callback not sent", isPresented: $showCallbackNote) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Callback requests are not sent in this demo. Nothing was shared with a bank.")
+        }
     }
 }

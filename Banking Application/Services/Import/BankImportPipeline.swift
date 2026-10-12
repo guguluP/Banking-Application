@@ -85,16 +85,16 @@ enum BankSMSParser {
     static func parse(_ text: String, now: Date = Date()) -> RawBankEvent? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        if looksLikeOTP(trimmed) { return nil }
+        if IndianBankSMSGrammar.looksLikeOTP(trimmed) { return nil }
 
-        if let captured = IndianBankSMSGrammar.parse(trimmed) {
+        if let captured = IndianBankSMSGrammar.parse(trimmed, now: now) {
             return RawBankEvent(
                 amount: captured.amount,
                 direction: captured.isCredit ? .credit : .debit,
                 accountLast4: captured.accountLast4,
                 merchant: captured.merchant,
                 externalRef: captured.externalRef,
-                occurredAt: now,
+                occurredAt: captured.occurredAt,
                 bank: captured.bank,
                 source: .smsImport,
                 confidence: captured.confidence
@@ -116,12 +116,6 @@ enum BankSMSParser {
         )
     }
 
-    private static func looksLikeOTP(_ text: String) -> Bool {
-        let lower = text.lowercased()
-        let otpWord = lower.contains("otp") || lower.contains("one time") || lower.contains("do not share")
-        return otpWord && text.range(of: #"\b\d{4,8}\b"#, options: .regularExpression) != nil
-    }
-
     private static func last4(in text: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: #"(?:\*\*|XX|xx)(\d{4})"#) else { return nil }
         let range = NSRange(text.startIndex..., in: text)
@@ -135,8 +129,7 @@ enum BankSMSParser {
         guard let hit = regex.firstMatch(in: text, range: range), let r = Range(hit.range(at: 1), in: text) else { return nil }
         return String(text[r])
     }
-
-    }
+}
 
 @MainActor
 enum BankImportPipeline {
@@ -183,7 +176,8 @@ enum BankImportPipeline {
 
     @discardableResult
     static func approve(_ row: ImportedEvent, in context: ModelContext) -> Bool {
-        post(row, in: context)
+        guard row.status == .pendingReview else { return false }
+        return post(row, in: context)
     }
 
     static func reject(_ row: ImportedEvent, in context: ModelContext) {
@@ -196,16 +190,37 @@ enum BankImportPipeline {
         let events = (try? context.fetch(FetchDescriptor<ImportedEvent>())) ?? []
         for event in events where event.sourceRaw == source { context.delete(event) }
         let txs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-        for tx in txs where tx.entrySourceRaw == source { context.delete(tx) }
+        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
+        for tx in txs where tx.entrySourceRaw == source {
+            let account = tx.account ?? accounts.first { $0.id == tx.accountId }
+            if let account {
+                if tx.isCredit {
+                    account.balance -= tx.amount
+                    account.availableBalance -= tx.amount
+                } else {
+                    account.balance += tx.amount
+                    account.availableBalance += tx.amount
+                }
+            }
+            context.delete(tx)
+        }
         try? context.save()
     }
 
     private static func post(_ row: ImportedEvent, in context: ModelContext) -> Bool {
+        let last4 = row.accountLast4.trimmingCharacters(in: .whitespaces)
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        guard let account = accounts.first(where: { String($0.accountNumber.suffix(4)) == row.accountLast4 }) ?? accounts.first else {
+        guard !last4.isEmpty, let account = accounts.first(where: { String($0.accountNumber.suffix(4)) == last4 }) else {
             return false
         }
         if row.directionRaw == ImportDirection.credit.rawValue {
+            if AuthenticationService.movementBlocked { return false }
+            if let ref = row.externalRef, !ref.isEmpty {
+                let existing = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+                if existing.contains(where: { $0.externalRef == ref || $0.referenceNumber == ref }) {
+                    return false
+                }
+            }
             account.balance += row.amount
             account.availableBalance += row.amount
             let tx = Transaction(
@@ -224,6 +239,7 @@ enum BankImportPipeline {
             tx.rawHash = row.rawHash
             tx.countsInLedger = true
             tx.railRaw = PaymentRail.imported.rawValue
+            tx.categoryRef = category(named: row.categoryName, in: context)
             tx.account = account
             context.insert(tx)
         } else {
@@ -247,9 +263,14 @@ enum BankImportPipeline {
                 return false
             }
         }
-        if let tx = ((try? context.fetch(FetchDescriptor<Transaction>())) ?? []).first(where: { $0.externalRef == row.externalRef && row.externalRef != nil }) {
+        let postedRef = (row.externalRef?.isEmpty == false) ? row.externalRef! : row.rawHash
+        let txs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+        if let tx = txs.first(where: { $0.externalRef == postedRef || $0.referenceNumber == postedRef }) {
             tx.rawHash = row.rawHash
             tx.entrySource = row.source
+            if tx.categoryRef == nil {
+                tx.categoryRef = category(named: row.categoryName, in: context)
+            }
         }
         row.status = .posted
         if row.modelContext == nil { context.insert(row) }
@@ -275,14 +296,24 @@ enum BankImportPipeline {
         }
     }
 
+    private static func category(named name: String, in context: ModelContext) -> ExpenseCategory? {
+        let categories = (try? context.fetch(FetchDescriptor<ExpenseCategory>())) ?? []
+        return categories.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+    }
+
     private static func fuzzy(_ lhs: String, _ rhs: String) -> Bool {
-        let a = lhs.lowercased()
-        let b = rhs.lowercased()
+        let a = lhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let b = rhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !a.isEmpty, !b.isEmpty else { return false }
         return a == b || a.contains(b) || b.contains(a)
     }
 
     static func rawHash(for event: RawBankEvent) -> String {
-        let payload = "\(event.bank)|\(event.amount)|\(event.accountLast4)|\(event.externalRef ?? "")|\(event.merchant ?? "")"
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let parts = calendar.dateComponents([.year, .month, .day], from: event.occurredAt)
+        let day = String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+        let payload = "\(event.bank)|\(event.amount)|\(event.accountLast4)|\(event.externalRef ?? "")|\(event.merchant ?? "")|\(day)|\(event.direction.rawValue)"
         let digest = SHA256.hash(data: Data(payload.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }

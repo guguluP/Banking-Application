@@ -169,4 +169,12 @@ nonisolated final class Transaction {
     var isExpenseTrackerEntry: Bool {
         entrySource != .system
     }
+
+    /// Spending Track should show. Transfers, round-up savings, and deposit funding stay on the account, not in the budget.
+    var countsTowardSpending: Bool {
+        guard isDebit, type != .transfer else { return false }
+        let labels = [category, categoryRef?.name].compactMap { $0?.lowercased() }
+        let excluded = ["transfer", "savings", "fixed deposit"]
+        return !labels.contains { excluded.contains($0) }
+    }
 }

@@ -10,22 +10,22 @@ struct OnboardingView: View {
         OnboardingStep(
             image: "creditcard.fill",
             title: "Bank Securely",
-            description: "Your trusted companion for all banking needs. View accounts, transfer money, and pay bills."
+            description: "Look through sample accounts, transfers, and bills. This is a demo — no real money moves."
         ),
         OnboardingStep(
             image: "faceid",
             title: "Biometric Security",
-            description: "Secure your transactions with Face ID or Touch ID authentication."
+            description: "Face ID or Touch ID can unlock this demo on your device. This is a demo — it does not authorize a real bank."
         ),
         OnboardingStep(
             image: "qrcode.viewfinder",
             title: "Instant UPI Payments",
-            description: "Pay anyone instantly using UPI. Scan QR codes or enter UPI IDs."
+            description: "This is a demo and no real UPI payment is sent. You enter a UPI ID; a QR code is not scanned."
         ),
         OnboardingStep(
             image: "shield.checkered",
             title: "Privacy First",
-            description: "Your financial data is encrypted and secure. We never share your information."
+            description: "This is a demo. Sample data stays on this device and is not shared with a bank."
         )
     ]
     

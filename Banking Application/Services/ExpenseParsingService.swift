@@ -71,30 +71,38 @@ final class ExpenseParsingService {
     /// (only used if nothing more specific is found, since a bare number
     /// could be a house number, a time, etc.)
     static func extractAmount(from text: String) -> Decimal? {
+        let number = #"(?:[0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]+)(?:\.[0-9]{1,2})?"#
         let patterns = [
-            #"(?:₹|Rs\.?|INR)\s?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)"#,
-            #"\$\s?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)"#,
-            #"([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s?(?:rupees|rs\.?|inr|dollars|usd)"#
+            "(?:₹|Rs\\.?|INR|\\$)\\s?(\(number))",
+            "(\(number))\\s?(?:rupees|rs\\.?|inr|dollars|usd)"
         ]
-
-        for pattern in patterns {
-            if let match = firstMatch(pattern: pattern, in: text, group: 1) {
-                let cleaned = match.replacingOccurrences(of: ",", with: "")
-                if let value = Decimal(string: cleaned) { return value }
+        func currencyAmounts(in scope: String) -> [Decimal] {
+            patterns.flatMap { pattern in
+                allMatches(pattern: pattern, in: scope, group: 1, options: [.caseInsensitive]).compactMap(decimal)
             }
         }
-
-        // Bare-number fallback: take the largest plausible decimal number in
-        // the string, since amounts tend to be the largest number in a
-        // short expense phrase (dates/times are handled separately by
-        // NSDataDetector before this runs, so day-of-month numbers like
-        // "on the 3rd" are less likely to collide, though not impossible —
-        // hence this is the last-resort path, and lowers confidence rather
-        // than being trusted outright).
         let barePattern = #"(?<![\d.])([0-9]+(?:\.[0-9]{1,2})?)(?![\d.])"#
-        let numbers = allMatches(pattern: barePattern, in: text, group: 1)
-            .compactMap { Decimal(string: $0) }
-        return numbers.max()
+        func bareAmounts(in scope: String) -> [Decimal] {
+            allMatches(pattern: barePattern, in: scope, group: 1).compactMap { Decimal(string: $0) }
+        }
+
+        var totalCurrency: [Decimal] = []
+        var totalBare: [Decimal] = []
+        var allCurrency: [Decimal] = []
+        for line in text.components(separatedBy: .newlines) {
+            let amounts = currencyAmounts(in: line)
+            allCurrency.append(contentsOf: amounts)
+            guard line.range(of: "total", options: .caseInsensitive) != nil else { continue }
+            if amounts.isEmpty {
+                totalBare.append(contentsOf: bareAmounts(in: line))
+            } else {
+                totalCurrency.append(contentsOf: amounts)
+            }
+        }
+        if let best = totalCurrency.max() { return best }
+        if let best = totalBare.max() { return best }
+        if let best = allCurrency.max() { return best }
+        return bareAmounts(in: text).max()
     }
 
     // MARK: - Date extraction
@@ -133,16 +141,12 @@ final class ExpenseParsingService {
 
     // MARK: - Regex helpers
 
-    private static func firstMatch(pattern: String, in text: String, group: Int) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
-        let range = NSRange(text.startIndex..., in: text)
-        guard let match = regex.firstMatch(in: text, range: range), match.numberOfRanges > group,
-              let matchedRange = Range(match.range(at: group), in: text) else { return nil }
-        return String(text[matchedRange])
+    private static func decimal(_ raw: String) -> Decimal? {
+        Decimal(string: raw.replacingOccurrences(of: ",", with: ""))
     }
 
-    private static func allMatches(pattern: String, in text: String, group: Int) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+    private static func allMatches(pattern: String, in text: String, group: Int, options: NSRegularExpression.Options = []) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).compactMap { match in
             guard match.numberOfRanges > group, let matchedRange = Range(match.range(at: group), in: text) else { return nil }

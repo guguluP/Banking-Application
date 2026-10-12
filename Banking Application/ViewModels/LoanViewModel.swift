@@ -80,6 +80,7 @@ class LoanViewModel {
             transactionDate: startDate,
             category: "Loans"
         )
+        creditTransaction.countsInLedger = true
         creditTransaction.account = account
 
         context.insert(loan)
@@ -101,26 +102,43 @@ class LoanViewModel {
         }
     }
 
-    /// Pays the next scheduled EMI: splits it into principal/interest at
-    /// the loan's current outstanding balance, debits the source account,
-    /// and advances the schedule by one month.
+    /// Debits the smaller of the EMI and the remaining principal plus this
+    /// month's interest. The loan closes when outstanding principal hits zero.
     func payEMI(for loan: Loan, from account: Account, in context: ModelContext) -> Bool {
-        guard loan.status == .active, loan.remainingEMIs > 0 else { return false }
-        guard account.availableBalance >= loan.emiAmount else {
-            error = .insufficientFunds
+        guard AuthenticationService.sessionIsLive, !AuthenticationService.movementBlocked else {
+            error = .authenticationFailed
+            return false
+        }
+        guard loan.status == .active, loan.outstandingPrincipal > 0 else {
+            error = .transactionFailed
+            return false
+        }
+        guard account.accountStatus == .active else {
+            error = .transactionFailed
             return false
         }
 
         let monthlyRate = loan.interestRate / 100.0 / 12.0
         let balanceDouble = NSDecimalNumber(decimal: loan.outstandingPrincipal).doubleValue
         let interestPortion = Decimal(round(balanceDouble * monthlyRate * 100) / 100)
-        var principalPortion = loan.emiAmount - interestPortion
-        if loan.remainingEMIs == 1 {
-            principalPortion = loan.outstandingPrincipal
+        let obligation = loan.outstandingPrincipal + interestPortion
+        let paysOff = obligation <= loan.emiAmount
+        let debitAmount = paysOff ? obligation : loan.emiAmount
+        let principalPortion = paysOff
+            ? loan.outstandingPrincipal
+            : min(max(debitAmount - interestPortion, 0), loan.outstandingPrincipal)
+
+        guard debitAmount > 0 else {
+            error = .invalidInput
+            return false
+        }
+        guard account.availableBalance >= debitAmount else {
+            error = .insufficientFunds
+            return false
         }
 
-        account.balance -= loan.emiAmount
-        account.availableBalance -= loan.emiAmount
+        account.balance -= debitAmount
+        account.availableBalance -= debitAmount
 
         // Captured so a failed save can restore the loan to exactly where it was.
         let previousOutstandingPrincipal = loan.outstandingPrincipal
@@ -130,32 +148,35 @@ class LoanViewModel {
 
         loan.outstandingPrincipal = max(0, loan.outstandingPrincipal - principalPortion)
         loan.emisPaid += 1
-        if loan.remainingEMIs > 0 {
-            loan.nextDueDate = Calendar.current.date(byAdding: .month, value: 1, to: loan.nextDueDate) ?? loan.nextDueDate
-        } else {
+        if loan.outstandingPrincipal <= 0 {
+            loan.outstandingPrincipal = 0
             loan.status = .closed
+        } else {
+            loan.nextDueDate = Calendar.current.date(byAdding: .month, value: 1, to: loan.nextDueDate) ?? loan.nextDueDate
         }
 
         let debitTransaction = Transaction(
             accountId: account.id,
             type: .payment,
-            amount: loan.emiAmount,
+            amount: debitAmount,
             description: "EMI — \(loan.nickname)",
             transactionDate: Date(),
             category: "Loans"
         )
+        debitTransaction.countsInLedger = true
         debitTransaction.account = account
 
         context.insert(debitTransaction)
 
         do {
             try context.save()
+            error = nil
             return true
         } catch {
-            // Roll back the debit and the loan schedule mutation if
+            // Roll back the actual debit and the loan schedule mutation if
             // persistence failed, so the EMI never appears paid when it wasn't saved.
-            account.balance += loan.emiAmount
-            account.availableBalance += loan.emiAmount
+            account.balance += debitAmount
+            account.availableBalance += debitAmount
             loan.outstandingPrincipal = previousOutstandingPrincipal
             loan.emisPaid = previousEmisPaid
             loan.nextDueDate = previousNextDueDate
@@ -166,13 +187,21 @@ class LoanViewModel {
         }
     }
 
-    /// Applies a lump-sum prepayment against outstanding principal, debits
-    /// the account, and reduces the balance immediately. Tenure/EMI display
-    /// updates on the next read since remainingEMIs is derived from
-    /// outstandingPrincipal changes indirectly via emisPaid — the schedule
-    /// itself isn't rewritten, matching how real prepayments typically
-    /// keep the EMI fixed and shorten the tail instead.
+    /// Pays down principal and keeps the EMI. Tenure shrinks to the months
+    /// still needed to clear the new balance. A zero balance closes the loan.
     func prepay(_ amount: Decimal, for loan: Loan, from account: Account, in context: ModelContext) -> Bool {
+        guard AuthenticationService.sessionIsLive, !AuthenticationService.movementBlocked else {
+            error = .authenticationFailed
+            return false
+        }
+        guard loan.status == .active, loan.outstandingPrincipal > 0 else {
+            error = .transactionFailed
+            return false
+        }
+        guard account.accountStatus == .active else {
+            error = .transactionFailed
+            return false
+        }
         guard amount > 0, amount <= loan.outstandingPrincipal else {
             error = .invalidInput
             return false
@@ -188,11 +217,21 @@ class LoanViewModel {
         // Captured so a failed save can restore the loan to exactly where it was.
         let previousOutstandingPrincipal = loan.outstandingPrincipal
         let previousStatus = loan.status
+        let previousTenureMonths = loan.tenureMonths
 
         loan.outstandingPrincipal -= amount
 
         if loan.outstandingPrincipal <= 0 {
+            loan.outstandingPrincipal = 0
             loan.status = .closed
+        } else {
+            let monthlyRate = loan.interestRate / 100.0 / 12.0
+            let months = LoanCalculator.monthsToPayoff(
+                balance: loan.outstandingPrincipal,
+                monthlyRate: monthlyRate,
+                emi: loan.emiAmount
+            )
+            loan.tenureMonths = loan.emisPaid + months
         }
 
         let debitTransaction = Transaction(
@@ -203,11 +242,13 @@ class LoanViewModel {
             transactionDate: Date(),
             category: "Loans"
         )
+        debitTransaction.countsInLedger = true
         debitTransaction.account = account
         context.insert(debitTransaction)
 
         do {
             try context.save()
+            error = nil
             return true
         } catch {
             // Roll back the debit and the loan mutation if persistence
@@ -216,6 +257,7 @@ class LoanViewModel {
             account.availableBalance += amount
             loan.outstandingPrincipal = previousOutstandingPrincipal
             loan.status = previousStatus
+            loan.tenureMonths = previousTenureMonths
             context.delete(debitTransaction)
             self.error = .unknownError("Couldn't process the prepayment. Please try again.")
             return false

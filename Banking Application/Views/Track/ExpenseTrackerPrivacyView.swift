@@ -30,7 +30,7 @@ struct ExpenseTrackerPrivacyView: View {
 
                 Section {
                     VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                        privacyPoint(icon: "lock.shield.fill", text: "Your data is stored locally and synced only to your own iCloud account.")
+                        privacyPoint(icon: "lock.shield.fill", text: "Your data stays on this device only. It is not synced to iCloud.")
                         privacyPoint(icon: "eye.slash.fill", text: "Nobody else — including Anthropic — can see this data.")
                         privacyPoint(icon: "trash.fill", text: "You can export or permanently delete your tracking data at any time, below.")
                     }
@@ -62,7 +62,7 @@ struct ExpenseTrackerPrivacyView: View {
                         Label("Delete All Tracking Data", systemImage: "trash.fill")
                     }
                 } footer: {
-                    Text("Permanently deletes every expense, category, and budget you've created here, and reverses their effect on your account balances. This does not affect your accounts, cards, or other banking activity.")
+                    Text("Permanently deletes every expense, category, and budget you've created here. SMS and aggregator imports in Track are also removed, and their effect on account balances is reversed. This does not affect your accounts or cards.")
                 }
             }
             .bankSoftScrollEdges()

@@ -1,17 +1,12 @@
 import SwiftUI
 import SwiftData
-#if canImport(Speech)
-import Speech
-#endif
-#if canImport(AVFoundation)
-import AVFoundation
-#endif
 
 struct ChatbotView: View {
     @EnvironmentObject var authenticationService: AuthenticationService
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
     @Query private var budgets: [Budget]
+    @Query private var categories: [ExpenseCategory]
     @Query private var loans: [Loan]
     @State private var chatbot = AIChatbotService.shared
 
@@ -22,8 +17,7 @@ struct ChatbotView: View {
     @State private var showTransfer = false
     @State private var showBillPay = false
     @State private var showFD = false
-    @State private var showSupport = false
-    @State private var isListening = false
+    @State private var voiceUnavailable = false
     @FocusState private var inputFocused: Bool
 
     private let suggestedPrompts = [
@@ -105,7 +99,11 @@ struct ChatbotView: View {
             .sheet(isPresented: $showTransfer) { TransferView() }
             .sheet(isPresented: $showBillPay) { BillPayView() }
             .sheet(isPresented: $showFD) { FixedDepositsView() }
-            .sheet(isPresented: $showSupport) { SupportHandoffView() }
+            .alert("Voice input", isPresented: $voiceUnavailable) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Voice input isn't available in this demo.")
+            }
         }
         .swipeDownToDismiss()
     }
@@ -155,12 +153,14 @@ struct ChatbotView: View {
                 .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
                 .onSubmit { send(draft) }
 
-            Button(action: toggleVoice) {
-                Image(systemName: isListening ? "mic.fill" : "mic")
+            Button {
+                voiceUnavailable = true
+            } label: {
+                Image(systemName: "mic.slash")
                     .font(.title3)
-                    .foregroundStyle(isListening ? Color.bankDanger : Color.bankPrimary)
+                    .foregroundStyle(.secondary)
             }
-            .accessibilityLabel("Voice input")
+            .accessibilityLabel("Voice input isn't available in this demo")
 
             Button(action: { send(draft) }) {
                 Image(systemName: "arrow.up.circle.fill")
@@ -190,9 +190,6 @@ struct ChatbotView: View {
                 isThinking = false
                 messages.append(ChatMessage(role: .assistant, text: reply))
                 pendingAction = chatbot.lastAction
-                if reply.lowercased().contains("could you tell me") {
-                    showSupport = true
-                }
             }
         }
     }
@@ -210,26 +207,6 @@ struct ChatbotView: View {
         }
     }
 
-    private func toggleVoice() {
-        #if canImport(Speech) && os(iOS)
-        isListening.toggle()
-        guard isListening else { return }
-        SFSpeechRecognizer.requestAuthorization { status in
-            guard status == .authorized, let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
-                Task { @MainActor in isListening = false }
-                return
-            }
-            let request = SFSpeechURLRecognitionRequest(url: URL(fileURLWithPath: "/dev/null"))
-            _ = request
-            Task { @MainActor in
-                isListening = false
-            }
-        }
-        #else
-        isListening = false
-        #endif
-    }
-
     private func buildContext() -> ChatbotContext {
         let accounts = accountViewModel.accounts.map {
             (name: $0.nickname ?? $0.accountType.rawValue, type: $0.accountType.rawValue, balance: $0.balance, availableBalance: $0.availableBalance)
@@ -241,7 +218,10 @@ struct ChatbotView: View {
             firstName: authenticationService.user?.firstName ?? "there",
             accounts: accounts,
             recentTransactions: transactions,
-            budgets: budgets.map { ($0.categoryId, $0.limitAmount) },
+            budgets: budgets.map { budget in
+                let name = categories.first { $0.id == budget.categoryId }?.name ?? "Unknown category"
+                return (category: name, limit: budget.limitAmount)
+            },
             upcomingBills: loans.filter { $0.status == .active }.map { ($0.nickname, $0.nextDueDate, $0.emiAmount) },
             receiptNotes: transactionViewModel.recentTransactions.compactMap(\.notes)
         )

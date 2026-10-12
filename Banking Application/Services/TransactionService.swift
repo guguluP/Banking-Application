@@ -22,6 +22,8 @@ enum PaymentFailure: Error, Equatable {
     case duplicate
     case saveFailed
     case notAuthenticated
+    case destinationNotMovable
+    case cardBlocked
 }
 
 struct PaymentLeg {
@@ -75,21 +77,28 @@ enum TransactionService {
         let payee = counterparty.trimmingCharacters(in: .whitespacesAndNewlines)
         guard amount > 0 else { throw PaymentFailure.invalidAmount }
 
+        if rail == .transfer || rail == .scheduled {
+            guard amount <= singleTransferCap else { throw PaymentFailure.overSingleCap }
+        }
+
         if rail == .transfer {
             let number = (recipientAccountNumber ?? payee).trimmingCharacters(in: .whitespaces)
             guard Self.isAccountNumber(number) else { throw PaymentFailure.invalidAccountNumber }
             guard number != account.accountNumber else { throw PaymentFailure.sameAccount }
-            guard amount <= singleTransferCap else { throw PaymentFailure.overSingleCap }
         }
 
         guard account.accountStatus == .active else { throw PaymentFailure.accountNotMovable }
+        if rail == .upi || rail == .billPay {
+            try enforceCard(in: context)
+        }
 
         if let externalRef, !externalRef.isEmpty,
            existing(reference: externalRef, in: context) != nil {
             return PaymentReceipt(reference: externalRef, amount: amount, duplicate: true)
         }
 
-        try enforceLimits(account: account, amount: amount, rail: rail, on: occurredAt, in: context)
+        let spare = applyRoundUp ? roundUpDebit(for: amount, from: account, in: context) : 0
+        try enforceLimits(account: account, amount: amount + spare, rail: rail, on: occurredAt, in: context)
         try enforceCooling(amount: amount, recipient: recipientAccountNumber ?? payee, rail: rail, in: context)
 
         let reference = externalRef?.isEmpty == false ? externalRef! : newReference()
@@ -97,13 +106,15 @@ enum TransactionService {
             return PaymentReceipt(reference: reference, amount: amount, duplicate: true)
         }
 
-        var spare: Decimal = 0
-        if applyRoundUp && AppSettings.shared.isRoundUpEnabled {
-            spare = roundUpSpare(for: amount)
+        var internalDestination: Account?
+        if rail == .transfer, let number = recipientAccountNumber?.trimmingCharacters(in: .whitespaces),
+           let dest = lookupAccount(number: number, in: context), dest.id != account.id {
+            guard dest.accountStatus == .active else { throw PaymentFailure.destinationNotMovable }
+            internalDestination = dest
         }
+
         let cashback = cashbackRate > 0 ? (amount * cashbackRate).rounded(places: 2) : 0
-        let needed = amount + spare
-        guard account.availableBalance + cashback >= needed else { throw PaymentFailure.insufficientFunds }
+        guard account.availableBalance >= amount + spare else { throw PaymentFailure.insufficientFunds }
 
         var legs: [PaymentLeg] = []
         let debit = makeTransaction(
@@ -123,7 +134,7 @@ enum TransactionService {
         )
         legs.append(apply(debit, to: account, delta: -amount, in: context))
 
-        if spare > 0 {
+        if spare > 0, let savings = ownSavings(excluding: account, in: context) {
             let roundUp = makeTransaction(
                 account: account,
                 type: .transfer,
@@ -140,29 +151,25 @@ enum TransactionService {
                 externalRef: nil
             )
             legs.append(apply(roundUp, to: account, delta: -spare, in: context))
-            if let savings = ownSavings(excluding: account, in: context) {
-                let credit = makeTransaction(
-                    account: savings,
-                    type: .deposit,
-                    amount: spare,
-                    description: "Round-up from \(account.accountNumber.suffix(4))",
-                    counterparty: account.accountNumber,
-                    category: "Savings",
-                    reference: reference + "-RC",
-                    rail: rail,
-                    currency: savings.currency,
-                    entrySource: .system,
-                    merchant: nil,
-                    date: occurredAt,
-                    externalRef: nil
-                )
-                legs.append(apply(credit, to: savings, delta: spare, in: context))
-            }
+            let credit = makeTransaction(
+                account: savings,
+                type: .deposit,
+                amount: spare,
+                description: "Round-up from \(account.accountNumber.suffix(4))",
+                counterparty: account.accountNumber,
+                category: "Savings",
+                reference: reference + "-RC",
+                rail: rail,
+                currency: savings.currency,
+                entrySource: .system,
+                merchant: nil,
+                date: occurredAt,
+                externalRef: nil
+            )
+            legs.append(apply(credit, to: savings, delta: spare, in: context))
         }
 
-        if rail == .transfer, let number = recipientAccountNumber?.trimmingCharacters(in: .whitespaces),
-           let dest = lookupAccount(number: number, in: context), dest.id != account.id {
-            guard dest.accountStatus != .closed else { throw PaymentFailure.accountNotMovable }
+        if let dest = internalDestination {
             let credit = makeTransaction(
                 account: dest,
                 type: .deposit,
@@ -200,6 +207,12 @@ enum TransactionService {
             legs.append(apply(credit, to: account, delta: cashback, in: context))
         }
 
+        var reconciled: [String] = []
+        for leg in legs where !reconciled.contains(leg.account.id) {
+            reconciled.append(leg.account.id)
+            reconcile(leg.account)
+        }
+
         if debugFailNextSave {
             debugFailNextSave = false
             rollback(legs, in: context)
@@ -221,9 +234,19 @@ enum TransactionService {
         return PaymentReceipt(reference: reference, amount: amount, duplicate: false)
     }
 
+    static let accountNumberLength = 8...18
+
     static func isAccountNumber(_ value: String) -> Bool {
         let cleaned = value.trimmingCharacters(in: .whitespaces)
-        return (8...12).contains(cleaned.count) && cleaned.allSatisfy(\.isNumber)
+        return accountNumberLength.contains(cleaned.count) && cleaned.allSatisfy(\.isNumber)
+    }
+
+    /// Spare that will actually leave the source. Zero when round-up is off or there is no other active savings account to receive it.
+    static func roundUpDebit(for amount: Decimal, from account: Account, in context: ModelContext) -> Decimal {
+        guard AppSettings.shared.isRoundUpEnabled else { return 0 }
+        let spare = roundUpSpare(for: amount)
+        guard spare > 0, ownSavings(excluding: account, in: context) != nil else { return 0 }
+        return spare
     }
 
     /// Spare paise to the next multiple of ₹10. ₹12.50 → ₹7.50. An exact multiple spares nothing.
@@ -280,8 +303,13 @@ enum TransactionService {
         context.insert(tx)
         account.balance += delta
         account.availableBalance += delta
-        if account.availableBalance < 0 { account.availableBalance = 0 }
         return leg
+    }
+
+    /// Available balance is book balance minus the hold captured at adoption. Derived once after every leg so a mid-post floor cannot mint spendable money.
+    private static func reconcile(_ account: Account) {
+        let available = account.balance - account.reservedHold
+        account.availableBalance = available > 0 ? available : 0
     }
 
     private static func makeTransaction(
@@ -341,37 +369,60 @@ enum TransactionService {
         let calendar = Calendar.current
         let startDay = calendar.startOfDay(for: date)
         let startMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? startDay
+        if rail == .imported { return }
         let rows = account.transactions ?? []
-        let railName = rail.rawValue
+        let rails = limitRails(for: rail)
         func spent(since: Date) -> Decimal {
-            rows.filter { $0.railRaw == railName && $0.isDebit && $0.countsInLedger && $0.transactionDate >= since }
+            rows.filter { rails.contains($0.railRaw) && $0.isDebit && $0.countsInLedger && $0.transactionDate >= since }
                 .reduce(0) { $0 + $1.amount }
         }
         let (daily, monthly): (Decimal, Decimal) = switch rail {
         case .transfer, .scheduled: (settings.dailyTransferLimit, settings.monthlyTransferLimit)
         case .upi: (settings.dailyUPILimit, settings.monthlyUPILimit)
         case .billPay: (settings.dailyBillPayLimit, settings.monthlyBillPayLimit)
-        case .imported: (settings.dailyUPILimit, settings.monthlyUPILimit)
+        case .imported: (0, 0)
         }
         if spent(since: startDay) + amount > daily || spent(since: startMonth) + amount > monthly {
             throw PaymentFailure.overPeriodLimit
         }
     }
 
+    private static func limitRails(for rail: PaymentRail) -> Set<String> {
+        switch rail {
+        case .transfer, .scheduled:
+            return [PaymentRail.transfer.rawValue, PaymentRail.scheduled.rawValue]
+        case .upi:
+            return [PaymentRail.upi.rawValue]
+        case .billPay:
+            return [PaymentRail.billPay.rawValue]
+        case .imported:
+            return []
+        }
+    }
+
+    private static func enforceCard(in context: ModelContext) throws {
+        let cards = (try? context.fetch(FetchDescriptor<Card>())) ?? []
+        guard !cards.isEmpty else { return }
+        let canPay = cards.contains { $0.cardStatus == .active && $0.isOnlineTransactionsEnabled }
+        if !canPay { throw PaymentFailure.cardBlocked }
+    }
+
     private static func enforceCooling(amount: Decimal, recipient: String, rail: PaymentRail, in context: ModelContext) throws {
-        guard rail == .transfer || rail == .upi else { return }
+        guard rail == .transfer || rail == .upi || rail == .scheduled else { return }
         let settings = AppSettings.shared
         guard amount >= settings.coolingLargeAmount else { return }
-        let cleaned = recipient.trimmingCharacters(in: .whitespaces)
+        let cleaned = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
         let own = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         if own.contains(where: { $0.accountNumber == cleaned }) { return }
         let beneficiaries = (try? context.fetch(FetchDescriptor<Beneficiary>())) ?? []
-        let match = beneficiaries.first {
-            $0.accountNumber == cleaned || $0.nickname.caseInsensitiveCompare(cleaned) == .orderedSame
+        let match = beneficiaries.first { beneficiary in
+            if !beneficiary.accountNumber.isEmpty && beneficiary.accountNumber == cleaned { return true }
+            let vpa = beneficiary.upiId.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !vpa.isEmpty && vpa.caseInsensitiveCompare(cleaned) == .orderedSame
         }
-        let created = match?.createdAt ?? Date()
-        let eligibleAt = created.addingTimeInterval(settings.payeeCoolingHours * 3600)
-        if match == nil || eligibleAt > Date() {
+        guard let match else { throw PaymentFailure.payeeCoolingOff }
+        let eligibleAt = match.createdAt.addingTimeInterval(settings.payeeCoolingHours * 3600)
+        if eligibleAt > Date() {
             throw PaymentFailure.payeeCoolingOff
         }
     }

@@ -137,7 +137,7 @@ struct AccountOverviewView: View {
                         Image(systemName: "qrcode.viewfinder")
                             .symbolRenderingMode(.hierarchical)
                     }
-                    .accessibilityLabel("Scan QR Code")
+                    .accessibilityLabel("UPI Pay")
                 }
             }
             .refreshable {
@@ -341,7 +341,7 @@ struct QuickActionsView: View {
     @Binding var showLoans: Bool
     
     let quickActions: [QuickAction] = [
-        QuickAction(title: "Scan & Pay", systemImage: "qrcode.viewfinder", color: .blue),
+        QuickAction(title: "UPI Pay", systemImage: "qrcode.viewfinder", color: .blue),
         QuickAction(title: "Send Money", systemImage: "paperplane.fill", color: .green),
         QuickAction(title: "Pay Bills", systemImage: "doc.text.fill", color: .orange),
         QuickAction(title: "Fixed Deposits", systemImage: "banknote.fill", color: .purple),
@@ -356,7 +356,7 @@ struct QuickActionsView: View {
                         Button(action: {
                             HapticFeedbackService.shared.lightImpact()
                             switch action.title {
-                            case "Scan & Pay":
+                            case "UPI Pay":
                                 showUPITapPay = true
                             case "Send Money":
                                 showTransfer = true

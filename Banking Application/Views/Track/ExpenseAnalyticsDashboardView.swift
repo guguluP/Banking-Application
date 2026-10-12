@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct ExpenseAnalyticsDashboardView: View {
     @Environment(ExpenseTrackerViewModel.self) var tracker
@@ -13,9 +14,19 @@ struct ExpenseAnalyticsDashboardView: View {
             VStack(spacing: AppSpacing.lg) {
                 monthComparisonCard
 
-                if !analytics.topCategories.isEmpty {
-                    topCategoriesCard
-                } else {
+                if !analytics.dailySpend.isEmpty {
+                    dailyCard
+                }
+                if !analytics.categorySlices.isEmpty {
+                    sliceCard(title: "Categories", rows: analytics.categorySlices)
+                }
+                if !analytics.merchants.isEmpty {
+                    sliceCard(title: "Merchants", rows: Array(analytics.merchants.prefix(6)))
+                }
+                if !analytics.accounts.isEmpty {
+                    sliceCard(title: "Accounts", rows: analytics.accounts)
+                }
+                if analytics.categorySlices.isEmpty && analytics.currentMonthTotal == 0 {
                     emptyState
                 }
             }
@@ -65,6 +76,58 @@ struct ExpenseAnalyticsDashboardView: View {
                             .foregroundStyle(.secondary)
                         Text(CurrencyFormatter.shared.string(from: analytics.previousMonthTotal))
                             .font(.subheadline.weight(.semibold))
+                    }
+                }
+            }
+            .padding()
+        }
+        .padding(.horizontal)
+    }
+
+    private var dailyCard: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                Text("This month, by day")
+                    .font(.headline)
+                Chart(analytics.dailySpend) { point in
+                    BarMark(
+                        x: .value("Day", point.name),
+                        y: .value("Spent", NSDecimalNumber(decimal: point.amount).doubleValue)
+                    )
+                    .foregroundStyle(Color.bankPrimary.gradient)
+                    .cornerRadius(3)
+                }
+                .frame(height: 160)
+            }
+            .padding()
+        }
+        .padding(.horizontal)
+    }
+
+    private func sliceCard(title: String, rows: [NamedSpend]) -> some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                Text(title)
+                    .font(.headline)
+                ForEach(rows) { row in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(row.name).font(.subheadline)
+                            Spacer()
+                            Text(CurrencyFormatter.shared.string(from: row.amount))
+                                .font(.subheadline.weight(.semibold))
+                            Text("(\(Int(row.percentOfTotal))%)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        GeometryReader { geo in
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.bankPrimary)
+                                .frame(width: geo.size.width * CGFloat(min(row.percentOfTotal, 100) / 100), height: 6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.bankGroupedBackground, in: RoundedRectangle(cornerRadius: 3))
+                        }
+                        .frame(height: 6)
                     }
                 }
             }

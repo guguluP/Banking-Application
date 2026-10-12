@@ -10,6 +10,7 @@ struct EditProfileView: View {
     @State private var lastName: String = ""
     @State private var email: String = ""
     @State private var isSaved = false
+    @State private var saveError: String?
     
     var body: some View {
         ScrollView {
@@ -77,12 +78,23 @@ struct EditProfileView: View {
                 lastName = authenticationService.user?.lastName ?? ""
                 email = authenticationService.user?.email ?? ""
             }
+            .alert("Couldn't save", isPresented: Binding(
+                get: { saveError != nil },
+                set: { if !$0 { saveError = nil } }
+            )) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: {
+                Text(saveError ?? "")
+            }
             .bankInlineNavigationTitle()
             .accessibilityElement(children: .contain)
     }
     
     private func saveProfile() {
-        guard let user = authenticationService.user else { return }
+        guard let user = authenticationService.user else {
+            saveError = "No profile is loaded on this device, so nothing was saved."
+            return
+        }
         user.firstName = firstName
         user.lastName = lastName
         user.email = email
@@ -91,6 +103,7 @@ struct EditProfileView: View {
             try modelContext.save()
         } catch {
             HapticFeedbackService.shared.errorOccurred()
+            saveError = "Couldn't save your profile. \(error.localizedDescription)"
             return
         }
 

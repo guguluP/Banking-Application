@@ -64,6 +64,7 @@ struct PayBillerIntent: AppIntent {
             throw BankIntentError.billerNotFound
         }
 
+        try BankIntentGuard.prepare()
         do {
             _ = try TransactionService.post(
                 from: account,
@@ -72,6 +73,7 @@ struct PayBillerIntent: AppIntent {
                 counterparty: billerModel.name,
                 description: billerModel.displayName,
                 category: "Payment",
+                cashbackRate: 0.01,
                 requireSession: false,
                 in: context
             )
@@ -117,6 +119,7 @@ struct TransferMoneyIntent: AppIntent {
             throw BankIntentError.accountNotFound
         }
 
+        try BankIntentGuard.prepare()
         do {
             let receipt = try TransactionService.post(
                 from: account,
@@ -138,6 +141,25 @@ struct TransferMoneyIntent: AppIntent {
     }
 }
 
+enum BankIntentGuard {
+    @MainActor
+    static func duressIsActive() -> Bool {
+        KeychainService.shared.getString(forKey: "duressActive") == "1"
+    }
+
+    /// Shortcuts stay available without a UI session. A stored duress flag or an active lockout still blocks them.
+    @MainActor
+    static func prepare() throws {
+        if duressIsActive() || AuthenticationService.movementBlocked {
+            AuthenticationService.movementBlocked = true
+            throw BankIntentError.notAllowed
+        }
+        if AuthenticationService.remainingLockout(keychain: KeychainService.shared) > 0 {
+            throw BankIntentError.notAllowed
+        }
+    }
+}
+
 enum BankIntentAmounts {
     static func decimal(from amount: Double) -> Decimal {
         Decimal(string: String(format: "%.2f", amount)) ?? Decimal(amount)
@@ -147,10 +169,10 @@ enum BankIntentAmounts {
 extension BankIntentError {
     init(_ failure: PaymentFailure) {
         switch failure {
-        case .invalidAmount, .invalidAccountNumber, .sameAccount, .overSingleCap: self = .invalidAmount
+        case .invalidAmount, .invalidAccountNumber, .sameAccount: self = .invalidAmount
         case .insufficientFunds: self = .insufficientFunds
-        case .accountNotMovable, .movementBlocked, .notAuthenticated, .payeeCoolingOff: self = .notAllowed
-        case .overPeriodLimit: self = .overLimit
+        case .accountNotMovable, .destinationNotMovable, .cardBlocked, .movementBlocked, .notAuthenticated, .payeeCoolingOff: self = .notAllowed
+        case .overSingleCap, .overPeriodLimit: self = .overLimit
         case .duplicate, .saveFailed: self = .saveFailed
         }
     }
@@ -266,6 +288,12 @@ struct CheckBalanceIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let context = PersistenceController.shared.mainContext
+        if BankIntentGuard.duressIsActive() || AuthenticationService.movementBlocked {
+            AuthenticationService.movementBlocked = true
+            let hidden = CurrencyFormatter.shared.string(from: 0)
+            return .result(value: "Your available balance is \(hidden).")
+        }
+        try BankIntentGuard.prepare()
 
         if let account {
             let accountId = account.id

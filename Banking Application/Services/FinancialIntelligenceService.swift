@@ -50,7 +50,8 @@ enum FinancialIntelligenceService {
         accounts: [Account],
         transactions: [Transaction],
         budgets: [Budget],
-        loans: [Loan]
+        loans: [Loan],
+        categories: [ExpenseCategory] = []
     ) -> Int {
         let monthStart = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date())) ?? Date()
         let monthTx = transactions.filter { $0.transactionDate >= monthStart }
@@ -65,11 +66,20 @@ enum FinancialIntelligenceService {
 
         var adherence = 1.0
         if !budgets.isEmpty {
-            let spentByCat = Dictionary(grouping: monthTx.filter(\.isDebit), by: { $0.category ?? "Other" })
-                .mapValues { $0.reduce(Decimal(0)) { $0 + $1.amount } }
+            let debits = monthTx.filter(\.isDebit)
             var ratios: [Double] = []
             for b in budgets where b.limitAmount > 0 {
-                let spent = spentByCat[b.categoryId] ?? 0
+                let resolvedName = categories.first { $0.id == b.categoryId }?.name
+                let spent = debits.reduce(Decimal(0)) { partial, tx in
+                    if tx.categoryRef?.id == b.categoryId {
+                        return partial + tx.amount
+                    }
+                    guard tx.categoryRef == nil, let resolvedName,
+                          (tx.category ?? "").caseInsensitiveCompare(resolvedName) == .orderedSame else {
+                        return partial
+                    }
+                    return partial + tx.amount
+                }
                 let r = NSDecimalNumber(decimal: spent / b.limitAmount).doubleValue
                 ratios.append(min(r, 1.5))
             }

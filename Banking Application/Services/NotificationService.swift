@@ -8,7 +8,6 @@ import Combine
 final class NotificationService: ObservableObject {
     static let shared = NotificationService()
 
-    static let largeTransactionThreshold: Decimal = 50_000
     static let lowBalanceThreshold: Decimal = 1_000
 
     @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
@@ -36,6 +35,19 @@ final class NotificationService: ObservableObject {
         authorizationStatus = settings.authorizationStatus
     }
 
+    func notifyBudget(category: String, overLimit: Bool) {
+        let title = overLimit ? "\(category) is over budget" : "\(category) is close to its budget"
+        let body = overLimit
+            ? "Spending in \(category) passed this month's limit."
+            : "Spending in \(category) is past 80% of this month's limit."
+        schedule(
+            identifier: "budget-\(category)-\(overLimit ? "over" : "near")",
+            title: title,
+            body: body,
+            delay: 0.4
+        )
+    }
+
     func notifyTransaction(
         amount: Decimal,
         title: String,
@@ -59,11 +71,11 @@ final class NotificationService: ObservableObject {
         maybeNotifyLowBalance(remainingBalance)
     }
 
-    func notifyLogin(decoy: Bool) {
+    func notifyLogin(decoy _: Bool) {
         schedule(
             identifier: "login-\(UUID().uuidString)",
-            title: decoy ? "Session started" : "New login",
-            body: decoy ? "A limited session is active on this device." : "BankSecure was unlocked on this device.",
+            title: "New login",
+            body: "BankSecure was unlocked on this device.",
             delay: 0.3
         )
     }
@@ -87,12 +99,13 @@ final class NotificationService: ObservableObject {
     }
 
     private func maybeNotifyLarge(amount: Decimal, title: String) {
-        guard AppSettings.shared.isLargeTransactionAlertsEnabled,
-              amount >= Self.largeTransactionThreshold else { return }
+        let threshold = AppSettings.shared.largeTransactionAmount
+        guard AppSettings.shared.isLargeTransactionAlertsEnabled, amount >= threshold else { return }
+        let limit = CurrencyFormatter.shared.string(from: threshold)
         schedule(
             identifier: "large-\(UUID().uuidString)",
             title: "Large transaction",
-            body: "\(title) for \(CurrencyFormatter.shared.string(from: amount)) exceeded ₹50,000.",
+            body: "\(title) for \(CurrencyFormatter.shared.string(from: amount)) exceeded \(limit).",
             delay: 1.0
         )
     }

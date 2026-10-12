@@ -13,6 +13,10 @@ final class TransferValidationTests: XCTestCase {
         vm.recipientAccount = "123456789012"
         XCTAssertTrue(vm.isRecipientValid)
         vm.recipientAccount = "1234567890123"
+        XCTAssertTrue(vm.isRecipientValid)
+        vm.recipientAccount = "123456789012345678"
+        XCTAssertTrue(vm.isRecipientValid)
+        vm.recipientAccount = "1234567890123456789"
         XCTAssertFalse(vm.isRecipientValid)
         vm.recipientAccount = "12AB5678"
         XCTAssertFalse(vm.isRecipientValid)

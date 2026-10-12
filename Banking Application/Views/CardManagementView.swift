@@ -120,6 +120,10 @@ struct CardControlsView: View {
                         HapticFeedbackService.shared.lightImpact()
                     }
 
+                Text("Contactless, international, and online switches are sample preferences saved on this device. They do not authorize a card network.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 Divider()
                     .background(Color.secondary.opacity(0.2))
 
@@ -140,6 +144,10 @@ struct CardControlsView: View {
                         limit: card.monthlyLimit,
                         progress: card.monthlyLimitProgress
                     )
+
+                    Text("These bars are sample figures. Only the last four digits are stored, and the limits are not sent to a card network.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding()

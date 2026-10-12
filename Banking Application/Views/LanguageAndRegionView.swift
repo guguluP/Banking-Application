@@ -21,7 +21,7 @@ struct LanguageAndRegionView: View {
                             HapticFeedbackService.shared.lightImpact()
                         }
 
-                        Text("Display language for labels in this demo. Currency stays Indian Rupees.")
+                        Text("Date and time format preferences are saved on this device. The interface language stays English, and amounts stay in Indian Rupees.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

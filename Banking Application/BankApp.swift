@@ -67,10 +67,14 @@ struct BankApp: App {
             .onChange(of: authenticationService.isAuthenticated) { _, isAuthenticated in
                 if isAuthenticated {
                     authenticationService.loadUser(from: container)
+                    if !authenticationService.isDecoySession {
+                        BankingSessionTasks.runAfterUnlock(in: container.mainContext)
+                        accountViewModel.loadAccounts()
+                        transactionViewModel.loadAllTransactions()
+                    }
                 }
             }
             .onAppear {
-                BankImportPipeline.ingestCapturedSMS(in: container.mainContext)
                 SpotlightIndexManager.shared.indexAllAccounts(accountViewModel.accounts)
                 let billerDescriptor = FetchDescriptor<Biller>()
                 if let billers = try? container.mainContext.fetch(billerDescriptor) {
@@ -78,7 +82,7 @@ struct BankApp: App {
                 }
             }
         }
-        #if os(macOS)
+        #if os(macOS) || targetEnvironment(macCatalyst)
         .defaultSize(width: 1100, height: 740)
         .windowResizability(.contentMinSize)
         #endif

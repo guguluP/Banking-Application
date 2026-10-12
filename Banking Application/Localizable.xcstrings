@@ -86,6 +86,16 @@
         }
       }
     },
+    "%@ spent of %@. A matching expense category reduces this." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ spent of %2$@. A matching expense category reduces this."
+          }
+        }
+      }
+    },
     "%@ unlock enabled" : {
 
     },
@@ -125,6 +135,16 @@
     "%@%% p.a." : {
 
     },
+    "%@%% p.a. · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%% p.a. · %2$@"
+          }
+        }
+      }
+    },
     "%@%% p.a. · %lld months" : {
       "localizations" : {
         "en" : {
@@ -150,6 +170,16 @@
     "%lld mo" : {
 
     },
+    "%lld payment%@ this month have no category, so they are missing from budgets." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld payment%2$@ this month have no category, so they are missing from budgets."
+          }
+        }
+      }
+    },
     "%lld transactions in range" : {
 
     },
@@ -163,6 +193,12 @@
 
     },
     "+%@" : {
+
+    },
+    "×%lld" : {
+
+    },
+    "−%@" : {
 
     },
     "0" : {
@@ -359,9 +395,6 @@
     "Biller" : {
 
     },
-    "Billers" : {
-
-    },
     "Biometric Authentication" : {
 
     },
@@ -374,6 +407,15 @@
     "Biometric unlock enabled" : {
 
     },
+    "Break and return principal" : {
+
+    },
+    "Break this fixed deposit?" : {
+
+    },
+    "Breaking returns the principal only. Interest is not paid." : {
+
+    },
     "Bucket" : {
 
     },
@@ -381,6 +423,12 @@
 
     },
     "By" : {
+
+    },
+    "Callback not sent" : {
+
+    },
+    "Callback requests are not sent in this demo. Nothing was shared with a bank." : {
 
     },
     "Cancel" : {
@@ -502,6 +550,21 @@
     "Contactless Payments" : {
 
     },
+    "Contactless, international, and online switches are sample preferences saved on this device. They do not authorize a card network." : {
+
+    },
+    "Couldn't add category" : {
+
+    },
+    "Couldn't break this deposit." : {
+
+    },
+    "Couldn't save" : {
+
+    },
+    "Couldn't save this import" : {
+
+    },
     "Create" : {
 
     },
@@ -524,6 +587,9 @@
 
     },
     "Date" : {
+
+    },
+    "Date and time format preferences are saved on this device. The interface language stays English, and amounts stay in Indian Rupees." : {
 
     },
     "Date Format" : {
@@ -592,9 +658,6 @@
     "Dismiss keyboard" : {
 
     },
-    "Display language for labels in this demo. Currency stays Indian Rupees." : {
-
-    },
     "Dispute" : {
 
     },
@@ -643,9 +706,6 @@
     "EMI" : {
 
     },
-    "EMIs" : {
-
-    },
     "Enter an amount greater than zero." : {
 
     },
@@ -688,9 +748,6 @@
     "Everything here runs on your device — nothing you ask is sent anywhere." : {
 
     },
-    "Exclusive deals and rewards" : {
-
-    },
     "Expense" : {
 
     },
@@ -715,7 +772,10 @@
     "Family view" : {
 
     },
-    "FD maturities" : {
+    "Fill a sample UPI ID" : {
+
+    },
+    "Fill a sample UPI ID to try the form. Nothing is read from a QR code." : {
 
     },
     "Financial overview" : {
@@ -724,7 +784,7 @@
     "Fixed Deposits" : {
 
     },
-    "For transactions above ₹50,000" : {
+    "For transactions above %@" : {
 
     },
     "Freeze card" : {
@@ -736,13 +796,22 @@
     "From / people" : {
 
     },
+    "From account" : {
+
+    },
     "From Account" : {
+
+    },
+    "Funding account: %@" : {
 
     },
     "GBP" : {
 
     },
     "Generate" : {
+
+    },
+    "Getting close" : {
 
     },
     "Goals" : {
@@ -772,10 +841,10 @@
     "Import Bank SMS" : {
 
     },
-    "Income" : {
+    "Includes the linked fixed deposit." : {
 
     },
-    "Indicative INR debit uses a demo FX table. Live rates require a treasury feed." : {
+    "Income" : {
 
     },
     "Insight" : {
@@ -784,13 +853,10 @@
     "Interest Earned" : {
 
     },
-    "International" : {
-
-    },
     "International Usage" : {
 
     },
-    "International wire" : {
+    "International wire quote" : {
 
     },
     "Invalid input" : {
@@ -821,6 +887,9 @@
 
     },
     "Last updated: January 1, 2023" : {
+
+    },
+    "Latest" : {
 
     },
     "Ledger" : {
@@ -865,6 +934,9 @@
           }
         }
       }
+    },
+    "Looks repeating" : {
+
     },
     "Low Balance" : {
 
@@ -923,9 +995,6 @@
     "New consent" : {
 
     },
-    "New FD" : {
-
-    },
     "New Fixed Deposit" : {
 
     },
@@ -938,10 +1007,16 @@
     "New remaining tenure: %lld months" : {
 
     },
+    "No ATMs or branches match that search." : {
+
+    },
     "No budget set" : {
 
     },
     "No category data available" : {
+
+    },
+    "No EMIs, deposit maturities, or scheduled payments yet." : {
 
     },
     "No expenses logged yet" : {
@@ -972,6 +1047,9 @@
 
     },
     "Not available on this device" : {
+
+    },
+    "Not linked to a deposit yet. The bar stays at the saved amount." : {
 
     },
     "Note" : {
@@ -1040,6 +1118,9 @@
     "Outstanding: %@" : {
 
     },
+    "Over budget" : {
+
+    },
     "Passcode" : {
 
     },
@@ -1087,7 +1168,7 @@
     "PDF password" : {
 
     },
-    "Permanently deletes every expense, category, and budget you've created here, and reverses their effect on your account balances. This does not affect your accounts, cards, or other banking activity." : {
+    "Permanently deletes every expense, category, and budget you've created here. SMS and aggregator imports in Track are also removed, and their effect on account balances is reversed. This does not affect your accounts or cards." : {
 
     },
     "Personal Information" : {
@@ -1146,6 +1227,9 @@
 
     },
     "Quick amount: %@" : {
+
+    },
+    "Quote only — this does not send a wire" : {
 
     },
     "Rates shown are illustrative sample figures, not live bank rates." : {
@@ -1211,6 +1295,9 @@
     "Review imports" : {
 
     },
+    "Review in the ledger" : {
+
+    },
     "Revoke and delete imported AA data" : {
 
     },
@@ -1220,10 +1307,19 @@
     "Round-up" : {
 
     },
+    "Round-up adds %@ to your other savings account. UPI and bills are not rounded." : {
+
+    },
+    "Round-up is on, but there is no other active savings account, so only this amount leaves." : {
+
+    },
     "Round-up savings" : {
 
     },
     "Ru" : {
+
+    },
+    "Sample UPI ID" : {
 
     },
     "Save" : {
@@ -1238,25 +1334,28 @@
     "Save profile changes" : {
 
     },
+    "Save request" : {
+
+    },
+    "Save this UPI ID" : {
+
+    },
+    "Saved on this device. This demo does not send offers." : {
+
+    },
     "Saved Payees" : {
 
     },
-    "Savings goal" : {
+    "Saves the request on this device. Nothing is sent." : {
 
     },
     "Savings goals" : {
-
-    },
-    "Scan QR Code" : {
 
     },
     "Scan Receipt" : {
 
     },
     "Scan this in a UPI app. This demo does not register a real VPA." : {
-
-    },
-    "Scanner would open here" : {
 
     },
     "Schedule" : {
@@ -1298,6 +1397,9 @@
     "Select Account" : {
 
     },
+    "Select an account" : {
+
+    },
     "Select Biller" : {
 
     },
@@ -1305,9 +1407,6 @@
 
     },
     "Send message" : {
-
-    },
-    "Send request" : {
 
     },
     "Send to %@" : {
@@ -1346,9 +1445,6 @@
     "Signing in" : {
 
     },
-    "Simulate Scan: rahul@upi" : {
-
-    },
     "Skip" : {
 
     },
@@ -1358,6 +1454,9 @@
     "Snapshot today" : {
 
     },
+    "Spare change moves to another active savings account. It is skipped when there is nowhere to put it. UPI and bills are not rounded." : {
+
+    },
     "Spending by Category" : {
 
     },
@@ -1365,6 +1464,9 @@
 
     },
     "Spending This Month" : {
+
+    },
+    "Spent" : {
 
     },
     "Spent This Month" : {
@@ -1401,12 +1503,6 @@
 
     },
     "Support" : {
-
-    },
-    "Sweep into" : {
-
-    },
-    "SWIFT / wire" : {
 
     },
     "Switch payment type" : {
@@ -1457,10 +1553,16 @@
     "That payment is over the limit." : {
 
     },
+    "The account didn't match, or this import was already posted." : {
+
+    },
     "The on-device assistant couldn't resolve this. A live agent chat would attach here once the backend is live." : {
 
     },
     "The transaction couldn't be saved. Please try again in the app." : {
+
+    },
+    "These bars are sample figures. Only the last four digits are stored, and the limits are not sent to a card network." : {
 
     },
     "Thinking about your spending…" : {
@@ -1469,13 +1571,28 @@
     "This can't be undone. Consider exporting a CSV first." : {
 
     },
+    "This demo does not open the camera." : {
+
+    },
+    "This demo does not scan a QR code or send money through UPI. Saving the ID starts the cooling wait for large payments." : {
+
+    },
     "This device" : {
+
+    },
+    "This is a quote. It does not send a wire. Indicative rates are a demo table, not a live treasury feed." : {
 
     },
     "This Month" : {
 
     },
+    "This month, by day" : {
+
+    },
     "This will remove the entry and restore the amount to your account balance." : {
+
+    },
+    "This will remove the income from your account balance." : {
 
     },
     "Time Format" : {
@@ -1545,6 +1662,16 @@
         }
       }
     },
+    "Transfer %@ to %@? Another %@ moves to your other savings account." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Transfer %1$@ to %2$@? Another %3$@ moves to your other savings account."
+          }
+        }
+      }
+    },
     "Transfer ${amount} from ${fromAccount} to ${toAccount}" : {
 
     },
@@ -1572,6 +1699,9 @@
     "Type naturally..." : {
 
     },
+    "Uncategorized" : {
+
+    },
     "Unlike" : {
 
     },
@@ -1584,7 +1714,7 @@
     "UPI ID" : {
 
     },
-    "UPI Payment" : {
+    "UPI Pay" : {
 
     },
     "UPI QR" : {
@@ -1597,6 +1727,9 @@
 
     },
     "Use biometrics to unlock the app" : {
+
+    },
+    "Use sample ID: rahul@upi" : {
 
     },
     "VALID THRU" : {
@@ -1618,6 +1751,12 @@
 
     },
     "Voice input" : {
+
+    },
+    "Voice input isn't available in this demo" : {
+
+    },
+    "Voice input isn't available in this demo." : {
 
     },
     "Weekly Summary" : {
@@ -1644,10 +1783,13 @@
     "When balance falls below threshold" : {
 
     },
-    "When enabled, the spare change from each completed debit is accumulated toward the selected bucket." : {
+    "Wire quote" : {
 
     },
     "You earned %@ cashback!" : {
+
+    },
+    "You receive the principal only. Interest is not paid." : {
 
     },
     "You said" : {

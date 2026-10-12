@@ -27,8 +27,6 @@ struct PasscodeSetupView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: AppSpacing.xl) {
-                Spacer().frame(height: AppSpacing.xxxl)
-
                 VStack(spacing: AppSpacing.md) {
                     Image(systemName: "lock.shield.fill")
                         .font(.system(size: 56))
@@ -82,12 +80,15 @@ struct PasscodeSetupView: View {
                     Text(errorText)
                         .font(.footnote)
                         .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                         .transition(.opacity)
                 }
-
-                Spacer()
             }
             .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.xl)
+            .frame(maxWidth: 420)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .offset(x: shakeTrigger ? 10 : 0)
         .animation(shakeTrigger ? .easeInOut(duration: 0.1).repeatCount(5) : .default, value: shakeTrigger)

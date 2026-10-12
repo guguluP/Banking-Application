@@ -28,6 +28,7 @@ class BeneficiaryViewModel {
     var accountNumber = ""
     var confirmAccountNumber = ""
     var ifscCode = ""
+    var upiId = ""
     var resolvedBranch: IFSCLookupService.BranchDetails?
     var isLookingUp = false
     var lookupError: String?
@@ -57,8 +58,21 @@ class BeneficiaryViewModel {
         IFSCLookupService.isValidFormat(ifscCode.trimmingCharacters(in: .whitespaces).uppercased())
     }
 
+    var isUPIValid: Bool {
+        upiId.trimmingCharacters(in: .whitespacesAndNewlines).contains("@")
+    }
+
+    private var hasAccountNumber: Bool {
+        !accountNumber.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     var canSave: Bool {
-        isNicknameValid && isAccountNumberValid && accountNumbersMatch && isIFSCFormatValid
+        guard isNicknameValid else { return false }
+        if hasAccountNumber {
+            guard isAccountNumberValid && accountNumbersMatch && isIFSCFormatValid else { return false }
+        }
+        if isUPIValid { return true }
+        return hasAccountNumber
     }
 
     // MARK: - IFSC lookup
@@ -97,15 +111,19 @@ class BeneficiaryViewModel {
             return false
         }
 
-        let bankName = resolvedBranch?.bank ?? "Bank"
+        let trimmedAccount = accountNumber.trimmingCharacters(in: .whitespaces)
+        let trimmedUPI = upiId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let code = ifscCode.trimmingCharacters(in: .whitespaces).uppercased()
+        let bankName = resolvedBranch?.bank ?? (trimmedAccount.isEmpty ? "UPI" : "Bank")
         let beneficiary = Beneficiary(
             userId: userId,
             nickname: nickname.trimmingCharacters(in: .whitespaces),
-            accountNumber: accountNumber.trimmingCharacters(in: .whitespaces),
+            accountNumber: trimmedAccount,
             bankName: bankName,
-            bankCode: ifscCode.trimmingCharacters(in: .whitespaces).uppercased(),
+            bankCode: code.isEmpty ? nil : code,
             accountType: .checking,
-            isFavorite: isFavorite
+            isFavorite: isFavorite,
+            upiId: trimmedUPI
         )
 
         context.insert(beneficiary)
@@ -135,6 +153,7 @@ class BeneficiaryViewModel {
         accountNumber = ""
         confirmAccountNumber = ""
         ifscCode = ""
+        upiId = ""
         resolvedBranch = nil
         lookupError = nil
     }
