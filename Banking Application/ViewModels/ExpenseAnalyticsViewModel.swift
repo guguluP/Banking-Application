@@ -158,7 +158,7 @@ final class ExpenseAnalyticsViewModel {
             return name.isEmpty ? "Unknown" : name
         }
         accounts = Self.namedTotals(currentMonthEntries, total: currentMonthTotal) { entry in
-            entry.account?.nickname ?? entry.account?.accountType.rawValue ?? "Account"
+            entry.account?.expenseAccountLabel ?? "Account"
         }
         let byDay = Dictionary(grouping: currentMonthEntries) { calendar.startOfDay(for: $0.transactionDate) }
         dailySpend = byDay.keys.sorted().map { day in

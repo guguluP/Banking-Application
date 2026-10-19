@@ -39,6 +39,7 @@ enum PersistenceController {
             DeviceSession.self,
             SecurityEvent.self,
             ImportedEvent.self,
+            RememberedPayee.self,
             AAConsent.self,
             VaultDocument.self,
             VirtualCard.self,
@@ -100,63 +101,15 @@ enum PersistenceController {
         return container
     }()
 
-    /// Seeds a first-run demo account so the app is usable immediately after
-    /// install, without requiring a backend. Real account/card provisioning in a
-    /// production build would instead come from the issuing bank's enrollment
-    /// flow — this stands in for that.
+    /// Seeds billers and a demo card. Bank accounts are not created here:
+    /// after login the user names each account by bank and last four digits.
     private static func seedIfNeeded(container: ModelContainer, force: Bool = false) {
         let context = container.mainContext
-        let descriptor = FetchDescriptor<Account>()
-        let existingCount = (try? context.fetchCount(descriptor)) ?? 0
-        guard force || existingCount == 0 else { return }
+        let billerCount = (try? context.fetchCount(FetchDescriptor<Biller>())) ?? 0
+        guard force || billerCount == 0 else { return }
 
         let userId = "user_001"
-
-        let checking = Account(
-            userId: userId,
-            accountNumber: "100200300400",
-            accountType: .checking,
-            balance: 4250.75,
-            availableBalance: 4100.25,
-            nickname: "Everyday Checking",
-            isPrimary: true
-        )
-        let savings = Account(
-            userId: userId,
-            accountNumber: "100200300401",
-            accountType: .savings,
-            balance: 7800,
-            availableBalance: 7800,
-            nickname: "Rainy Day Savings",
-            interestRate: 3.25
-        )
-
-        context.insert(checking)
-        context.insert(savings)
-
         let calendar = Calendar.current
-        let sampleTransactions: [(Decimal, TransactionType, String, String?, Int)] = [
-            (54.32, .payment, "Grocery Mart", "Groceries", 0),
-            (12.99, .payment, "Coffee Roasters", "Dining", 1),
-            (1200.00, .deposit, "Payroll Deposit", "Income", 2),
-            (89.10, .payment, "Fuel Station", "Fuel", 3),
-            (32.40, .payment, "Streaming Service", "Dining", 5),
-            (15.10, .interest, "Savings Interest", "Interest", 6)
-        ]
-
-        for (amount, type, desc, category, daysAgo) in sampleTransactions {
-            let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
-            let txn = Transaction(
-                accountId: checking.id,
-                type: type,
-                amount: amount,
-                description: desc,
-                transactionDate: date,
-                category: category
-            )
-            txn.account = checking
-            context.insert(txn)
-        }
 
         // Store last four only — never a full PAN, even in demo seed data.
         let card = Card(
@@ -181,38 +134,6 @@ enum PersistenceController {
         for (name, account, nickname) in billers {
             context.insert(Biller(userId: userId, name: name, accountNumber: account, nickname: nickname))
         }
-
-        let fdStartDate = calendar.date(byAdding: .month, value: -3, to: Date()) ?? Date()
-        let fdTenureMonths = 12
-        let fdRate = FDRateCard.rate(forMonths: fdTenureMonths)
-        let fdMaturityDate = calendar.date(byAdding: .month, value: fdTenureMonths, to: fdStartDate) ?? Date()
-        let fdPrincipal: Decimal = 5000
-        let fd = FixedDeposit(
-            userId: userId,
-            nickname: "1-Year Deposit",
-            principal: fdPrincipal,
-            interestRate: fdRate,
-            tenureMonths: fdTenureMonths,
-            startDate: fdStartDate,
-            maturityDate: fdMaturityDate,
-            maturityValue: FDRateCard.maturityValue(principal: fdPrincipal, annualRatePercent: fdRate, months: fdTenureMonths),
-            sourceAccountId: savings.id
-        )
-        context.insert(fd)
-
-        // Balance is already net of this funding. Leave it out of the ledger so adoption does not apply it again.
-        let funding = Transaction(
-            accountId: savings.id,
-            type: .transfer,
-            amount: fdPrincipal,
-            description: "Funded 1-Year Deposit",
-            counterparty: fd.nickname,
-            transactionDate: fdStartDate,
-            category: "Fixed Deposit"
-        )
-        funding.countsInLedger = false
-        funding.account = savings
-        context.insert(funding)
 
         try? context.save()
     }

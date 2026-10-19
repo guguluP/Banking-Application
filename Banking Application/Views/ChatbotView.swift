@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
-
+import BankThinkingOrbs
+import BankVoiceGlow
 struct ChatbotView: View {
     @EnvironmentObject var authenticationService: AuthenticationService
     @Environment(AccountViewModel.self) var accountViewModel
@@ -17,7 +18,7 @@ struct ChatbotView: View {
     @State private var showTransfer = false
     @State private var showBillPay = false
     @State private var showFD = false
-    @State private var voiceUnavailable = false
+    @State private var dictation = ChatDictationController()
     @FocusState private var inputFocused: Bool
 
     private let suggestedPrompts = [
@@ -56,12 +57,8 @@ struct ChatbotView: View {
                                 .padding(.horizontal)
                             }
                             if isThinking {
-                                HStack(spacing: AppSpacing.sm) {
-                                    ProgressView()
-                                    ShimmerText("Thinking…", font: .subheadline)
-                                    Spacer()
-                                }
-                                .padding(.horizontal)
+                                AssistantThinkingIndicator(state: .working, size: .px64, caption: "Thinking…")
+                                    .padding(.horizontal)
                             }
                         }
                         .padding(.vertical, AppSpacing.md)
@@ -99,20 +96,19 @@ struct ChatbotView: View {
             .sheet(isPresented: $showTransfer) { TransferView() }
             .sheet(isPresented: $showBillPay) { BillPayView() }
             .sheet(isPresented: $showFD) { FixedDepositsView() }
-            .alert("Voice input", isPresented: $voiceUnavailable) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Voice input isn't available in this demo.")
-            }
         }
         .swipeDownToDismiss()
+        .onDisappear { dictation.stop() }
     }
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
-            Text("Ask me about your accounts")
-                .font(.headline)
-                .padding(.horizontal)
+            HStack(spacing: AppSpacing.md) {
+                ThinkingOrb(state: .breathing, size: .px64)
+                Text("Ask me about your accounts")
+                    .font(.headline)
+            }
+            .padding(.horizontal)
 
             Text("Everything here runs on your device — nothing you ask is sent anywhere.")
                 .font(.caption)
@@ -142,33 +138,54 @@ struct ChatbotView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: AppSpacing.sm) {
-            TextField("Ask about your account…", text: $draft, axis: .vertical)
-                .textFieldStyle(.plain)
-                .autocorrectionDisabled(true)
-                .focused($inputFocused)
-                .lineLimit(1...3)
-                .padding(.vertical, AppSpacing.sm)
-                .padding(.horizontal, AppSpacing.md)
-                .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
-                .onSubmit { send(draft) }
-
-            Button {
-                voiceUnavailable = true
-            } label: {
-                Image(systemName: "mic.slash")
-                    .font(.title3)
+        VStack(alignment: .leading, spacing: 6) {
+            if let hint = dictation.hint {
+                Text(hint)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .accessibilityLabel("Voice input isn't available in this demo")
+            HStack(spacing: AppSpacing.sm) {
+                VoiceGlow(
+                    type: .standard,
+                    meter: dictation.meter,
+                    motion: isThinking ? { VoiceProcessingMotion.travelling() } : nil,
+                    active: dictation.isListening || isThinking,
+                    colorVariant: .gold,
+                    cornerRadius: 22
+                ) {
+                    HStack(spacing: 8) {
+                        if dictation.isListening {
+                            ThinkingOrb(state: .listening, size: .px20)
+                        }
+                        TextField("Ask about your account…", text: $draft, axis: .vertical)
+                            .textFieldStyle(.plain)
+                            .autocorrectionDisabled(true)
+                            .focused($inputFocused)
+                            .lineLimit(1...3)
+                            .onSubmit { send(draft) }
+                    }
+                    .padding(.vertical, AppSpacing.sm)
+                    .padding(.horizontal, AppSpacing.md)
+                    .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
+                }
 
-            Button(action: { send(draft) }) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : Color.bankPrimary)
+                Button {
+                    Task { await dictation.toggle(currentText: draft) { draft = $0 } }
+                } label: {
+                    Image(systemName: dictation.isListening ? "mic.fill" : "mic")
+                        .font(.title3)
+                        .foregroundStyle(dictation.isListening ? Color.bankPrimary : Color.secondary)
+                }
+                .disabled(isThinking)
+                .accessibilityLabel(dictation.isListening ? "Stop listening" : "Listen")
+
+                LiquidMetalSendButton(
+                    isBusy: isThinking,
+                    isEnabled: !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isThinking
+                ) {
+                    send(draft)
+                }
             }
-            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isThinking)
-            .accessibilityLabel("Send message")
         }
         .padding()
     }

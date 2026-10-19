@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		7F0F064C2FDE951100868AF8 /* AIAssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */; };
+		7F8B10052FF00005009FE005 /* MetalFxKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7F8B10022FF00002009FE002 /* MetalFxKit */; };
+		7F8B10062FF00006009FE006 /* BankThinkingOrbs in Frameworks */ = {isa = PBXBuildFile; productRef = 7F8B10032FF00003009FE003 /* BankThinkingOrbs */; };
+		7F8B10072FF00007009FE007 /* BankVoiceGlow in Frameworks */ = {isa = PBXBuildFile; productRef = 7F8B10042FF00004009FE004 /* BankVoiceGlow */; };
 		7F0F064E2FDE954700868AF8 /* SummarizeTextIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */; };
 		7FSMS00C2FCA900100SMS0C /* BankSMSFilter.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7FSMS0012FCA900100SMS01 /* BankSMSFilter.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -122,6 +125,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7F8B10052FF00005009FE005 /* MetalFxKit in Frameworks */,
+				7F8B10062FF00006009FE006 /* BankThinkingOrbs in Frameworks */,
+				7F8B10072FF00007009FE007 /* BankVoiceGlow in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -204,6 +210,9 @@
 			);
 			name = "Banking Application";
 			packageProductDependencies = (
+				7F8B10022FF00002009FE002 /* MetalFxKit */,
+				7F8B10032FF00003009FE003 /* BankThinkingOrbs */,
+				7F8B10042FF00004009FE004 /* BankVoiceGlow */,
 			);
 			productName = "Banking Application";
 			productReference = 7FC33B1C2FCA7747004CB335 /* Banking Application.app */;
@@ -282,6 +291,11 @@
 			);
 			mainGroup = 7FC33B132FCA7747004CB335;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7F8B10012FF00001009FE001 /* XCRemoteSwiftPackageReference "Libraries.dev" */,
+				7F8B10082FF00008009FE008 /* XCLocalSwiftPackageReference "Vendor/VoiceGlowKit" */,
+				7F8B10092FF00009009FE009 /* XCLocalSwiftPackageReference "Vendor/ThinkingOrbsKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7FC33B1D2FCA7747004CB335 /* Products */;
 			projectDirPath = "";
@@ -579,6 +593,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "BankSecure uses your camera to scan receipts so expenses can be logged automatically.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to securely access your banking app and authorize transactions";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "BankSecure uses the microphone so you can talk to the assistant. Audio stays on this device.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "BankSecure turns what you say into a message for the assistant. Recognition stays on this device.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -620,6 +636,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "BankSecure uses your camera to scan receipts so expenses can be logged automatically.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to securely access your banking app and authorize transactions";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "BankSecure uses the microphone so you can talk to the assistant. Audio stays on this device.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "BankSecure turns what you say into a message for the assistant. Recognition stays on this device.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -791,6 +809,46 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		7F8B10082FF00008009FE008 /* XCLocalSwiftPackageReference "Vendor/VoiceGlowKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/VoiceGlowKit;
+		};
+		7F8B10092FF00009009FE009 /* XCLocalSwiftPackageReference "Vendor/ThinkingOrbsKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/ThinkingOrbsKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7F8B10012FF00001009FE001 /* XCRemoteSwiftPackageReference "Libraries.dev" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Jakubantalik/Libraries.dev";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7F8B10022FF00002009FE002 /* MetalFxKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7F8B10012FF00001009FE001 /* XCRemoteSwiftPackageReference "Libraries.dev" */;
+			productName = MetalFxKit;
+		};
+		7F8B10032FF00003009FE003 /* BankThinkingOrbs */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7F8B10092FF00009009FE009 /* XCLocalSwiftPackageReference "Vendor/ThinkingOrbsKit" */;
+			productName = BankThinkingOrbs;
+		};
+		7F8B10042FF00004009FE004 /* BankVoiceGlow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7F8B10082FF00008009FE008 /* XCLocalSwiftPackageReference "Vendor/VoiceGlowKit" */;
+			productName = BankVoiceGlow;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7FC33B142FCA7747004CB335 /* Project object */;
 }

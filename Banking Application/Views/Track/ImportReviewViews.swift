@@ -19,16 +19,30 @@ struct ImportReviewQueueView: View {
                 ForEach(pending) { row in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(row.merchant.isEmpty ? row.bank : row.merchant)
-                        Text("\(CurrencyFormatter.shared.string(from: row.amount)) · •••• \(row.accountLast4) · \(row.categoryName)")
+                        Text("\(CurrencyFormatter.shared.string(from: row.amount)) · \(row.bank) · •••• \(row.accountLast4) · \(row.categoryName)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        HStack {
-                            Button("Save") {
-                                if !BankImportPipeline.approve(row, in: context) {
-                                    saveFailed = true
+                        if row.needsPayeeChoice {
+                            Text(row.personName.isEmpty ? "What was this payment for?" : "Paid to \(row.personName). What was this for?")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(PayeeChoice.allCases) { choice in
+                                Button(choice.rawValue) {
+                                    if !BankImportPipeline.remember(row, as: choice, in: context) {
+                                        saveFailed = true
+                                    }
                                 }
                             }
                             Button("Skip") { BankImportPipeline.reject(row, in: context) }
+                        } else {
+                            HStack {
+                                Button("Save") {
+                                    if !BankImportPipeline.approve(row, in: context) {
+                                        saveFailed = true
+                                    }
+                                }
+                                Button("Skip") { BankImportPipeline.reject(row, in: context) }
+                            }
                         }
                     }
                 }
@@ -43,7 +57,7 @@ struct ImportReviewQueueView: View {
         .alert("Couldn't save this import", isPresented: $saveFailed) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("The account didn't match, or this import was already posted.")
+            Text("Add this bank and these last 4 digits from the login accounts screen, or this import was already posted.")
         }
     }
 }

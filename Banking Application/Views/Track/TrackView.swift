@@ -132,6 +132,14 @@ struct TrackView: View {
 
                 VStack(spacing: AppSpacing.md) {
                     NavigationLink {
+                        SpendAccountSetupView(isAddingMore: true) {
+                            accountViewModel.loadAccounts()
+                        }
+                    } label: {
+                        trackMenuRow(icon: "building.columns", title: "Your accounts", subtitle: "Bank and last 4 digits")
+                    }
+
+                    NavigationLink {
                         ExpenseLedgerView().environment(tracker)
                     } label: {
                         trackMenuRow(icon: "list.bullet.rectangle", title: "Ledger", subtitle: "\(tracker.expenseEntries.count) expenses logged")

@@ -42,6 +42,12 @@ nonisolated final class ImportedEvent {
     var occurredAt: Date = Date()
     var confidence: Double = 0
     var categoryName: String = "Uncategorized"
+    /// Normalized VPA or name, used to remember a person-payee choice.
+    var payeeKey: String = ""
+    /// Display name of the person when the bank did not name a company.
+    var personName: String = ""
+    /// True until the user says what a person-to-person debit was for.
+    var needsPayeeChoice: Bool = false
 
     var source: TransactionEntrySource {
         get { TransactionEntrySource(rawValue: sourceRaw) ?? .smsImport }
@@ -145,10 +151,14 @@ enum BankImportPipeline {
             try? context.save()
             return row
         }
-        let draft = ExpenseParsingService.shared.parse(event.merchant ?? event.bank)
-        let category = draft.categoryName
-        let row = ImportedEvent(event: event, hash: hash, categoryName: category)
-        if event.confidence < reviewThreshold {
+        let resolved = resolution(for: event, in: context)
+        var display = event
+        display.merchant = resolved.merchant
+        let row = ImportedEvent(event: display, hash: hash, categoryName: resolved.categoryName)
+        row.payeeKey = resolved.payeeKey
+        row.personName = resolved.personName
+        row.needsPayeeChoice = resolved.needsChoice
+        if resolved.needsChoice || event.confidence < reviewThreshold {
             row.status = .pendingReview
             context.insert(row)
             try? context.save()
@@ -174,9 +184,96 @@ enum BankImportPipeline {
         return ingest(event, in: context)
     }
 
+    /// Stores the user's label for this person and posts the debit. A later SMS to the same VPA or name reuses it.
+    @discardableResult
+    static func remember(_ row: ImportedEvent, as choice: PayeeChoice, in context: ModelContext) -> Bool {
+        guard row.status == .pendingReview, row.needsPayeeChoice, !row.payeeKey.isEmpty else { return false }
+        let title = choice.title(person: row.personName)
+        let rows = (try? context.fetch(FetchDescriptor<RememberedPayee>())) ?? []
+        let created: RememberedPayee?
+        if let existing = rows.first(where: { $0.payeeKey == row.payeeKey }) {
+            existing.label = choice.label
+            existing.personName = row.personName
+            existing.categoryName = choice.categoryName
+            existing.displayTitle = title
+            created = nil
+        } else {
+            let payee = RememberedPayee(
+                payeeKey: row.payeeKey,
+                label: choice.label,
+                personName: row.personName,
+                categoryName: choice.categoryName,
+                displayTitle: title
+            )
+            context.insert(payee)
+            created = payee
+        }
+        let previousMerchant = row.merchant
+        row.merchant = title
+        row.categoryName = choice.categoryName
+        row.needsPayeeChoice = false
+        if post(row, in: context) { return true }
+        row.merchant = previousMerchant
+        row.needsPayeeChoice = true
+        if let created { context.delete(created) }
+        return false
+    }
+
+    private struct PayeeResolution {
+        var merchant: String
+        var categoryName: String
+        var payeeKey: String
+        var personName: String
+        var needsChoice: Bool
+    }
+
+    private static func resolution(for event: RawBankEvent, in context: ModelContext) -> PayeeResolution {
+        let raw = event.merchant ?? ""
+        let key = MerchantDirectory.payeeKey(from: raw)
+        if !key.isEmpty {
+            let remembered = (try? context.fetch(FetchDescriptor<RememberedPayee>())) ?? []
+            if let match = remembered.first(where: { $0.payeeKey == key }) {
+                return PayeeResolution(
+                    merchant: match.displayTitle,
+                    categoryName: match.categoryName,
+                    payeeKey: key,
+                    personName: match.personName,
+                    needsChoice: false
+                )
+            }
+        }
+        if let company = MerchantDirectory.company(in: raw) {
+            return PayeeResolution(
+                merchant: company.displayName,
+                categoryName: company.categoryName,
+                payeeKey: key,
+                personName: "",
+                needsChoice: false
+            )
+        }
+        if MerchantDirectory.isPersonPayee(raw) {
+            let person = MerchantDirectory.personName(from: raw)
+            return PayeeResolution(
+                merchant: person,
+                categoryName: ExpenseCategory.otherCategoryName,
+                payeeKey: key,
+                personName: person,
+                needsChoice: true
+            )
+        }
+        let draft = ExpenseParsingService.shared.parse(raw.isEmpty ? event.bank : raw)
+        return PayeeResolution(
+            merchant: raw.isEmpty ? (draft.merchant ?? event.bank) : raw,
+            categoryName: draft.categoryName,
+            payeeKey: key,
+            personName: "",
+            needsChoice: false
+        )
+    }
+
     @discardableResult
     static func approve(_ row: ImportedEvent, in context: ModelContext) -> Bool {
-        guard row.status == .pendingReview else { return false }
+        guard row.status == .pendingReview, !row.needsPayeeChoice else { return false }
         return post(row, in: context)
     }
 
@@ -193,7 +290,7 @@ enum BankImportPipeline {
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
         for tx in txs where tx.entrySourceRaw == source {
             let account = tx.account ?? accounts.first { $0.id == tx.accountId }
-            if let account {
+            if let account, tx.countsInLedger {
                 if tx.isCredit {
                     account.balance -= tx.amount
                     account.availableBalance -= tx.amount
@@ -208,70 +305,43 @@ enum BankImportPipeline {
     }
 
     private static func post(_ row: ImportedEvent, in context: ModelContext) -> Bool {
-        let last4 = row.accountLast4.trimmingCharacters(in: .whitespaces)
         let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        guard !last4.isEmpty, let account = accounts.first(where: { String($0.accountNumber.suffix(4)) == last4 }) else {
+        guard let account = Account.match(last4: row.accountLast4, bank: row.bank, among: accounts) else {
             return false
         }
-        if row.directionRaw == ImportDirection.credit.rawValue {
-            if AuthenticationService.movementBlocked { return false }
-            if let ref = row.externalRef, !ref.isEmpty {
-                let existing = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-                if existing.contains(where: { $0.externalRef == ref || $0.referenceNumber == ref }) {
-                    return false
-                }
-            }
-            account.balance += row.amount
-            account.availableBalance += row.amount
-            let tx = Transaction(
-                accountId: account.id,
-                type: .deposit,
-                amount: row.amount,
-                currency: account.currency,
-                description: row.merchant.isEmpty ? "Imported credit" : row.merchant,
-                referenceNumber: row.externalRef,
-                transactionDate: row.occurredAt,
-                category: row.categoryName,
-                merchant: row.merchant,
-                entrySource: row.source
-            )
-            tx.externalRef = row.externalRef
-            tx.rawHash = row.rawHash
-            tx.countsInLedger = true
-            tx.railRaw = PaymentRail.imported.rawValue
-            tx.categoryRef = category(named: row.categoryName, in: context)
-            tx.account = account
-            context.insert(tx)
-        } else {
-            do {
-                _ = try TransactionService.post(
-                    from: account,
-                    amount: row.amount,
-                    rail: .imported,
-                    counterparty: row.merchant,
-                    description: row.merchant.isEmpty ? "Imported payment" : row.merchant,
-                    category: row.categoryName,
-                    externalRef: row.externalRef ?? row.rawHash,
-                    currency: account.currency,
-                    entrySource: row.source,
-                    merchant: row.merchant,
-                    occurredAt: row.occurredAt,
-                    requireSession: false,
-                    in: context
-                )
-            } catch {
+        return recordLabeled(row, on: account, in: context)
+    }
+
+    /// Files the expense on the account the user named. Does not change that account's balance:
+    /// the last digits are not a link to the bank, so there is no balance to move.
+    private static func recordLabeled(_ row: ImportedEvent, on account: Account, in context: ModelContext) -> Bool {
+        if AuthenticationService.movementBlocked { return false }
+        if let ref = row.externalRef, !ref.isEmpty {
+            let existing = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
+            if existing.contains(where: { $0.externalRef == ref || $0.referenceNumber == ref }) {
                 return false
             }
         }
-        let postedRef = (row.externalRef?.isEmpty == false) ? row.externalRef! : row.rawHash
-        let txs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-        if let tx = txs.first(where: { $0.externalRef == postedRef || $0.referenceNumber == postedRef }) {
-            tx.rawHash = row.rawHash
-            tx.entrySource = row.source
-            if tx.categoryRef == nil {
-                tx.categoryRef = category(named: row.categoryName, in: context)
-            }
-        }
+        let isCredit = row.directionRaw == ImportDirection.credit.rawValue
+        let tx = Transaction(
+            accountId: account.id,
+            type: isCredit ? .deposit : .payment,
+            amount: row.amount,
+            currency: account.currency,
+            description: row.merchant.isEmpty ? (isCredit ? "Imported credit" : "Imported payment") : row.merchant,
+            referenceNumber: row.externalRef,
+            transactionDate: row.occurredAt,
+            category: row.categoryName,
+            merchant: row.merchant,
+            entrySource: row.source
+        )
+        tx.externalRef = row.externalRef
+        tx.rawHash = row.rawHash
+        tx.countsInLedger = false
+        tx.railRaw = PaymentRail.imported.rawValue
+        tx.categoryRef = category(named: row.categoryName, in: context)
+        tx.account = account
+        context.insert(tx)
         row.status = .posted
         if row.modelContext == nil { context.insert(row) }
         try? context.save()
@@ -292,6 +362,7 @@ enum BankImportPipeline {
             tx.amount == event.amount
                 && abs(tx.transactionDate.timeIntervalSince(event.occurredAt)) < 180
                 && (tx.account.map { String($0.accountNumber.suffix(4)) } == event.accountLast4)
+                && Account.sameBank(tx.account?.bankName ?? "", event.bank)
                 && fuzzy(tx.merchant ?? tx.description, event.merchant ?? "")
         }
     }

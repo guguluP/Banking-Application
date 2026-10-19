@@ -164,6 +164,11 @@ struct ExpenseLedgerRow: View {
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     Text(entry.categoryRef?.name ?? "Uncategorized")
+                    if let label = entry.account?.expenseAccountLabel {
+                        Text("·")
+                        Text(label)
+                            .lineLimit(1)
+                    }
                     if entry.entrySource != .manualEntry {
                         Text("·")
                         Image(systemName: entry.entrySource == .receiptScan ? "camera.fill" : "sparkles")

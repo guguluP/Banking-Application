@@ -96,14 +96,16 @@ struct BillPayContent: View {
                         .padding(.horizontal)
                 }
                 
-                ModernButton(
-                    title: viewModel.isProcessing ? "Processing..." : "Pay Bill",
-                    systemImage: viewModel.isProcessing ? nil : "doc.text.fill",
-                    variant: isFormValid ? .filled : .glass
-                ) {
-                    initiatePayment()
+                LiquidMetalCTA(id: "bill-pay", preset: .silver) {
+                    ModernButton(
+                        title: viewModel.isProcessing ? "Processing..." : "Pay Bill",
+                        systemImage: viewModel.isProcessing ? nil : "doc.text.fill",
+                        variant: isFormValid ? .filled : .glass
+                    ) {
+                        initiatePayment()
+                    }
+                    .disabled(!isFormValid || viewModel.isProcessing)
                 }
-                .disabled(!isFormValid || viewModel.isProcessing)
                 .padding(.horizontal)
             }
             .padding(.vertical)

@@ -16,13 +16,13 @@ struct AccountCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(account.accountType.rawValue)
+                            Text(account.isDeclaredSpendAccount ? account.bankName : account.accountType.rawValue)
                                 .font(.caption.weight(.semibold))
                                 .textCase(.uppercase)
                                 .foregroundStyle(.secondary)
                                 .tracking(0.6)
 
-                            Text(account.nickname ?? "Account")
+                            Text(account.isDeclaredSpendAccount ? "•••• \(account.accountNumber.suffix(4))" : (account.nickname ?? "Account"))
                                 .font(.headline)
                                 .foregroundStyle(.primary)
                         }
@@ -35,19 +35,25 @@ struct AccountCard: View {
                             .symbolRenderingMode(.hierarchical)
                     }
 
-                    AnimatedDigitText(
-                        text: account.formattedBalance,
-                        isAnimating: isAnimating,
-                        font: AppTheme.Typography.monospacedAmount(),
-                        color: .primary,
-                        distance: 6,
-                        stagger: 0.05
-                    )
-                    .onAppear { replay() }
-                    .onChange(of: account.formattedBalance) { replay() }
+                    if account.isDeclaredSpendAccount {
+                        Text("Expenses from this account")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        AnimatedDigitText(
+                            text: account.formattedBalance,
+                            isAnimating: isAnimating,
+                            font: AppTheme.Typography.monospacedAmount(),
+                            color: .primary,
+                            distance: 6,
+                            stagger: 0.05
+                        )
+                        .onAppear { replay() }
+                        .onChange(of: account.formattedBalance) { replay() }
+                    }
 
                     HStack {
-                        Text("Available: \(account.formattedAvailableBalance)")
+                        Text(account.isDeclaredSpendAccount ? "Balance stays at your bank" : "Available: \(account.formattedAvailableBalance)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()

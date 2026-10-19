@@ -117,7 +117,7 @@ struct ExpenseConfirmationView: View {
                         Text("Account")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        AccountPicker(selection: $selectedAccount, accounts: accountViewModel.accounts)
+                        AccountPicker(selection: $selectedAccount, accounts: accountViewModel.spendAccounts)
                     }
                     .padding(.horizontal)
 
@@ -170,7 +170,7 @@ struct ExpenseConfirmationView: View {
             }
             .onAppear {
                 if selectedAccount == nil {
-                    selectedAccount = accountViewModel.accounts.first(where: { $0.isPrimary }) ?? accountViewModel.accounts.first
+                    selectedAccount = accountViewModel.spendAccounts.first(where: { $0.isPrimary }) ?? accountViewModel.spendAccounts.first
                 }
             }
         }

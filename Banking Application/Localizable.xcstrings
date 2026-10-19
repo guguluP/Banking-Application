@@ -26,22 +26,22 @@
         }
       }
     },
+    "%@ · %@ · •••• %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · •••• %3$@ · %4$@"
+          }
+        }
+      }
+    },
     "%@ · %@%% p.a." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ · %2$@%% p.a."
-          }
-        }
-      }
-    },
-    "%@ · •••• %@ · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · •••• %2$@ · %3$@"
           }
         }
       }
@@ -65,6 +65,9 @@
           }
         }
       }
+    },
+    "%@ hidden" : {
+
     },
     "%@ of %@" : {
       "localizations" : {
@@ -253,6 +256,15 @@
     "Add a payee to save them for next time" : {
 
     },
+    "Add account" : {
+
+    },
+    "Add an account" : {
+
+    },
+    "Add another account" : {
+
+    },
     "Add Category" : {
 
     },
@@ -266,6 +278,9 @@
 
     },
     "Add remarks" : {
+
+    },
+    "Add this bank and these last 4 digits from the login accounts screen, or this import was already posted." : {
 
     },
     "Advanced" : {
@@ -296,6 +311,9 @@
 
     },
     "Allocate" : {
+
+    },
+    "Already added" : {
 
     },
     "AMEX" : {
@@ -365,7 +383,13 @@
     "Balance" : {
 
     },
+    "Balance stays at your bank" : {
+
+    },
     "Bank Details" : {
+
+    },
+    "Bank name" : {
 
     },
     "Bank SMS" : {
@@ -492,6 +516,9 @@
 
     },
     "Clear search" : {
+
+    },
+    "Close" : {
 
     },
     "Closed" : {
@@ -751,6 +778,12 @@
     "Expense" : {
 
     },
+    "Expenses are tagged to this account" : {
+
+    },
+    "Expenses from this account" : {
+
+    },
     "Export as CSV" : {
 
     },
@@ -880,6 +913,9 @@
     "Large Transactions" : {
 
     },
+    "Last 4 digits" : {
+
+    },
     "Last 7 Days Spending" : {
 
     },
@@ -905,6 +941,9 @@
 
     },
     "Liquid Glass" : {
+
+    },
+    "Listen" : {
 
     },
     "Loan Details" : {
@@ -977,6 +1016,9 @@
     "Name" : {
 
     },
+    "Name the bank and the last 4 digits of each account. A bank text carries those digits, so each expense can show which account it left — including two accounts at the same bank, or accounts at different banks. The full number stays at your bank. This does not open an account or show that bank's balance." : {
+
+    },
     "Names, comma-separated" : {
 
     },
@@ -1044,6 +1086,9 @@
 
     },
     "No terms found matching \"%@\"" : {
+
+    },
+    "Not a balance" : {
 
     },
     "Not available on this device" : {
@@ -1119,6 +1164,9 @@
 
     },
     "Over budget" : {
+
+    },
+    "Paid to %@. What was this for?" : {
 
     },
     "Passcode" : {
@@ -1266,6 +1314,9 @@
 
     },
     "Remarks (Optional)" : {
+
+    },
+    "Remove" : {
 
     },
     "Remove Budget" : {
@@ -1487,6 +1538,9 @@
     "Statements" : {
 
     },
+    "Stop listening" : {
+
+    },
     "Store metadata" : {
 
     },
@@ -1553,9 +1607,6 @@
     "That payment is over the limit." : {
 
     },
-    "The account didn't match, or this import was already posted." : {
-
-    },
     "The on-device assistant couldn't resolve this. A live agent chat would attach here once the backend is live." : {
 
     },
@@ -1619,12 +1670,6 @@
     "Total Balance" : {
 
     },
-    "Total balance hidden" : {
-
-    },
-    "Total balance: %@" : {
-
-    },
     "Total Interest" : {
 
     },
@@ -1641,6 +1686,9 @@
 
     },
     "Track your spending" : {
+
+    },
+    "Tracked" : {
 
     },
     "Transaction" : {
@@ -1750,15 +1798,6 @@
     "VISA" : {
 
     },
-    "Voice input" : {
-
-    },
-    "Voice input isn't available in this demo" : {
-
-    },
-    "Voice input isn't available in this demo." : {
-
-    },
     "Weekly Summary" : {
 
     },
@@ -1771,6 +1810,9 @@
     "What this means" : {
 
     },
+    "What was this payment for?" : {
+
+    },
     "What-if" : {
 
     },
@@ -1781,6 +1823,9 @@
 
     },
     "When balance falls below threshold" : {
+
+    },
+    "Which accounts do you spend from?" : {
 
     },
     "Wire quote" : {
@@ -1796,6 +1841,9 @@
 
     },
     "You'll use this 4-digit passcode to unlock BankSecure." : {
+
+    },
+    "Your accounts" : {
 
     },
     "Your bank data could not be opened" : {

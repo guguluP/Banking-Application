@@ -227,4 +227,100 @@ final class PaymentServiceTests: XCTestCase {
         let jumped = AuthenticationService.remainingLockout(keychain: keychain, nowUptime: uptime, nowWall: 9_000_000)
         XCTAssertEqual(jumped, 30)
     }
+
+    func testSpendAccountMatchUsesBankAndLast4() {
+        let hdfc = Account(userId: "u", accountNumber: "4521", accountType: .checking, balance: 0, availableBalance: 0)
+        hdfc.bankName = "HDFC Bank"
+        let icici = Account(userId: "u", accountNumber: "4521", accountType: .checking, balance: 0, availableBalance: 0)
+        icici.bankName = "ICICI Bank"
+        let sbi = Account(userId: "u", accountNumber: "8891", accountType: .savings, balance: 0, availableBalance: 0)
+        sbi.bankName = "SBI"
+
+        let accounts = [hdfc, icici, sbi]
+        XCTAssertEqual(Account.match(last4: "4521", bank: "HDFC Bank", among: accounts)?.bankName, "HDFC Bank")
+        XCTAssertEqual(Account.match(last4: "4521", bank: "HDFC", among: accounts)?.bankName, "HDFC Bank")
+        XCTAssertNil(Account.match(last4: "4521", bank: "Axis Bank", among: accounts))
+        XCTAssertEqual(Account.match(last4: "8891", bank: "Unknown", among: accounts)?.bankName, "SBI")
+        XCTAssertNil(Account.match(last4: "4521", bank: "Unknown", among: accounts))
+        XCTAssertNil(Account.match(last4: "9999", bank: "HDFC Bank", among: accounts))
+        XCTAssertEqual(Account.canonicalBank("SBI"), "State Bank of India")
+        XCTAssertEqual(sbi.expenseAccountLabel, "SBI · 8891")
+    }
+
+    func testCompanyPayeesAndPersonPayees() {
+        XCTAssertEqual(MerchantDirectory.company(in: "blinkit.payu@axisbank")?.displayName, "Blinkit")
+        XCTAssertEqual(MerchantDirectory.company(in: "blinkit.payu@axisbank")?.categoryName, "Groceries")
+        XCTAssertEqual(MerchantDirectory.company(in: "towards ZOMATO BANGALORE")?.displayName, "Zomato")
+        XCTAssertEqual(MerchantDirectory.company(in: "UBER INDIA")?.displayName, "Uber")
+        XCTAssertEqual(MerchantDirectory.company(in: "UBER INDIA")?.categoryName, "Transport")
+        XCTAssertEqual(MerchantDirectory.company(in: "SWIGGY INSTAMART")?.displayName, "Swiggy Instamart")
+        XCTAssertEqual(MerchantDirectory.company(in: "SWIGGY INSTAMART")?.categoryName, "Groceries")
+        XCTAssertNil(MerchantDirectory.company(in: "rahul@oksbi"))
+        XCTAssertTrue(MerchantDirectory.isPersonPayee("rahul@oksbi"))
+        XCTAssertTrue(MerchantDirectory.isPersonPayee("9876543210@ybl"))
+        XCTAssertTrue(MerchantDirectory.isPersonPayee("RAHUL SHARMA"))
+        XCTAssertFalse(MerchantDirectory.isPersonPayee("UBER INDIA"))
+        XCTAssertEqual(MerchantDirectory.personName(from: "rahul@oksbi"), "Rahul")
+
+        let classifier = CategoryKeywordClassifier()
+        XCTAssertEqual(classifier.classify(text: "vegetables 80").categoryName, "Groceries")
+        XCTAssertEqual(classifier.classify(text: "sabzi 40").categoryName, "Groceries")
+        XCTAssertEqual(classifier.classify(text: "auto 120").categoryName, "Transport")
+    }
+
+    func testDirectRiderStaysUberOnlyForThatPayee() throws {
+        let context = container.mainContext
+        let hdfc = Account(userId: "u", accountNumber: "4521", accountType: .checking, balance: 0, availableBalance: 0)
+        hdfc.bankName = "HDFC Bank"
+        let icici = Account(userId: "u", accountNumber: "4521", accountType: .checking, balance: 0, availableBalance: 0)
+        icici.bankName = "ICICI Bank"
+        context.insert(hdfc)
+        context.insert(icici)
+
+        let blinkit = BankImportPipeline.ingestSMS(
+            "Rs.180.00 debited from HDFC Bank A/c **4521 to blinkit.payu@axisbank. UTR 123456789012",
+            in: context
+        )
+        XCTAssertEqual(blinkit?.merchant, "Blinkit")
+        XCTAssertEqual(blinkit?.categoryName, "Groceries")
+        XCTAssertEqual(blinkit?.status, .posted)
+        let blinkitTx = try context.fetch(FetchDescriptor<Transaction>()).first { $0.merchant == "Blinkit" }
+        XCTAssertEqual(blinkitTx?.account?.bankName, "HDFC Bank")
+        XCTAssertNotEqual(blinkitTx?.account?.id, icici.id)
+
+        let rahul = BankImportPipeline.ingestSMS(
+            "Rs.220.00 debited from HDFC Bank A/c **4521 to rahul@oksbi. UTR 223456789012",
+            in: context
+        )
+        XCTAssertEqual(rahul?.needsPayeeChoice, true)
+        XCTAssertEqual(rahul?.status, .pendingReview)
+        XCTAssertEqual(rahul?.personName, "Rahul")
+        XCTAssertTrue(try context.fetch(FetchDescriptor<Transaction>()).filter { $0.merchant?.contains("Uber") == true }.isEmpty)
+
+        XCTAssertNotNil(rahul)
+        XCTAssertTrue(BankImportPipeline.remember(rahul!, as: .uber, in: context))
+        let ride = try context.fetch(FetchDescriptor<Transaction>()).first { $0.merchant == "Uber · Rahul" }
+        XCTAssertEqual(ride?.category, "Transport")
+        XCTAssertEqual(ride?.account?.bankName, "HDFC Bank")
+
+        let again = BankImportPipeline.ingestSMS(
+            "Rs.240.00 debited from HDFC Bank A/c **4521 to rahul@oksbi. UTR 323456789012",
+            in: context
+        )
+        XCTAssertEqual(again?.needsPayeeChoice, false)
+        XCTAssertEqual(again?.merchant, "Uber · Rahul")
+        XCTAssertEqual(again?.status, .posted)
+
+        let vendor = BankImportPipeline.ingestSMS(
+            "Rs.90.00 debited from HDFC Bank A/c **4521 to ramesh@ybl. UTR 423456789012",
+            in: context
+        )
+        XCTAssertEqual(vendor?.needsPayeeChoice, true)
+        XCTAssertNotEqual(vendor?.merchant, "Uber · Rahul")
+        XCTAssertNotNil(vendor)
+        XCTAssertTrue(BankImportPipeline.remember(vendor!, as: .groceries, in: context))
+        let vegetables = try context.fetch(FetchDescriptor<Transaction>()).first { $0.amount == 90 }
+        XCTAssertEqual(vegetables?.category, "Groceries")
+        XCTAssertEqual(vegetables?.merchant?.contains("Uber"), false)
+    }
 }

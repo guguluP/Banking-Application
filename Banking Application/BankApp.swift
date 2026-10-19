@@ -44,10 +44,13 @@ struct BankApp: App {
                     PasscodeSetupView()
                         .environmentObject(authenticationService)
                 } else if authenticationService.isAuthenticated {
-                    MainTabView()
-                        .environmentObject(authenticationService)
-                        .environment(accountViewModel)
-                        .environment(transactionViewModel)
+                    AuthenticatedHomeGate {
+                        accountViewModel.loadAccounts()
+                        transactionViewModel.loadAllTransactions()
+                    }
+                    .environmentObject(authenticationService)
+                    .environment(accountViewModel)
+                    .environment(transactionViewModel)
                 } else {
                     LoginView()
                         .environmentObject(authenticationService)

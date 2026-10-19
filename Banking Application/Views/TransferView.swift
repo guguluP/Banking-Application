@@ -198,14 +198,16 @@ struct TransferView: View {
                             .padding(.horizontal)
                     }
                     
-                    ModernButton(
-                        title: viewModel.isProcessing ? "Processing..." : "Transfer Money",
-                        systemImage: viewModel.isProcessing ? nil : "arrow.left.arrow.right",
-                        variant: isFormValid ? .filled : .glass
-                    ) {
-                        initiateTransfer()
+                    LiquidMetalCTA(id: "transfer", preset: .gold) {
+                        ModernButton(
+                            title: viewModel.isProcessing ? "Processing..." : "Transfer Money",
+                            systemImage: viewModel.isProcessing ? nil : "arrow.left.arrow.right",
+                            variant: isFormValid ? .filled : .glass
+                        ) {
+                            initiateTransfer()
+                        }
+                        .disabled(!isFormValid || viewModel.isProcessing)
                     }
-                    .disabled(!isFormValid || viewModel.isProcessing)
                     .padding(.horizontal)
                 }
                 .padding(.vertical)
@@ -344,8 +346,8 @@ struct AccountPicker: View {
             ForEach(accounts) { account in
                 Button(action: { selection = account }) {
                     VStack(alignment: .leading) {
-                        Text(account.nickname ?? "Account")
-                        Text(account.formattedAvailableBalance)
+                        Text(account.expenseAccountLabel)
+                        Text(account.isDeclaredSpendAccount ? "Tags expenses" : account.formattedAvailableBalance)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -355,10 +357,10 @@ struct AccountPicker: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     if let account = selection {
-                        Text(account.nickname ?? "Account")
+                        Text(account.expenseAccountLabel)
                             .font(.subheadline)
                             .foregroundColor(.primary)
-                        Text("Available: \(account.formattedAvailableBalance)")
+                        Text(account.isDeclaredSpendAccount ? "Expenses are tagged to this account" : "Available: \(account.formattedAvailableBalance)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     } else {

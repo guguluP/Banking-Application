@@ -146,14 +146,16 @@ struct UPIPaymentContent: View {
                 
                 Button("Show my UPI QR") { showingQR = true }
                     .padding(.horizontal)
-                ModernButton(
-                    title: isProcessing ? "Processing..." : "Pay via UPI with Face ID",
-                    systemImage: isProcessing ? nil : "faceid",
-                    variant: isFormValid && !isProcessing ? .filled : .glass
-                ) {
-                    initiateUPIPayment()
+                LiquidMetalCTA(id: "upi-pay", preset: .chromatic) {
+                    ModernButton(
+                        title: isProcessing ? "Processing..." : "Pay via UPI with Face ID",
+                        systemImage: isProcessing ? nil : "faceid",
+                        variant: isFormValid && !isProcessing ? .filled : .glass
+                    ) {
+                        initiateUPIPayment()
+                    }
+                    .disabled(!isFormValid || isProcessing)
                 }
-                .disabled(!isFormValid || isProcessing)
                 .padding(.horizontal)
                 
                 if !accountViewModel.upiTransactions.isEmpty {

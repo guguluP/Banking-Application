@@ -36,6 +36,12 @@ class AccountViewModel {
         }
     }
 
+    /// Accounts the user named by bank and last digits. Older demo rows stay out of this list once any named account exists.
+    var spendAccounts: [Account] {
+        let declared = accounts.filter(\.isDeclaredSpendAccount)
+        return declared.isEmpty ? accounts : declared
+    }
+
     var totalBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.balance } }
     var totalAvailableBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.availableBalance } }
 
@@ -128,6 +134,11 @@ class AccountViewModel {
                 || label.caseInsensitiveCompare("Savings") == .orderedSame {
                 return false
             }
+        }
+        let declared = accounts.filter(\.isDeclaredSpendAccount)
+        if !declared.isEmpty {
+            let bank = transaction.account?.bankName ?? declared.first { $0.id == transaction.accountId }?.bankName ?? ""
+            guard !bank.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         }
         return true
     }

@@ -67,7 +67,8 @@ final class ExpenseTrackerViewModel {
                 entry.transactionDescription,
                 entry.notes,
                 entry.categoryRef?.name,
-                entry.category
+                entry.category,
+                entry.account?.expenseAccountLabel
             ]
             .compactMap { $0?.lowercased() }
             .joined(separator: " ")
@@ -94,13 +95,15 @@ final class ExpenseTrackerViewModel {
             return
         }
 
-        if !isIncome, amount > account.availableBalance {
+        if !isIncome, !account.isDeclaredSpendAccount, amount > account.availableBalance {
             error = .insufficientFunds
             return
         }
 
         let category = category(named: categoryName)
-        applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
+        if !account.isDeclaredSpendAccount {
+            applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
+        }
 
         let txn = Transaction(
             accountId: account.id,
@@ -118,6 +121,7 @@ final class ExpenseTrackerViewModel {
             categoryRef: category
         )
         txn.account = account
+        txn.countsInLedger = !account.isDeclaredSpendAccount
         modelContext.insert(txn)
         adjustEnvelope(named: category?.name ?? categoryName, by: isIncome ? -amount : amount)
         persistAndReload()
@@ -148,23 +152,27 @@ final class ExpenseTrackerViewModel {
             return
         }
 
-        reverseBalanceChange(
-            for: transaction,
-            on: originalAccount(for: transaction)
-        )
+        let original = originalAccount(for: transaction)
+        if original?.isDeclaredSpendAccount != true {
+            reverseBalanceChange(for: transaction, on: original)
+        }
 
-        if !isIncome, amount > account.availableBalance {
-            applyBalanceChange(
-                to: originalAccount(for: transaction) ?? account,
-                amount: transaction.amount,
-                isIncome: transaction.isCredit
-            )
+        if !isIncome, !account.isDeclaredSpendAccount, amount > account.availableBalance {
+            if original?.isDeclaredSpendAccount != true {
+                applyBalanceChange(
+                    to: original ?? account,
+                    amount: transaction.amount,
+                    isIncome: transaction.isCredit
+                )
+            }
             error = .insufficientFunds
             persistAndReload()
             return
         }
 
-        applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
+        if !account.isDeclaredSpendAccount {
+            applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
+        }
 
         let previousName = transaction.category ?? transaction.categoryRef?.name ?? ""
         let previousEffect = transaction.isCredit ? -transaction.amount : transaction.amount
@@ -173,6 +181,7 @@ final class ExpenseTrackerViewModel {
         let category = category(named: categoryName)
         transaction.accountId = account.id
         transaction.account = account
+        transaction.countsInLedger = !account.isDeclaredSpendAccount
         transaction.type = isIncome ? .deposit : .payment
         transaction.amount = amount
         transaction.merchant = merchant
@@ -189,7 +198,10 @@ final class ExpenseTrackerViewModel {
 
     func deleteExpense(_ transaction: Transaction) {
         error = nil
-        reverseBalanceChange(for: transaction, on: originalAccount(for: transaction))
+        let original = originalAccount(for: transaction)
+        if original?.isDeclaredSpendAccount != true {
+            reverseBalanceChange(for: transaction, on: original)
+        }
         adjustEnvelope(named: transaction.category ?? transaction.categoryRef?.name ?? "", by: transaction.isCredit ? transaction.amount : -transaction.amount)
         modelContext.delete(transaction)
         persistAndReload()
@@ -199,7 +211,10 @@ final class ExpenseTrackerViewModel {
     func wipeAllTrackerData() {
         error = nil
         for entry in expenseEntries {
-            reverseBalanceChange(for: entry, on: originalAccount(for: entry))
+            let original = originalAccount(for: entry)
+            if original?.isDeclaredSpendAccount != true {
+                reverseBalanceChange(for: entry, on: original)
+            }
             modelContext.delete(entry)
         }
         for budget in budgets {
@@ -335,7 +350,13 @@ final class ExpenseTrackerViewModel {
 
         do {
             let all = try modelContext.fetch(txnDescriptor)
+            let storedAccounts = (try? modelContext.fetch(FetchDescriptor<Account>())) ?? []
+            let declared = storedAccounts.filter(\.isDeclaredSpendAccount)
             expenseEntries = all.filter { tx in
+                if !declared.isEmpty {
+                    let bank = tx.account?.bankName ?? declared.first { $0.id == tx.accountId }?.bankName ?? ""
+                    guard !bank.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+                }
                 if tx.isCredit { return tx.type != .interest }
                 return tx.countsTowardSpending
             }

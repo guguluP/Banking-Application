@@ -20,6 +20,7 @@ struct AccountOverviewView: View {
     /// here on Home exactly once — without each payment flow needing its
     /// own direct call into `BannerStackManager`.
     @State private var lastSeenTransactionId: String?
+    @State private var showAddSpendAccount = false
 
     var body: some View {
         NavigationStack {
@@ -37,9 +38,11 @@ struct AccountOverviewView: View {
                     } else if !accountViewModel.accounts.isEmpty {
                         VStack(spacing: AppSpacing.md) {
                             BalanceCard(
-                                totalBalance: accountViewModel.totalBalance,
+                                totalBalance: tracksExpensesOnly ? weekSpend : accountViewModel.totalBalance,
                                 availableBalance: accountViewModel.totalAvailableBalance,
                                 hideBalances: settings.hideBalances,
+                                title: tracksExpensesOnly ? "Spent this week" : "Total Balance",
+                                showsAvailable: !tracksExpensesOnly,
                                 onToggleHide: {
                                     settings.hideBalances.toggle()
                                     HapticFeedbackService.shared.lightImpact()
@@ -59,7 +62,7 @@ struct AccountOverviewView: View {
                         ErrorStateView(
                             imageName: "exclamationmark.triangle",
                             title: "No Accounts Found",
-                            message: "No demo accounts are available yet. Tap Retry to reload the local sample data.",
+                            message: "Sign in and add the bank name and last 4 digits of each account you spend from.",
                             actionTitle: "Retry",
                             action: {
                                 accountViewModel.loadAccounts()
@@ -69,7 +72,19 @@ struct AccountOverviewView: View {
                     }
 
                     if !accountViewModel.accounts.isEmpty {
-                        AccountsCarousel(accounts: accountViewModel.accounts, hideBalances: settings.hideBalances)
+                        HStack {
+                            Text("Your accounts")
+                                .font(.headline)
+                                .accessibilityAddTraits(.isHeader)
+                            Spacer()
+                            Button("Add") { showAddSpendAccount = true }
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color.bankPrimary)
+                                .accessibilityLabel("Add an account")
+                        }
+                        .padding(.horizontal)
+
+                        AccountsCarousel(accounts: accountViewModel.spendAccounts, hideBalances: settings.hideBalances)
                     }
 
                     VStack(alignment: .leading, spacing: AppSpacing.md) {
@@ -138,6 +153,13 @@ struct AccountOverviewView: View {
                             .symbolRenderingMode(.hierarchical)
                     }
                     .accessibilityLabel("UPI Pay")
+                }
+            }
+            .sheet(isPresented: $showAddSpendAccount) {
+                NavigationStack {
+                    SpendAccountSetupView(isAddingMore: true) {
+                        accountViewModel.loadAccounts()
+                    }
                 }
             }
             .refreshable {
@@ -246,6 +268,8 @@ struct BalanceCard: View {
     let totalBalance: Decimal
     let availableBalance: Decimal
     var hideBalances: Bool = false
+    var title: String = "Total Balance"
+    var showsAvailable: Bool = true
     var onToggleHide: (() -> Void)? = nil
 
     @State private var isTotalAnimating = false
@@ -263,7 +287,7 @@ struct BalanceCard: View {
         GlassCard(reactsToTilt: true, tint: Color.bankPrimary) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("Total Balance", systemImage: "indianrupee.circle.fill")
+                    Label(title, systemImage: "indianrupee.circle.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .labelStyle(.titleAndIcon)
@@ -295,23 +319,25 @@ struct BalanceCard: View {
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(hideBalances
-                    ? "Total balance hidden"
-                    : "Total balance: \(CurrencyFormatter.shared.string(from: totalBalance))")
+                    ? "\(title) hidden"
+                    : "\(title): \(CurrencyFormatter.shared.string(from: totalBalance))")
 
-                HStack {
-                    Text("Available")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    AnimatedDigitText(
-                        text: availableText,
-                        isAnimating: isAvailableAnimating,
-                        font: .caption.weight(.semibold).monospacedDigit(),
-                        color: .secondary,
-                        distance: 4,
-                        stagger: 0.04,
-                        blurRadius: 1
-                    )
-                    Spacer()
+                if showsAvailable {
+                    HStack {
+                        Text("Available")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        AnimatedDigitText(
+                            text: availableText,
+                            isAnimating: isAvailableAnimating,
+                            font: .caption.weight(.semibold).monospacedDigit(),
+                            color: .secondary,
+                            distance: 4,
+                            stagger: 0.04,
+                            blurRadius: 1
+                        )
+                        Spacer()
+                    }
                 }
             }
             .padding(AppSpacing.lg)
@@ -408,6 +434,17 @@ struct QuickActionsView: View {
     }
 }
 
+extension AccountOverviewView {
+    fileprivate var tracksExpensesOnly: Bool {
+        let shown = accountViewModel.spendAccounts
+        return !shown.isEmpty && shown.allSatisfy(\.isDeclaredSpendAccount)
+    }
+
+    fileprivate var weekSpend: Decimal {
+        accountViewModel.weeklySpending.reduce(Decimal(0)) { $0 + $1.amount }
+    }
+}
+
 struct QuickAction: Identifiable {
     let id = UUID()
     let title: String
@@ -447,7 +484,7 @@ struct AccountCardCompact: View {
         GlassCard(tint: Color.bankPrimary) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text(account.accountType.rawValue)
+                    Text(account.isDeclaredSpendAccount ? "Expense account" : account.accountType.rawValue)
                         .font(.caption.weight(.semibold))
                         .textCase(.uppercase)
                         .foregroundStyle(.secondary)
@@ -458,8 +495,9 @@ struct AccountCardCompact: View {
                         .foregroundStyle(Color.bankPrimary.opacity(0.7))
                 }
 
-                Text(account.nickname ?? "Account")
+                Text(account.isDeclaredSpendAccount ? account.bankName : (account.nickname ?? "Account"))
                     .font(.headline)
+                    .lineLimit(1)
 
                 Text("•••• \(account.accountNumber.suffix(4))")
                     .font(.caption.weight(.medium))
@@ -471,18 +509,24 @@ struct AccountCardCompact: View {
                 Divider().opacity(0.5)
 
                 HStack {
-                    Text("Balance")
+                    Text(account.isDeclaredSpendAccount ? "Not a balance" : "Balance")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    AnimatedDigitText(
-                        text: balanceText,
-                        isAnimating: isAnimating,
-                        font: .title3.weight(.bold).monospacedDigit(),
-                        color: .primary,
-                        distance: 6,
-                        stagger: 0.05
-                    )
+                    if account.isDeclaredSpendAccount {
+                        Text("Tracked")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(Color.bankPrimary)
+                    } else {
+                        AnimatedDigitText(
+                            text: balanceText,
+                            isAnimating: isAnimating,
+                            font: .title3.weight(.bold).monospacedDigit(),
+                            color: .primary,
+                            distance: 6,
+                            stagger: 0.05
+                        )
+                    }
                 }
             }
             .padding(AppSpacing.lg)

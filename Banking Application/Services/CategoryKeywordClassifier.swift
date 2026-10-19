@@ -36,8 +36,8 @@ final class CategoryKeywordClassifier: CategoryClassifying {
     /// merchant names are listed before generic category words.
     private static let keywordTable: [(keywords: [String], category: String)] = [
         (["starbucks", "coffee", "cafe", "espresso", "latte", "croissant", "bakery", "restaurant", "lunch", "dinner", "breakfast", "brunch", "pizza", "burger", "swiggy", "zomato", "doordash", "ubereats"], "Dining"),
-        (["grocery", "groceries", "supermarket", "walmart", "costco", "whole foods", "trader joe", "kirana", "bigbasket", "dmart"], "Groceries"),
-        (["uber", "lyft", "taxi", "cab", "ola", "train", "metro", "bus fare", "parking", "toll"], "Transport"),
+        (["grocery", "groceries", "vegetables", "sabzi", "market", "supermarket", "walmart", "costco", "whole foods", "trader joe", "kirana", "bigbasket", "dmart"], "Groceries"),
+        (["uber", "lyft", "taxi", "cab", "ola", "auto", "driver", "train", "metro", "bus fare", "parking", "toll"], "Transport"),
         (["gas", "fuel", "petrol", "diesel", "gas station"], "Fuel"),
         (["amazon", "shopping", "mall", "store", "clothes", "clothing", "shoes", "electronics"], "Shopping"),
         (["movie", "cinema", "netflix", "concert", "theatre", "theater", "game", "spotify", "prime video", "disney+"], "Entertainment"),
@@ -57,6 +57,14 @@ final class CategoryKeywordClassifier: CategoryClassifying {
 
     func classify(text: String) -> CategoryClassification {
         let lowercased = text.lowercased()
+
+        if let company = MerchantDirectory.company(in: text) {
+            return CategoryClassification(
+                categoryName: company.categoryName,
+                merchant: company.displayName,
+                confidence: 0.9
+            )
+        }
 
         for entry in Self.keywordTable {
             for keyword in entry.keywords where matches(keyword, in: lowercased) {
