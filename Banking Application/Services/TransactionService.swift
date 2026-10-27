@@ -97,14 +97,14 @@ enum TransactionService {
             return PaymentReceipt(reference: externalRef, amount: amount, duplicate: true)
         }
 
-        let spare = applyRoundUp ? roundUpDebit(for: amount, from: account, in: context) : 0
+        // One savings lookup serves both the spare amount and the round-up credit leg.
+        let roundUpSavings = applyRoundUp ? roundUpDestination(for: amount, from: account, in: context) : nil
+        let spare = roundUpSavings == nil ? 0 : roundUpSpare(for: amount)
         try enforceLimits(account: account, amount: amount + spare, rail: rail, on: occurredAt, in: context)
         try enforceCooling(amount: amount, recipient: recipientAccountNumber ?? payee, rail: rail, in: context)
 
+        // A caller-supplied ref was checked above; a fresh UUID ref cannot already exist.
         let reference = externalRef?.isEmpty == false ? externalRef! : newReference()
-        if existing(reference: reference, in: context) != nil {
-            return PaymentReceipt(reference: reference, amount: amount, duplicate: true)
-        }
 
         var internalDestination: Account?
         if rail == .transfer, let number = recipientAccountNumber?.trimmingCharacters(in: .whitespaces),
@@ -134,7 +134,7 @@ enum TransactionService {
         )
         legs.append(apply(debit, to: account, delta: -amount, in: context))
 
-        if spare > 0, let savings = ownSavings(excluding: account, in: context) {
+        if spare > 0, let savings = roundUpSavings {
             let roundUp = makeTransaction(
                 account: account,
                 type: .transfer,
@@ -243,10 +243,14 @@ enum TransactionService {
 
     /// Spare that will actually leave the source. Zero when round-up is off or there is no other active savings account to receive it.
     static func roundUpDebit(for amount: Decimal, from account: Account, in context: ModelContext) -> Decimal {
-        guard AppSettings.shared.isRoundUpEnabled else { return 0 }
-        let spare = roundUpSpare(for: amount)
-        guard spare > 0, ownSavings(excluding: account, in: context) != nil else { return 0 }
-        return spare
+        roundUpDestination(for: amount, from: account, in: context) == nil ? 0 : roundUpSpare(for: amount)
+    }
+
+    /// The savings account that receives the spare, or nil when round-up is off, the
+    /// amount spares nothing, or there is no other active savings account.
+    private static func roundUpDestination(for amount: Decimal, from account: Account, in context: ModelContext) -> Account? {
+        guard AppSettings.shared.isRoundUpEnabled, roundUpSpare(for: amount) > 0 else { return nil }
+        return ownSavings(excluding: account, in: context)
     }
 
     /// Spare paise to the next multiple of ₹10. ₹12.50 → ₹7.50. An exact multiple spares nothing.
@@ -301,8 +305,7 @@ enum TransactionService {
         tx.account = account
         tx.countsInLedger = true
         context.insert(tx)
-        account.balance += delta
-        account.availableBalance += delta
+        Ledger.apply(delta, to: account)
         return leg
     }
 
@@ -349,19 +352,27 @@ enum TransactionService {
 
     private static func existing(reference: String, in context: ModelContext) -> Transaction? {
         let ref = reference
-        let descriptor = FetchDescriptor<Transaction>(predicate: #Predicate { $0.referenceNumber == ref })
+        var descriptor = FetchDescriptor<Transaction>(predicate: #Predicate { $0.referenceNumber == ref })
+        descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first
     }
 
     private static func lookupAccount(number: String, in context: ModelContext) -> Account? {
         let needle = number
-        let descriptor = FetchDescriptor<Account>(predicate: #Predicate { $0.accountNumber == needle })
+        var descriptor = FetchDescriptor<Account>(predicate: #Predicate { $0.accountNumber == needle })
+        descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first
     }
 
     private static func ownSavings(excluding account: Account, in context: ModelContext) -> Account? {
-        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        return accounts.first { $0.id != account.id && $0.accountType == .savings && $0.accountStatus == .active }
+        let excludedId = account.id
+        let savings = AccountType.savings.rawValue
+        let active = AccountStatus.active.rawValue
+        var descriptor = FetchDescriptor<Account>(predicate: #Predicate {
+            $0.id != excludedId && $0.accountTypeRaw == savings && $0.accountStatusRaw == active
+        })
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
     }
 
     private static func enforceLimits(account: Account, amount: Decimal, rail: PaymentRail, on date: Date, in context: ModelContext) throws {
@@ -370,7 +381,12 @@ enum TransactionService {
         let startDay = calendar.startOfDay(for: date)
         let startMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? startDay
         if rail == .imported { return }
-        let rows = account.transactions ?? []
+        // Only this month's ledger rows matter, so fetch by date instead of walking every row on the account.
+        let accountId = account.id
+        let monthRows = (try? context.fetch(FetchDescriptor<Transaction>(predicate: #Predicate {
+            $0.transactionDate >= startMonth && $0.countsInLedger == true
+        }))) ?? []
+        let rows = monthRows.filter { $0.account?.id == accountId }
         let rails = limitRails(for: rail)
         func spent(since: Date) -> Decimal {
             rows.filter { rails.contains($0.railRaw) && $0.isDebit && $0.countsInLedger && $0.transactionDate >= since }
@@ -412,8 +428,7 @@ enum TransactionService {
         let settings = AppSettings.shared
         guard amount >= settings.coolingLargeAmount else { return }
         let cleaned = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
-        let own = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        if own.contains(where: { $0.accountNumber == cleaned }) { return }
+        if lookupAccount(number: cleaned, in: context) != nil { return }
         let beneficiaries = (try? context.fetch(FetchDescriptor<Beneficiary>())) ?? []
         let match = beneficiaries.first { beneficiary in
             if !beneficiary.accountNumber.isEmpty && beneficiary.accountNumber == cleaned { return true }

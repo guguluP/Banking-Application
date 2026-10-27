@@ -35,14 +35,12 @@ nonisolated enum CryptoService {
             derived.count
         )
         guard status == kCCSuccess else { return legacyHash(passcode: passcode, salt: salt) }
-        let hex = derived.map { String(format: "%02x", $0) }.joined()
-        return "pbkdf2$\(pbkdfRounds)$\(hex)"
+        return "pbkdf2$\(pbkdfRounds)$\(hexString(derived))"
     }
 
     static func legacyHash(passcode: String, salt: String) -> String {
         let combined = Data((passcode + salt).utf8)
-        let digest = SHA256.hash(data: combined)
-        return digest.compactMap { String(format: "%02x", $0) }.joined()
+        return hexString(SHA256.hash(data: combined))
     }
 
     static func verify(passcode: String, salt: String, storedHash: String) -> Bool {
@@ -52,13 +50,27 @@ nonisolated enum CryptoService {
         return constantTimeEquals(legacyHash(passcode: passcode, salt: salt), storedHash)
     }
 
-    /// Constant-time comparison to avoid leaking timing information about how
-    /// many characters of a guessed hash matched.
+    /// Lowercase hex SHA-256 of `payload`. Used for receipts and import dedupe hashes.
     static func receiptHash(for payload: String) -> String {
-        let digest = SHA256.hash(data: Data(payload.utf8))
-        return digest.compactMap { String(format: "%02x", $0) }.joined()
+        hexString(SHA256.hash(data: Data(payload.utf8)))
     }
 
+    private static let hexDigits = Array("0123456789abcdef".utf8)
+
+    /// Lowercase, zero-padded hex for a byte sequence — the same output as
+    /// `map { String(format: "%02x", $0) }.joined()`, without a formatter per byte.
+    static func hexString<Bytes: Sequence>(_ bytes: Bytes) -> String where Bytes.Element == UInt8 {
+        var utf8: [UInt8] = []
+        utf8.reserveCapacity(bytes.underestimatedCount * 2)
+        for byte in bytes {
+            utf8.append(hexDigits[Int(byte >> 4)])
+            utf8.append(hexDigits[Int(byte & 0x0f)])
+        }
+        return String(decoding: utf8, as: UTF8.self)
+    }
+
+    /// Constant-time comparison to avoid leaking timing information about how
+    /// many characters of a guessed hash matched.
     static func constantTimeEquals(_ lhs: String, _ rhs: String) -> Bool {
         guard lhs.utf8.count == rhs.utf8.count else { return false }
         var result: UInt8 = 0
