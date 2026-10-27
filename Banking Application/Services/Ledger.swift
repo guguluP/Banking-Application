@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftData
 
 /// The one place that moves account balances and persists a money movement.
@@ -40,6 +41,21 @@ enum Ledger {
                 if snapshot.account.availableBalance != snapshot.available { snapshot.account.availableBalance = snapshot.available }
             }
             throw error
+        }
+    }
+
+    private static let log = Logger(subsystem: "BankSecure", category: "Ledger")
+
+    /// For background bookkeeping with no form to report to (seeding, logs,
+    /// schedule state). Rolls back and logs on failure instead of dropping the error.
+    @discardableResult
+    static func saveOrLog(_ context: ModelContext, _ what: StaticString) -> Bool {
+        do {
+            try save(context, rollbackOnFailure: true)
+            return true
+        } catch {
+            log.error("Save failed (\(what, privacy: .public)): \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 

@@ -108,7 +108,7 @@ enum PersistenceController {
         let billerCount = (try? context.fetchCount(FetchDescriptor<Biller>())) ?? 0
         guard force || billerCount == 0 else { return }
 
-        let userId = "user_001"
+        let userId = LocalUser.id
         let calendar = Calendar.current
 
         // Store last four only — never a full PAN, even in demo seed data.
@@ -135,7 +135,7 @@ enum PersistenceController {
             context.insert(Biller(userId: userId, name: name, accountNumber: account, nickname: nickname))
         }
 
-        try? context.save()
+        Ledger.saveOrLog(context, "seed data")
     }
 
     /// Seeds the built-in expense categories on first run. Idempotent and
@@ -159,7 +159,7 @@ enum PersistenceController {
             context.insert(category)
         }
 
-        try? context.save()
+        Ledger.saveOrLog(context, "seed data")
     }
 
     /// Migrates any legacy rows that still hold a full PAN down to last-four only.
@@ -180,7 +180,7 @@ enum PersistenceController {
             }
         }
         if changed {
-            try? context.save()
+            Ledger.saveOrLog(context, "seed data")
         }
         UserDefaults.standard.set(true, forKey: flagKey)
     }

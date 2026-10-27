@@ -140,12 +140,20 @@ class BeneficiaryViewModel {
 
     func delete(_ beneficiary: Beneficiary, in context: ModelContext) {
         context.delete(beneficiary)
-        try? context.save()
+        do {
+            try Ledger.save(context, rollbackOnFailure: true)
+        } catch {
+            self.error = .unknownError("Couldn't delete this payee. Please try again.")
+        }
     }
 
     func toggleFavorite(_ beneficiary: Beneficiary, in context: ModelContext) {
         beneficiary.isFavorite.toggle()
-        try? context.save()
+        do {
+            try Ledger.save(context, rollbackOnFailure: true)
+        } catch {
+            self.error = .unknownError("Couldn't update this payee. Please try again.")
+        }
     }
 
     private func reset() {

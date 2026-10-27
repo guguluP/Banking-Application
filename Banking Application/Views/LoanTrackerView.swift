@@ -287,7 +287,7 @@ struct PrepayLoanView: View {
     @State private var amountText = ""
     
     private var amount: Decimal? {
-        Decimal(string: amountText.replacingOccurrences(of: ",", with: ""))
+        AmountParser.parse(amountText)
     }
     
     var body: some View {

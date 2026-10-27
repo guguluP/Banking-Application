@@ -30,7 +30,6 @@ struct BillPayContent: View {
     @State private var amount = ""
     @State private var viewModel = BillPayViewModel()
     @State private var showingConfirmation = false
-    @State private var showingBiometric = false
     @State private var showingConfetti = false
     @State private var cashbackEarned: Decimal?
     /// The Payments tab already provides its own top-level search field, so
@@ -119,17 +118,7 @@ struct BillPayContent: View {
                 requestBiometricAuth()
             }
         } message: {
-            Text("Pay \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(selectedBiller?.displayName ?? "Biller")?")
-        }
-        .alert("Biometric Required", isPresented: $showingBiometric) {
-            Button("Cancel", role: .cancel) { }
-            Button("Settings") {
-                if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(settingsUrl)
-                }
-            }
-        } message: {
-            Text("Biometric authentication is required. Enable Face ID or Touch ID in Settings.")
+            Text("Pay \(CurrencyFormatter.shared.string(from: AmountParser.parse(amount) ?? 0)) to \(selectedBiller?.displayName ?? "Biller")?")
         }
         .overlay {
             ConfettiView(isActive: $showingConfetti)
@@ -147,17 +136,17 @@ struct BillPayContent: View {
     }
     
     private var isFormValid: Bool {
-        selectedBiller != nil && selectedAccount != nil && Decimal(string: amount) ?? 0 > 0
+        selectedBiller != nil && selectedAccount != nil && AmountParser.parse(amount) ?? 0 > 0
     }
     
     private func initiatePayment() {
-        if let amountDecimal = Decimal(string: amount), amountDecimal <= 0 {
+        if let amountDecimal = AmountParser.parse(amount), amountDecimal <= 0 {
             viewModel.error = .invalidAmount
             HapticFeedbackService.shared.errorOccurred()
             return
         }
         
-        if let account = selectedAccount, let amountDecimal = Decimal(string: amount), amountDecimal > NSDecimalNumber(decimal: account.availableBalance).decimalValue {
+        if let account = selectedAccount, let amountDecimal = AmountParser.parse(amount), amountDecimal > NSDecimalNumber(decimal: account.availableBalance).decimalValue {
             viewModel.error = .insufficientFunds
             HapticFeedbackService.shared.errorOccurred()
             return
@@ -169,7 +158,6 @@ struct BillPayContent: View {
     private func requestBiometricAuth() {
         showingConfirmation = false
         authenticationService.stepUpAuthenticate(reason: "Confirm this bill payment") { success in
-            showingBiometric = false
             if success {
                 processPayment()
             } else {

@@ -242,7 +242,7 @@ struct TransferView: View {
                     requestBiometricAuth()
                 }
             } message: {
-                let amountDecimal = Decimal(string: viewModel.amount) ?? 0
+                let amountDecimal = AmountParser.parse(viewModel.amount) ?? 0
                 let amountText = CurrencyFormatter.shared.string(from: amountDecimal)
                 let spareText = CurrencyFormatter.shared.string(from: transferSpare)
                 Text(transferSpare > 0
@@ -262,13 +262,13 @@ struct TransferView: View {
     }
 
     private func computeTransferSpare() -> Decimal {
-        guard let from = selectedFromAccount, let amountDecimal = Decimal(string: viewModel.amount), amountDecimal > 0 else { return 0 }
+        guard let from = selectedFromAccount, let amountDecimal = AmountParser.parse(viewModel.amount), amountDecimal > 0 else { return 0 }
         return TransactionService.roundUpDebit(for: amountDecimal, from: from, in: modelContext)
     }
 
     private var isFormValid: Bool {
         guard let from = selectedFromAccount else { return false }
-        guard let amountDecimal = Decimal(string: viewModel.amount), amountDecimal > 0 else { return false }
+        guard let amountDecimal = AmountParser.parse(viewModel.amount), amountDecimal > 0 else { return false }
         guard amountDecimal + transferSpare <= from.availableBalance else { return false }
         return viewModel.isFormValid
     }
@@ -297,7 +297,7 @@ struct TransferView: View {
         
         guard viewModel.validateForm() else { return }
         
-        guard let amountDecimal = Decimal(string: viewModel.amount) else {
+        guard let amountDecimal = AmountParser.parse(viewModel.amount) else {
             viewModel.error = .invalidAmount
             HapticFeedbackService.shared.errorOccurred()
             return

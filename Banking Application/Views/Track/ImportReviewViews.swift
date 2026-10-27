@@ -107,7 +107,9 @@ struct AggregatorConsentView: View {
                 Button("Revoke and delete imported AA data", role: .destructive) {
                     for consent in consents { context.delete(consent) }
                     BankImportPipeline.deleteAggregatorImports(in: context)
-                    try? context.save()
+                    if !Ledger.saveOrLog(context, "revoke consents") {
+                        status = "Couldn't remove the consents. Please try again."
+                    }
                 }
             }
         }
@@ -122,7 +124,10 @@ struct AggregatorConsentView: View {
                 _ = BankImportPipeline.ingest(event, in: context)
             }
             context.insert(AAConsent(mobile: mobile, provider: "sandbox"))
-            try? context.save()
+            guard Ledger.saveOrLog(context, "new consent") else {
+                status = "The consent was fetched but couldn't be saved. Please try again."
+                return
+            }
             status = "Consent \(id) fetched. The sample backend deletes the payload after the first read, so run fetch once in your own server if you need a single shot."
         } catch {
             status = "The sandbox backend is not running at \(AggregatorClient.baseURL.absoluteString)."
@@ -179,7 +184,7 @@ struct LimitSettingsView: View {
     private func limitField(_ title: String, value: Binding<Decimal>) -> some View {
         TextField(title, text: Binding(
             get: { NSDecimalNumber(decimal: value.wrappedValue).stringValue },
-            set: { value.wrappedValue = Decimal(string: $0) ?? value.wrappedValue }
+            set: { value.wrappedValue = AmountParser.parse($0) ?? value.wrappedValue }
         ))
         .keyboardType(.decimalPad)
     }

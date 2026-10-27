@@ -9,7 +9,6 @@ class TransferViewModel {
     var description = ""
     var error: AppError?
     var isProcessing = false
-    var searchText = ""
 
     private static let maxTransferAmount: Decimal = 10_000
 
@@ -28,13 +27,13 @@ class TransferViewModel {
     }
 
     var isAmountValid: Bool {
-        guard let amountDecimal = Decimal(string: amount) else { return false }
+        guard let amountDecimal = AmountParser.parse(amount) else { return false }
         return amountDecimal > 0 && amountDecimal <= Self.maxTransferAmount
     }
 
     var amountError: String {
         guard !amount.isEmpty else { return "" }
-        guard let amountDecimal = Decimal(string: amount) else { return "Enter a valid amount" }
+        guard let amountDecimal = AmountParser.parse(amount) else { return "Enter a valid amount" }
         if amountDecimal <= 0 { return "Amount must be greater than zero" }
         if amountDecimal > Self.maxTransferAmount { return "Maximum transfer amount is \(CurrencyFormatter.shared.string(from: Self.maxTransferAmount))" }
         return ""
@@ -89,7 +88,7 @@ class TransferViewModel {
             return false
         }
 
-        guard let amountDecimal = Decimal(string: amount), isAmountValid else {
+        guard let amountDecimal = AmountParser.parse(amount), isAmountValid else {
             error = .invalidAmount
             HapticFeedbackService.shared.errorOccurred()
             return false
@@ -161,7 +160,7 @@ extension PaymentFailure {
         case .destinationNotMovable: return .destinationNotMovable
         case .payeeCoolingOff: return .payeeCooling
         case .cardBlocked: return .cardBlocked
-        case .duplicate, .saveFailed: return .transactionFailed
+        case .saveFailed: return .transactionFailed
         }
     }
 }

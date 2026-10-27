@@ -29,7 +29,7 @@ enum SecurityLog {
             didPruneThisLaunch = true
             prune(in: ctx)
         }
-        try? ctx.save()
+        Ledger.saveOrLog(ctx, "security event")
     }
 
     /// Deletes events older than `retentionDays`. Does not save.

@@ -19,7 +19,6 @@ enum PaymentFailure: Error, Equatable {
     case overPeriodLimit
     case payeeCoolingOff
     case movementBlocked
-    case duplicate
     case saveFailed
     case notAuthenticated
     case destinationNotMovable
@@ -287,7 +286,7 @@ enum TransactionService {
             }
             account.usesLedgerBalance = true
         }
-        try? context.save()
+        Ledger.saveOrLog(context, "ledger baselines")
     }
 
     static func rollback(_ legs: [PaymentLeg], in context: ModelContext) {

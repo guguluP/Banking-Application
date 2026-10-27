@@ -173,7 +173,7 @@ extension BankIntentError {
         case .insufficientFunds: self = .insufficientFunds
         case .accountNotMovable, .destinationNotMovable, .cardBlocked, .movementBlocked, .notAuthenticated, .payeeCoolingOff: self = .notAllowed
         case .overSingleCap, .overPeriodLimit: self = .overLimit
-        case .duplicate, .saveFailed: self = .saveFailed
+        case .saveFailed: self = .saveFailed
         }
     }
 }

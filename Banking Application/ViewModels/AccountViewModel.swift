@@ -45,7 +45,7 @@ final class AccountViewModel {
     var totalBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.balance } }
     var totalAvailableBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.availableBalance } }
 
-    func loadAccounts(userId: String = "user_001") {
+    func loadAccounts(userId: String = LocalUser.id) {
         isLoading = true
         error = nil
 

@@ -490,7 +490,7 @@ class AuthenticationService: ObservableObject {
 
     /// Loads the signed-in user's profile from the local SwiftData store
     /// (kept in sync with CloudKit) once a session has been established.
-    func loadUser(from container: ModelContainer, userId: String = "user_001") {
+    func loadUser(from container: ModelContainer, userId: String = LocalUser.id) {
         let context = container.mainContext
         let descriptor = FetchDescriptor<User>(predicate: #Predicate { $0.id == userId })
         if let existing = try? context.fetch(descriptor).first {
@@ -512,7 +512,7 @@ class AuthenticationService: ObservableObject {
                 )
             )
             context.insert(newUser)
-            try? context.save()
+            Ledger.saveOrLog(context, "local user profile")
             user = newUser
         }
     }

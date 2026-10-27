@@ -1,6 +1,6 @@
 import Foundation
 import CoreSpotlight
-import MobileCoreServices
+import UniformTypeIdentifiers
 import os
 
 private let spotlightLog = Logger(subsystem: "com.banksecure.app", category: "spotlight")
@@ -34,39 +34,6 @@ struct SpotlightIndexManager {
         attributeSet.keywords = [account.accountType.rawValue, "account"]
         attributeSet.contentDescription = account.accountType.rawValue
         return attributeSet
-    }
-
-    func indexBiller(_ biller: Biller) {
-        let item = CSSearchableItem(uniqueIdentifier: "biller_\(biller.id)", domainIdentifier: "com.banksecure.billers", attributeSet: billerAttributeSet(for: biller))
-        CSSearchableIndex.default().indexSearchableItems([item]) { error in
-            if let error = error {
-                spotlightLog.error("Failed to index biller: \(error.localizedDescription, privacy: .public)")
-            }
-        }
-    }
-
-    func indexAccount(_ account: Account) {
-        let item = CSSearchableItem(uniqueIdentifier: "account_\(account.id)", domainIdentifier: "com.banksecure.accounts", attributeSet: accountAttributeSet(for: account))
-        CSSearchableIndex.default().indexSearchableItems([item]) { error in
-            if let error = error {
-                spotlightLog.error("Failed to index account: \(error.localizedDescription, privacy: .public)")
-            }
-        }
-    }
-
-    func indexTransaction(_ transaction: Transaction) {
-        let attributeSet = CSSearchableItemAttributeSet(itemContentType: UTType.data.identifier)
-        attributeSet.title = transaction.description
-        attributeSet.identifier = transaction.id
-        attributeSet.keywords = [transaction.type.rawValue, transaction.category ?? "", "transaction"]
-        attributeSet.contentDescription = transaction.type.rawValue
-
-        let item = CSSearchableItem(uniqueIdentifier: "transaction_\(transaction.id)", domainIdentifier: "com.banksecure.transactions", attributeSet: attributeSet)
-        CSSearchableIndex.default().indexSearchableItems([item]) { error in
-            if let error = error {
-                spotlightLog.error("Failed to index transaction: \(error.localizedDescription, privacy: .public)")
-            }
-        }
     }
 
     func indexAllBillers(_ billers: [Biller]) {

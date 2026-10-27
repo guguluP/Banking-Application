@@ -28,15 +28,15 @@ struct AddCardView: View {
             expirationMonth: 12,
             expirationYear: Calendar.current.component(.year, from: Date()) + 4,
             cardHolderName: cardHolderName.isEmpty ? "YOUR NAME" : cardHolderName,
-            dailyLimit: Decimal(string: dailyLimitText) ?? 0,
-            monthlyLimit: Decimal(string: monthlyLimitText) ?? 0
+            dailyLimit: AmountParser.parse(dailyLimitText) ?? 0,
+            monthlyLimit: AmountParser.parse(monthlyLimitText) ?? 0
         )
     }
 
     private var isFormValid: Bool {
         !cardHolderName.trimmingCharacters(in: .whitespaces).isEmpty
-            && (Decimal(string: dailyLimitText) ?? 0) > 0
-            && (Decimal(string: monthlyLimitText) ?? 0) > 0
+            && (AmountParser.parse(dailyLimitText) ?? 0) > 0
+            && (AmountParser.parse(monthlyLimitText) ?? 0) > 0
     }
 
     var body: some View {
@@ -145,8 +145,8 @@ struct AddCardView: View {
         isSubmitting = true
         HapticFeedbackService.shared.lightImpact()
 
-        let daily = Decimal(string: dailyLimitText) ?? 0
-        let monthly = Decimal(string: monthlyLimitText) ?? 0
+        let daily = AmountParser.parse(dailyLimitText) ?? 0
+        let monthly = AmountParser.parse(monthlyLimitText) ?? 0
 
         let created = accountViewModel.addCard(
             userId: userId,
