@@ -18,8 +18,8 @@ Educational iOS banking client built with **SwiftUI**, **SwiftData**, and option
 
 ## Requirements
 
-- Xcode 26+ recommended
-- iOS 26+ (matches the project's actual `IPHONEOS_DEPLOYMENT_TARGET`; some Material-style fallback code for earlier OS versions exists but is currently unreachable and unverified at this target)
+- Xcode 27+ (iOS 27 SDK)
+- iOS 27+ (matches the project's `IPHONEOS_DEPLOYMENT_TARGET` of 27.0; the fallbacks for earlier OS versions have been removed)
 - A free Personal Team is enough. CloudKit is not enabled (`cloudKitDatabase: .none`)
 
 ## Project layout

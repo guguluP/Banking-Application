@@ -68,11 +68,9 @@ final class AIChatbotService {
     }
 
     private func refreshAvailability() {
-        if #available(iOS 26.0, *) {
-            if case .available = SystemLanguageModel.default.availability {
-                isUsingOnDeviceModel = true
-                return
-            }
+        if case .available = SystemLanguageModel.default.availability {
+            isUsingOnDeviceModel = true
+            return
         }
         isUsingOnDeviceModel = false
     }
@@ -105,7 +103,7 @@ final class AIChatbotService {
         Spending:
         \(summaryLines)
         """
-        if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability {
+        if case .available = SystemLanguageModel.default.availability {
             let session = LanguageModelSession()
             let response = try await session.respond(to: prompt)
             return response.content
@@ -121,7 +119,7 @@ final class AIChatbotService {
         var ctx = context
         ctx.conversationMemory = fallbackTurns
 
-        if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability {
+        if case .available = SystemLanguageModel.default.availability {
             do {
                 let text = try await replyUsingAFM(trimmed, context: ctx)
                 remember(user: trimmed, assistant: text)
@@ -149,7 +147,6 @@ final class AIChatbotService {
 
     // MARK: - AFM (on-device Apple Intelligence) path
 
-    @available(iOS 26.0, *)
     private func replyUsingAFM(_ userMessage: String, context: ChatbotContext) async throws -> String {
         let activeSession: LanguageModelSession
         if let existing = session as? LanguageModelSession {

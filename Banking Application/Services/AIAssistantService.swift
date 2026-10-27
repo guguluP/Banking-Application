@@ -22,23 +22,19 @@ final class AIAssistantService {
     func summarize(text: String) async throws -> String {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
         
-        if #available(iOS 26.0, *) {
-            let model = SystemLanguageModel.default
-            guard case .available = model.availability else {
-                // Apple Intelligence exists on this OS version but isn't
-                // enabled/downloaded on this particular device (e.g. disabled
-                // in Settings, or the model assets haven't finished
-                // downloading) — degrade gracefully instead of failing.
-                return makeLocalFallbackSummary(for: text)
-            }
-            let session = LanguageModelSession()
-            let response = try await session.respond(
-                to: AIPromptBuilder().summarizePrompt(for: text)
-            )
-            return response.content
-        } else {
+        let model = SystemLanguageModel.default
+        guard case .available = model.availability else {
+            // Apple Intelligence exists on this OS version but isn't
+            // enabled/downloaded on this particular device (e.g. disabled
+            // in Settings, or the model assets haven't finished
+            // downloading) — degrade gracefully instead of failing.
             return makeLocalFallbackSummary(for: text)
         }
+        let session = LanguageModelSession()
+        let response = try await session.respond(
+            to: AIPromptBuilder().summarizePrompt(for: text)
+        )
+        return response.content
     }
 
     /// Turns this week's category-level spending into a short, friendly,
@@ -66,17 +62,13 @@ final class AIAssistantService {
         \(summaryLines)
         """
 
-        if #available(iOS 26.0, *) {
-            let model = SystemLanguageModel.default
-            guard case .available = model.availability else {
-                return makeLocalFallbackInsight(categories: categories)
-            }
-            let session = LanguageModelSession()
-            let response = try await session.respond(to: prompt)
-            return normalizeGreeting(in: response.content)
-        } else {
+        let model = SystemLanguageModel.default
+        guard case .available = model.availability else {
             return makeLocalFallbackInsight(categories: categories)
         }
+        let session = LanguageModelSession()
+        let response = try await session.respond(to: prompt)
+        return normalizeGreeting(in: response.content)
     }
 
     /// Safety net in case the on-device model ignores the prompt instruction
