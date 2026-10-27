@@ -7,11 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7F0F064C2FDE951100868AF8 /* AIAssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */; };
 		7F8B10052FF00005009FE005 /* MetalFxKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7F8B10022FF00002009FE002 /* MetalFxKit */; };
 		7F8B10062FF00006009FE006 /* BankThinkingOrbs in Frameworks */ = {isa = PBXBuildFile; productRef = 7F8B10032FF00003009FE003 /* BankThinkingOrbs */; };
 		7F8B10072FF00007009FE007 /* BankVoiceGlow in Frameworks */ = {isa = PBXBuildFile; productRef = 7F8B10042FF00004009FE004 /* BankVoiceGlow */; };
-		7F0F064E2FDE954700868AF8 /* SummarizeTextIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */; };
 		7FSMS00C2FCA900100SMS0C /* BankSMSFilter.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7FSMS0012FCA900100SMS01 /* BankSMSFilter.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -54,8 +52,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantService.swift; sourceTree = "<group>"; };
-		7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummarizeTextIntent.swift; sourceTree = "<group>"; };
 		7FBA10012FCA900100LIVE01 /* BankingLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BankingLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FC33B1C2FCA7747004CB335 /* Banking Application.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Banking Application.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7FSMS0012FCA900100SMS01 /* BankSMSFilter.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BankSMSFilter.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -150,8 +146,6 @@
 				7FSMS0032FCA900100SMS03 /* BankSMSFilter */,
 				7FSMS0042FCA900100SMS04 /* SharedSMS */,
 				7FC33B1D2FCA7747004CB335 /* Products */,
-				7F0F064B2FDE951100868AF8 /* AIAssistantService.swift */,
-				7F0F064D2FDE954700868AF8 /* SummarizeTextIntent.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -345,8 +339,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7F0F064C2FDE951100868AF8 /* AIAssistantService.swift in Sources */,
-				7F0F064E2FDE954700868AF8 /* SummarizeTextIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -83,7 +83,7 @@ extension ExpenseCategory {
 
     /// The starter set seeded on first run.
     ///
-    /// Matches Windfall's "pre-seeded + custom categories" requirement.
+    /// Matches BankSecure's "pre-seeded + custom categories" requirement.
     /// Names/icons are chosen to read clearly as expense buckets rather
     /// than banking-product categories.
     static let defaultSeedSet: [

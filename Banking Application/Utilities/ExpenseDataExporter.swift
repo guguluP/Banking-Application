@@ -38,7 +38,7 @@ enum ExpenseDataExporter {
 
     /// Writes the CSV to a temporary file suitable for `ShareLink`/
     /// `UIActivityViewController`, returning the file URL.
-    static func writeToTemporaryFile(csv: String, filename: String = "windfall_export") throws -> URL {
+    static func writeToTemporaryFile(csv: String, filename: String = "banksecure_export") throws -> URL {
         let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(filename)_\(timestamp).csv")
         try csv.write(to: url, atomically: true, encoding: .utf8)

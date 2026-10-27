@@ -1,0 +1,43 @@
+# SwiftLint configuration. Advisory only: nothing in CI or the Xcode build runs
+# SwiftLint, so these rules never fail a build. Run `swiftlint` locally to see them.
+included:
+  - Banking Application
+  - Banking ApplicationTests
+  - BankSMSFilter
+  - BankingLiveActivity
+  - SharedSMS
+excluded:
+  - Vendor
+  - docs
+  - aggregator-backend
+
+disabled_rules:
+  - trailing_whitespace
+  - todo
+  - nesting
+  - identifier_name
+
+opt_in_rules:
+  - empty_count
+  - first_where
+  - contains_over_filter_count
+  - sorted_first_last
+  - redundant_nil_coalescing
+
+line_length:
+  warning: 160
+  error: 400
+type_body_length:
+  warning: 500
+  error: 2000
+file_length:
+  warning: 800
+  error: 3000
+function_body_length:
+  warning: 80
+  error: 400
+cyclomatic_complexity:
+  warning: 15
+  error: 60
+force_try: warning
+force_cast: warning

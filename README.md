@@ -169,4 +169,4 @@ BankSecure is built for **learning, portfolio demonstration, and UI/architecture
 
 ## License
 
-Add your preferred license here (e.g. MIT) before making this repository public.
+This project is released under the MIT License. See [LICENSE](LICENSE).
