@@ -138,19 +138,38 @@ final class LoanCalculatorTests: XCTestCase {
         let partial = LoanCalculator.prepaymentImpact(
             outstandingPrincipal: 100_000, annualRatePercent: 12, currentEMI: emi, prepaymentAmount: 30_000
         )
-        XCTAssertLessThan(partial.newRemainingMonths, 12)
-        // Known app bug, not changed in this PR: `prepaymentImpact` prices the shortened
-        // loan as whole EMIs (9 × EMI here, though the last EMI is only part of one), so a
-        // 30% prepayment shows ₹0 saved instead of about ₹3,300.
-        XCTExpectFailure("prepaymentImpact counts the final partial EMI as a full one", strict: false) {
-            XCTAssertGreaterThan(partial.interestSaved, 0)
-        }
+        // EMI ₹8,884.88. Without prepayment: 11 EMIs + a final ₹8,884.85 = ₹1,06,618.53 paid,
+        // so ₹6,618.53 interest. With ₹70,000 left: 8 EMIs + a final ₹2,204.60 = ₹73,283.64
+        // paid, so ₹3,283.64 interest. Saved ₹3,334.89 and 3 months.
+        XCTAssertEqual(NSDecimalNumber(decimal: emi).doubleValue, 8884.88, accuracy: 0.001)
+        XCTAssertEqual(partial.newRemainingMonths, 9)
+        XCTAssertEqual(partial.monthsSaved, 3)
+        XCTAssertEqual(partial.interestSaved, Decimal(string: "3334.89"))
 
         let full = LoanCalculator.prepaymentImpact(
             outstandingPrincipal: 100_000, annualRatePercent: 12, currentEMI: emi, prepaymentAmount: 100_000
         )
         XCTAssertEqual(full.newRemainingMonths, 0)
-        XCTAssertGreaterThan(full.interestSaved, 0)
+        XCTAssertEqual(full.monthsSaved, 12)
+        XCTAssertEqual(full.interestSaved, Decimal(string: "6618.53"))
+    }
+
+    func testFixedEMIScheduleEndsWithAPartialInstalment() {
+        let rows = LoanCalculator.fixedEMISchedule(balance: 70_000, annualRatePercent: 12, emi: Decimal(string: "8884.88")!)
+        XCTAssertEqual(rows.count, 9)
+        XCTAssertEqual(rows.last?.emi, Decimal(string: "2204.60"))
+        XCTAssertEqual(rows.last?.remainingBalance, 0)
+        // An EMI that never covers the interest has no schedule.
+        XCTAssertTrue(LoanCalculator.fixedEMISchedule(balance: 100_000, annualRatePercent: 12, emi: 1_000).isEmpty)
+    }
+
+    func testZeroRatePrepaymentSavesMonthsButNoInterest() {
+        let impact = LoanCalculator.prepaymentImpact(
+            outstandingPrincipal: 1_200, annualRatePercent: 0, currentEMI: 100, prepaymentAmount: 300
+        )
+        XCTAssertEqual(impact.newRemainingMonths, 9)
+        XCTAssertEqual(impact.monthsSaved, 3)
+        XCTAssertEqual(impact.interestSaved, 0)
     }
 }
 

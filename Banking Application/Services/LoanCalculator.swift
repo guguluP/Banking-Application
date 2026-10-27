@@ -73,42 +73,79 @@ enum LoanCalculator {
         return rows
     }
 
-    /// Interest saved by making a lump-sum prepayment today against the
-    /// current outstanding balance, keeping the EMI fixed and shortening
-    /// the remaining tenure instead (the more common prepayment structure
-    /// Indian lenders offer, versus recalculating a lower EMI).
+    /// Month-by-month run of `balance` at a fixed `emi`, the way a lender applies a
+    /// prepayment that keeps the EMI and shortens the tenure. Each month's interest
+    /// is rounded to the paisa like `amortizationSchedule`; the last row pays only
+    /// what is left plus that month's interest, so it is usually smaller than `emi`.
+    /// Empty when the balance is not positive, the EMI does not cover a month's
+    /// interest, or payoff would take more than 600 months.
+    static func fixedEMISchedule(balance: Decimal, annualRatePercent: Double, emi: Decimal) -> [ScheduleRow] {
+        // EMIs and interest are whole paise; rounding through Decimal keeps the sums exact.
+        let emi = emi.rounded(scale: 2)
+        guard balance > 0, emi > 0 else { return [] }
+        let monthlyRate = max(0, annualRatePercent) / 100.0 / 12.0
+        var rows: [ScheduleRow] = []
+        var remaining = balance
+        while remaining > 0 {
+            guard rows.count < 600 else { return [] }
+            let interest: Decimal
+            if monthlyRate > 0 {
+                let remainingDouble = NSDecimalNumber(decimal: remaining).doubleValue
+                interest = Decimal(remainingDouble * monthlyRate).rounded(scale: 2)
+            } else {
+                interest = 0
+            }
+            let payment: Decimal
+            let principalPortion: Decimal
+            if remaining + interest <= emi {
+                payment = remaining + interest
+                principalPortion = remaining
+            } else {
+                payment = emi
+                principalPortion = emi - interest
+                guard principalPortion > 0 else { return [] }
+            }
+            remaining -= principalPortion
+            rows.append(ScheduleRow(
+                id: rows.count + 1,
+                month: rows.count + 1,
+                emi: payment,
+                principalPortion: principalPortion,
+                interestPortion: interest,
+                remainingBalance: remaining
+            ))
+        }
+        return rows
+    }
+
+    /// Effect of a lump-sum prepayment today against the current outstanding
+    /// balance, keeping the EMI fixed and shortening the remaining tenure (the
+    /// more common prepayment structure Indian lenders offer, versus
+    /// recalculating a lower EMI).
+    ///
+    /// Interest saved is the interest summed over `fixedEMISchedule` without the
+    /// prepayment minus the same sum after it, so the smaller final instalment is
+    /// not counted as a full EMI. `monthsSaved` compares the two schedules' lengths.
+    /// A prepayment that clears the loan saves all remaining interest.
     static func prepaymentImpact(
         outstandingPrincipal: Decimal,
         annualRatePercent: Double,
         currentEMI: Decimal,
         prepaymentAmount: Decimal
-    ) -> (newRemainingMonths: Int, interestSaved: Decimal) {
-        let monthlyRate = annualRatePercent / 100.0 / 12.0
-        let newBalance = max(0, outstandingPrincipal - prepaymentAmount)
+    ) -> (newRemainingMonths: Int, interestSaved: Decimal, monthsSaved: Int) {
+        let before = fixedEMISchedule(balance: outstandingPrincipal, annualRatePercent: annualRatePercent, emi: currentEMI)
+        guard !before.isEmpty else { return (0, 0, 0) }
 
-        guard monthlyRate > 0, currentEMI > 0, outstandingPrincipal > 0 else {
-            return (0, 0)
-        }
+        let newBalance = max(0, outstandingPrincipal - max(0, prepaymentAmount))
+        let after = fixedEMISchedule(balance: newBalance, annualRatePercent: annualRatePercent, emi: currentEMI)
 
-        let originalMonths = monthsToPayoff(balance: outstandingPrincipal, monthlyRate: monthlyRate, emi: currentEMI)
-
-        guard newBalance > 0 else {
-            // Prepayment clears the loan outright: every remaining EMI is
-            // saved, minus the prepayment itself.
-            let interestSaved = max(0, (currentEMI * Decimal(originalMonths)) - outstandingPrincipal - (prepaymentAmount - outstandingPrincipal))
-            return (0, interestSaved)
-        }
-
-        let newMonths = monthsToPayoff(balance: newBalance, monthlyRate: monthlyRate, emi: currentEMI)
-
-        // Interest without prepayment vs. with it: the money spent paying
-        // down `prepaymentAmount` early is not itself interest, so it's
-        // subtracted back out.
-        let interestWithoutPrepayment = (currentEMI * Decimal(originalMonths)) - outstandingPrincipal
-        let interestWithPrepayment = (currentEMI * Decimal(newMonths)) - newBalance
-        let interestSaved = max(0, interestWithoutPrepayment - interestWithPrepayment)
-
-        return (newMonths, interestSaved)
+        let interestBefore = before.reduce(Decimal(0)) { $0 + $1.interestPortion }
+        let interestAfter = after.reduce(Decimal(0)) { $0 + $1.interestPortion }
+        return (
+            newRemainingMonths: after.count,
+            interestSaved: max(0, interestBefore - interestAfter),
+            monthsSaved: max(0, before.count - after.count)
+        )
     }
 
     /// Months to zero out `balance` at a fixed EMI and monthly rate:

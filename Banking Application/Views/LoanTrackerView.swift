@@ -246,7 +246,7 @@ struct LoanDetailView: View {
                             Label("Prepayment tip", systemImage: "lightbulb.fill")
                                 .font(.caption.bold())
                                 .foregroundColor(.orange)
-                            Text("Prepaying \(CurrencyFormatter.shared.string(from: min(loan.emiAmount * 6, loan.outstandingPrincipal))) now could save roughly \(CurrencyFormatter.shared.string(from: impact.interestSaved)) in interest and \(max(0, loan.remainingEMIs - impact.newRemainingMonths)) months off the tenure.")
+                            Text("Prepaying \(CurrencyFormatter.shared.string(from: min(loan.emiAmount * 6, loan.outstandingPrincipal))) now could save roughly \(CurrencyFormatter.shared.string(from: impact.interestSaved)) in interest and \(impact.monthsSaved) months off the tenure.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
