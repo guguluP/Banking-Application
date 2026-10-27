@@ -131,7 +131,14 @@ struct AggregatorConsentView: View {
 }
 
 struct SecurityActivityView: View {
-    @Query(sort: \SecurityEvent.createdAt, order: .reverse) private var events: [SecurityEvent]
+    static let displayLimit = 200
+    private static var recentEvents: FetchDescriptor<SecurityEvent> {
+        var descriptor = FetchDescriptor<SecurityEvent>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        descriptor.fetchLimit = displayLimit
+        return descriptor
+    }
+
+    @Query(SecurityActivityView.recentEvents) private var events: [SecurityEvent]
     var body: some View {
         List(events) { event in
             VStack(alignment: .leading) {

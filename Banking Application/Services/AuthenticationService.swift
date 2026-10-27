@@ -379,17 +379,38 @@ class AuthenticationService: ObservableObject {
 
         isAuthenticating = true
 
-        // A short, deliberate delay avoids the UI flashing instantly on every
-        // attempt and gives the same perceived latency for correct/incorrect
-        // passcodes, which further reduces timing side-channels.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+        // Keychain reads stay on the main actor; only the PBKDF2 work moves off it.
+        let primary = keychain.getString(forKey: KeychainKey.passcodeSalt).flatMap { salt in
+            keychain.getString(forKey: KeychainKey.passcodeHash).map { (salt: salt, hash: $0) }
+        }
+        let duress = keychain.getString(forKey: KeychainKey.duressPasscodeSalt).flatMap { salt in
+            keychain.getString(forKey: KeychainKey.duressPasscodeHash).map { (salt: salt, hash: $0) }
+        }
+
+        Task { [weak self] in
+            // A short, deliberate delay avoids the UI flashing instantly on every
+            // attempt and gives the same perceived latency for correct/incorrect
+            // passcodes, which further reduces timing side-channels. The hashing
+            // runs during this window, off the main actor, so the UI stays responsive.
+            let started = ContinuousClock.now
+            let outcome = await Task.detached(priority: .userInitiated) {
+                AuthenticationService.checkPasscode(passcode, primary: primary, duress: duress)
+            }.value
+            let rest = Duration.milliseconds(350) - (ContinuousClock.now - started)
+            if rest > .zero {
+                try? await Task.sleep(for: rest)
+            }
             guard let self else { return }
             self.isAuthenticating = false
 
-            if self.verifyPasscode(passcode) {
+            if outcome == .primary {
+                // Same legacy-hash upgrade `verifyPasscode` performs.
+                if let primary, !primary.hash.hasPrefix("pbkdf2$") {
+                    self.keychain.set(CryptoService.hash(passcode: passcode, salt: primary.salt), forKey: KeychainKey.passcodeHash)
+                }
                 self.isDecoySession = false
                 self.completeAuthentication()
-            } else if self.verifyDuressPasscode(passcode) {
+            } else if outcome == .duress {
                 self.isDecoySession = true
                 self.completeAuthentication()
             } else {
@@ -404,6 +425,25 @@ class AuthenticationService: ObservableObject {
                 }
             }
         }
+    }
+
+    nonisolated private enum PasscodeMatch: Sendable, Equatable { case primary, duress, none }
+
+    /// The same checks, in the same order, as `verifyPasscode` then
+    /// `verifyDuressPasscode`: the duress hash is only tried when the primary
+    /// one does not match. Pure, so it can run off the main actor.
+    nonisolated private static func checkPasscode(
+        _ passcode: String,
+        primary: (salt: String, hash: String)?,
+        duress: (salt: String, hash: String)?
+    ) -> PasscodeMatch {
+        if let primary, CryptoService.verify(passcode: passcode, salt: primary.salt, storedHash: primary.hash) {
+            return .primary
+        }
+        if let duress, CryptoService.verify(passcode: passcode, salt: duress.salt, storedHash: duress.hash) {
+            return .duress
+        }
+        return .none
     }
 
     /// `clearDuress` false ends the UI session but keeps the keychain flag, so a killed limited session stays blocked.

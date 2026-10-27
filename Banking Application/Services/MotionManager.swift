@@ -1,9 +1,8 @@
 import Foundation
 import CoreMotion
-import SwiftUI
-import Combine
+import Observation
 
-/// Publishes smoothed device tilt (roll/pitch) from CoreMotion for use in
+/// Publishes smoothed device tilt from CoreMotion for use in
 /// tilt-reactive UI effects — e.g. the metallic sheen sweeping across a
 /// credit card as the phone is tilted, similar to a real card catching
 /// light. Values are low-pass filtered so the UI doesn't jitter with every
@@ -13,33 +12,44 @@ import Combine
 /// react to the same tilt reading rather than each starting their own
 /// CMMotionManager (which is expensive and unnecessary).
 @MainActor
-final class MotionManager: ObservableObject {
+@Observable
+final class MotionManager {
     static let shared = MotionManager()
 
-    /// Roll, roughly left/right tilt, in radians. Positive = tilted right.
-    @Published private(set) var roll: Double = 0
-    /// Pitch, roughly forward/back tilt, in radians. Positive = tilted back.
-    @Published private(set) var pitch: Double = 0
+    /// Device tilt normalized to -1...1 on each axis, for driving gradient
+    /// offsets and rotation angles without callers knowing radian ranges.
+    struct Tilt: Equatable {
+        /// Left/right (from roll). Positive = tilted right.
+        var x: Double
+        /// Forward/back (from pitch). Positive = tilted back.
+        var y: Double
 
-    /// Normalized -1...1 convenience values for driving gradient offsets,
-    /// rotation angles, and parallax without callers needing to know
-    /// radian ranges or clamp values themselves.
-    var normalizedX: Double { (roll / Self.maxTiltRadians).clamped(to: -1...1) }
-    var normalizedY: Double { (pitch / Self.maxTiltRadians).clamped(to: -1...1) }
+        static let zero = Tilt(x: 0, y: 0)
+    }
 
-    private let motionManager = CMMotionManager()
-    private var activeSubscribers = 0
+    /// The one value views observe. Only republished when it moves by more
+    /// than `deadBand`, so sensor noise at 60 Hz does not re-render the UI.
+    private(set) var tilt: Tilt = .zero
+
+    var normalizedX: Double { tilt.x }
+    var normalizedY: Double { tilt.y }
+
+    /// Smoothed raw readings in radians. Not observed; they change every sample.
+    @ObservationIgnored private var roll: Double = 0
+    @ObservationIgnored private var pitch: Double = 0
+    @ObservationIgnored private let motionManager = CMMotionManager()
+    @ObservationIgnored private var activeSubscribers = 0
     private static let maxTiltRadians = 0.6  // ~34°, beyond which effects cap out
     private static let smoothing = 0.15       // low-pass filter factor
+    private static let deadBand = 0.01        // in normalized units (~0.3°)
 
     private init() {}
 
     var isAvailable: Bool { motionManager.isDeviceMotionAvailable }
 
-    /// Views call this in `.onAppear` / `.onDisappear` (via the
-    /// `.gyroReactive()` modifier below) so CoreMotion only runs while at
-    /// least one tilt-reactive view is on screen, and stops as soon as the
-    /// last one disappears — keeping battery impact minimal.
+    /// Views call this in `.onAppear` / `.onDisappear` so CoreMotion only
+    /// runs while at least one tilt-reactive view is on screen, and stops as
+    /// soon as the last one disappears, keeping battery impact minimal.
     func subscribe() {
         activeSubscribers += 1
         guard motionManager.isDeviceMotionAvailable, !motionManager.isDeviceMotionActive else { return }
@@ -50,6 +60,7 @@ final class MotionManager: ObservableObject {
             let s = Self.smoothing
             self.roll = self.roll * (1 - s) + motion.attitude.roll * s
             self.pitch = self.pitch * (1 - s) + motion.attitude.pitch * s
+            self.publishIfMoved()
         }
     }
 
@@ -59,29 +70,19 @@ final class MotionManager: ObservableObject {
             motionManager.stopDeviceMotionUpdates()
         }
     }
+
+    private func publishIfMoved() {
+        let next = Tilt(
+            x: (roll / Self.maxTiltRadians).clamped(to: -1...1),
+            y: (pitch / Self.maxTiltRadians).clamped(to: -1...1)
+        )
+        guard abs(next.x - tilt.x) > Self.deadBand || abs(next.y - tilt.y) > Self.deadBand else { return }
+        tilt = next
+    }
 }
 
 private extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
-    }
-}
-
-/// Attaches to any view that wants to read `MotionManager.shared` — starts
-/// updates on appear, stops on disappear. Purely a lifecycle helper; the
-/// view still reads `@StateObject`/`@ObservedObject` motion values itself.
-struct GyroReactiveModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .onAppear { MotionManager.shared.subscribe() }
-            .onDisappear { MotionManager.shared.unsubscribe() }
-    }
-}
-
-extension View {
-    /// Marks this view as consuming device tilt data, tying CoreMotion's
-    /// lifecycle to the view's own appearance.
-    func gyroReactive() -> some View {
-        modifier(GyroReactiveModifier())
     }
 }

@@ -366,13 +366,7 @@ struct QuickActionsView: View {
     @Binding var showFixedDeposits: Bool
     @Binding var showLoans: Bool
     
-    let quickActions: [QuickAction] = [
-        QuickAction(title: "UPI Pay", systemImage: "qrcode.viewfinder", color: .blue),
-        QuickAction(title: "Send Money", systemImage: "paperplane.fill", color: .green),
-        QuickAction(title: "Pay Bills", systemImage: "doc.text.fill", color: .orange),
-        QuickAction(title: "Fixed Deposits", systemImage: "banknote.fill", color: .purple),
-        QuickAction(title: "Loans", systemImage: "building.columns.fill", color: .indigo)
-    ]
+    private let quickActions = QuickAction.allCases
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -381,19 +375,12 @@ struct QuickActionsView: View {
                     ForEach(quickActions) { action in
                         Button(action: {
                             HapticFeedbackService.shared.lightImpact()
-                            switch action.title {
-                            case "UPI Pay":
-                                showUPITapPay = true
-                            case "Send Money":
-                                showTransfer = true
-                            case "Pay Bills":
-                                showBillPay = true
-                            case "Fixed Deposits":
-                                showFixedDeposits = true
-                            case "Loans":
-                                showLoans = true
-                            default:
-                                break
+                            switch action {
+                            case .upiPay: showUPITapPay = true
+                            case .sendMoney: showTransfer = true
+                            case .payBills: showBillPay = true
+                            case .fixedDeposits: showFixedDeposits = true
+                            case .loans: showLoans = true
                             }
                         }) {
                             VStack(spacing: 10) {
@@ -445,11 +432,42 @@ extension AccountOverviewView {
     }
 }
 
-struct QuickAction: Identifiable {
-    let id = UUID()
-    let title: String
-    let systemImage: String
-    let color: Color
+/// Home quick actions. Cases have stable ids, so `ForEach` keeps identity
+/// across renders, and taps switch on the case rather than the title text.
+enum QuickAction: String, CaseIterable, Identifiable {
+    case upiPay, sendMoney, payBills, fixedDeposits, loans
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .upiPay: return "UPI Pay"
+        case .sendMoney: return "Send Money"
+        case .payBills: return "Pay Bills"
+        case .fixedDeposits: return "Fixed Deposits"
+        case .loans: return "Loans"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .upiPay: return "qrcode.viewfinder"
+        case .sendMoney: return "paperplane.fill"
+        case .payBills: return "doc.text.fill"
+        case .fixedDeposits: return "banknote.fill"
+        case .loans: return "building.columns.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .upiPay: return .blue
+        case .sendMoney: return .green
+        case .payBills: return .orange
+        case .fixedDeposits: return .purple
+        case .loans: return .indigo
+        }
+    }
 }
 
 struct AccountsCarousel: View {

@@ -16,6 +16,9 @@ struct TransferView: View {
     @State private var showingConfirmation = false
     @State private var showingSuccess = false
     @State private var showingAddBeneficiary = false
+    /// Round-up that would ride along with the typed amount. Recomputed when
+    /// its inputs change rather than on every body evaluation (it fetches).
+    @State private var transferSpare: Decimal = 0
     
     private let quickAmounts: [Decimal] = [Decimal(100), Decimal(500), Decimal(1000), Decimal(5000)]
     
@@ -221,8 +224,10 @@ struct TransferView: View {
             }
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.isProcessing)
             .navigationTitle("Transfer Money")
-            .searchable(text: $viewModel.searchText, prompt: "Search accounts")
             .autocorrectionDisabled(true)
+            .onChange(of: spareInputs, initial: true) {
+                transferSpare = computeTransferSpare()
+            }
             .toolbar {
                 ToolbarItem(placement: .keyboard) {
                     Button("Done") {
@@ -251,7 +256,12 @@ struct TransferView: View {
             .accessibilityElement(children: .contain)
     }
     
-    private var transferSpare: Decimal {
+    /// Everything `computeTransferSpare()` depends on.
+    private var spareInputs: String {
+        "\(selectedFromAccount?.id ?? "")|\(viewModel.amount)|\(AppSettings.shared.isRoundUpEnabled)"
+    }
+
+    private func computeTransferSpare() -> Decimal {
         guard let from = selectedFromAccount, let amountDecimal = Decimal(string: viewModel.amount), amountDecimal > 0 else { return 0 }
         return TransactionService.roundUpDebit(for: amountDecimal, from: from, in: modelContext)
     }
@@ -293,6 +303,7 @@ struct TransferView: View {
             return
         }
         
+        transferSpare = computeTransferSpare()
         guard amountDecimal + transferSpare <= from.availableBalance else {
             viewModel.error = .insufficientFunds
             HapticFeedbackService.shared.errorOccurred()
