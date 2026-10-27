@@ -9,7 +9,7 @@ struct BankApp: App {
     @State private var authenticationService = AuthenticationService()
     @State private var transactionViewModel: TransactionViewModel
     @State private var accountViewModel: AccountViewModel
-    private var settings = AppSettings.shared
+    private let settings = AppSettings.shared
 
     private let container: ModelContainer
 

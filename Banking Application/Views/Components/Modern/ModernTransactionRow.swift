@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ModernTransactionRow: View {
     let transaction: Transaction
-    private var settings = AppSettings.shared
+    private let settings = AppSettings.shared
 
     var body: some View {
         HStack(spacing: AppSpacing.md) {

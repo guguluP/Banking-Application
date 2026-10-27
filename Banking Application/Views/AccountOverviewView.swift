@@ -5,8 +5,8 @@ struct AccountOverviewView: View {
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
     @Environment(AuthenticationService.self) var authenticationService
-    private var settings = AppSettings.shared
-    private var bannerStack = BannerStackManager.shared
+    private let settings = AppSettings.shared
+    private let bannerStack = BannerStackManager.shared
     @State private var showUPITapPay = false
     @State private var showingError = false
     @State private var showAllTransactions = false

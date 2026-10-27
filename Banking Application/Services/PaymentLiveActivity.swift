@@ -119,7 +119,7 @@ final class LiveActivityManager {
 }
 
 struct InAppLiveActivityBanner: View {
-    private var manager = LiveActivityManager.shared
+    private let manager = LiveActivityManager.shared
 
     var body: some View {
         VStack {
