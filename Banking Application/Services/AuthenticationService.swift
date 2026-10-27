@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 import LocalAuthentication
 import SwiftUI
 import SwiftData
@@ -7,8 +6,9 @@ import SwiftData
 /// Handles sign-in for the app: passcode setup/verification and biometrics.
 ///
 /// Security model:
-///  - The passcode is **never stored**. Only `SHA256(passcode + perInstallSalt)`
-///    is persisted, in the Keychain (`KeychainService`), not `UserDefaults`.
+///  - The passcode is **never stored**. Only a PBKDF2-HMAC-SHA256 hash of the
+///    passcode with a per-install salt (`CryptoService.hash`) is persisted, in the
+///    Keychain (`KeychainService`), not `UserDefaults`.
 ///  - Comparison uses a constant-time check to avoid leaking timing information.
 ///  - After 5 consecutive failed attempts the account is locked out with an
 ///    exponentially increasing cooldown, mitigating brute-force PIN guessing.
@@ -16,32 +16,33 @@ import SwiftData
 ///    with `.whenUnlockedThisDeviceOnly`, so it never leaves the device and is
 ///    wiped on logout.
 @MainActor
-class AuthenticationService: ObservableObject {
-    @Published var isAuthenticated: Bool = false
-    @Published var isLocked: Bool = false {
+@Observable
+final class AuthenticationService {
+    var isAuthenticated: Bool = false
+    var isLocked: Bool = false {
         didSet {
             if isLocked {
                 stopInactivityMonitor()
             }
         }
     }
-    @Published var isAuthenticating: Bool = false
-    @Published var errorMessage: String?
-    @Published var user: User?
-    @Published var canUseBiometrics: Bool = false
-    @Published var biometryTypeString: String = ""
-    @Published var lockoutRemainingSeconds: Int = 0
-    @Published var isDecoySession: Bool = false {
+    var isAuthenticating: Bool = false
+    var errorMessage: String?
+    var user: User?
+    var canUseBiometrics: Bool = false
+    var biometryTypeString: String = ""
+    var lockoutRemainingSeconds: Int = 0
+    var isDecoySession: Bool = false {
         didSet { Self.movementBlocked = isDecoySession }
     }
-    @Published var isPresentingStepUpPasscode = false
+    var isPresentingStepUpPasscode = false
 
     /// In-memory mirror so `TransactionService` can refuse money movement
     /// without holding the auth object. Login sets both.
     static var movementBlocked = false
     static var sessionIsLive = false
 
-    private var stepUpContinuation: (@MainActor (Bool) -> Void)?
+    @ObservationIgnored private var stepUpContinuation: (@MainActor (Bool) -> Void)?
 
     /// Whether the user has opted in to biometric unlock in Settings.
     /// Device capability is still gated by `canUseBiometrics`.
@@ -49,9 +50,9 @@ class AuthenticationService: ObservableObject {
         AppSettings.shared.isBiometricsEnabled && canUseBiometrics
     }
 
-    private let keychain = KeychainService.shared
-    private let maxFailedAttempts = 5
-    private var lockoutTimer: Timer?
+    @ObservationIgnored private let keychain = KeychainService.shared
+    @ObservationIgnored private let maxFailedAttempts = 5
+    @ObservationIgnored private var lockoutTimer: Timer?
 
     /// How long the app can sit idle in the foreground, unlocked, before it
     /// re-locks itself. Locking on backgrounding alone isn't enough — a
@@ -59,8 +60,8 @@ class AuthenticationService: ObservableObject {
     /// and RBI's guidance on digital banking apps expects a session
     /// timeout on inactivity as a separate control.
     static let inactivityTimeout: TimeInterval = 90
-    private var lastActiveAt = Date()
-    private var inactivityTimer: Timer?
+    @ObservationIgnored private var lastActiveAt = Date()
+    @ObservationIgnored private var inactivityTimer: Timer?
 
     var hasPasscodeConfigured: Bool {
         keychain.getString(forKey: KeychainKey.passcodeHash) != nil
@@ -489,7 +490,7 @@ class AuthenticationService: ObservableObject {
     }
 
     /// Loads the signed-in user's profile from the local SwiftData store
-    /// (kept in sync with CloudKit) once a session has been established.
+    /// (on-device only) once a session has been established.
     func loadUser(from container: ModelContainer, userId: String = LocalUser.id) {
         let context = container.mainContext
         let descriptor = FetchDescriptor<User>(predicate: #Predicate { $0.id == userId })

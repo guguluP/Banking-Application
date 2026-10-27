@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 
 /// Sheet-presented bill payment flow (used from Home's Bill Pay action).
@@ -22,7 +21,7 @@ struct BillPayView: View {
 struct BillPayContent: View {
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Biller.name) private var billers: [Biller]
     @State private var selectedBiller: Biller?
@@ -219,7 +218,7 @@ struct BillPayView_Previews: PreviewProvider {
             BillPayView()
                 .environment(avm)
                 .environment(tvm)
-                .environmentObject(AuthenticationService())
+                .environment(AuthenticationService())
         }
         .modelContainer(container)
     }

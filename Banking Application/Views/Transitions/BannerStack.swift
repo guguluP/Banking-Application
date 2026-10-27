@@ -1,4 +1,3 @@
-import Combine
 import SwiftUI
 
 /// One entry in the stack — mirrors `.t-stack-banner`'s content slot.
@@ -19,13 +18,14 @@ struct BannerItem: Identifiable, Equatable {
 /// fourth depth tier, matching "a fourth banner gets .is-leaving."
 ///
 /// Usage:
-///   @StateObject var stack = BannerStackManager()
+///   @State var stack = BannerStackManager()
 ///   ...
 ///   BannerStackView(manager: stack)
 ///   ...
 ///   stack.push(BannerItem(title: "Payment sent", message: "₹500 to Rahul"))
 @MainActor
-final class BannerStackManager: ObservableObject {
+@Observable
+final class BannerStackManager {
     /// App-wide instance. Mounted once via `BannerStackView(manager: .shared)`
     /// near the root of the visible hierarchy (see `AccountOverviewView`) so
     /// any screen can call `BannerStackManager.shared.push(...)` — e.g. after
@@ -33,10 +33,10 @@ final class BannerStackManager: ObservableObject {
     /// thread a binding through every intermediate view.
     static let shared = BannerStackManager()
 
-    @Published fileprivate(set) var items: [BannerItem] = []
-    @Published var isSpread = false
+    fileprivate(set) var items: [BannerItem] = []
+    var isSpread = false
 
-    private var dismissWorkItems: [UUID: DispatchWorkItem] = [:]
+    @ObservationIgnored private var dismissWorkItems: [UUID: DispatchWorkItem] = [:]
     private let maxVisibleDepth = 2
     private let autoDismissDelay: Double
 
@@ -91,7 +91,7 @@ final class BannerStackManager: ObservableObject {
 /// this near the bottom of a screen (e.g. in a `ZStack` overlay) the way
 /// `.t-stack` sits as a fixed toast container.
 struct BannerStackView: View {
-    @ObservedObject var manager: BannerStackManager
+    var manager: BannerStackManager
 
     private let peek: CGFloat = 12
     private let depthScale: CGFloat = 0.06
@@ -168,7 +168,7 @@ struct BannerStackView: View {
 }
 
 private struct PreviewWrapper: View {
-    @StateObject private var stack = BannerStackManager()
+    @State private var stack = BannerStackManager()
     var body: some View {
         VStack {
             Spacer()

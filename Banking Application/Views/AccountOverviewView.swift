@@ -1,13 +1,12 @@
 import SwiftUI
-import Combine
 import SwiftData
 
 struct AccountOverviewView: View {
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
-    @ObservedObject private var settings = AppSettings.shared
-    @ObservedObject private var bannerStack = BannerStackManager.shared
+    @Environment(AuthenticationService.self) var authenticationService
+    private var settings = AppSettings.shared
+    private var bannerStack = BannerStackManager.shared
     @State private var showUPITapPay = false
     @State private var showingError = false
     @State private var showAllTransactions = false
@@ -714,7 +713,7 @@ struct AccountOverviewView_Previews: PreviewProvider {
             AccountOverviewView()
                 .environment(accountViewModel)
                 .environment(transactionViewModel)
-                .environmentObject(AuthenticationService())
+                .environment(AuthenticationService())
         }
         .modelContainer(container)
     }

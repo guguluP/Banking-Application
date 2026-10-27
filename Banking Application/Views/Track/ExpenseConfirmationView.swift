@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// The single save path for every way an expense enters the app — typed
 /// Quick-Add, natural-language parsing, and receipt OCR all end here.

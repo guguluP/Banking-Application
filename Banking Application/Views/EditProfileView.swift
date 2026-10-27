@@ -1,9 +1,8 @@
 import SwiftUI
-import Combine
 import SwiftData
 
 struct EditProfileView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @State private var firstName: String = ""
@@ -124,7 +123,7 @@ struct EditProfileView: View {
 struct EditProfileView_Previews: PreviewProvider {
     static var previews: some View {
         EditProfileView()
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
             .modelContainer(PersistenceController.preview)
     }
 }

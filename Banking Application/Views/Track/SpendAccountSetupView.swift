@@ -164,7 +164,7 @@ struct SpendAccountSetupView: View {
 }
 
 struct AuthenticatedHomeGate: View {
-    @EnvironmentObject private var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) private var authenticationService
     @Query(sort: \Account.openedDate) private var accounts: [Account]
     var onAccountsChanged: () -> Void
 

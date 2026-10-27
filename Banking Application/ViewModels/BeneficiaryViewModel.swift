@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 @Observable
-class BeneficiaryViewModel {
+final class BeneficiaryViewModel {
     init(
         nickname: String = "",
         accountNumber: String = "",

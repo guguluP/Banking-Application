@@ -3,7 +3,7 @@ import SwiftData
 
 struct AddCardView: View {
     @Environment(AccountViewModel.self) var accountViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedNetwork: CardType = .visa
@@ -215,7 +215,7 @@ struct AddCardView_Previews: PreviewProvider {
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         return AddCardView()
             .environment(avm)
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
             .modelContainer(container)
             .animatedAppBackground()
     }

@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 @Observable
-class BillPayViewModel {
+final class BillPayViewModel {
     var billerAccount = ""
     var amount = ""
     var error: AppError?

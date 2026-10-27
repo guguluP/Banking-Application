@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 import CoreImage.CIFilterBuiltins
 
@@ -26,7 +25,7 @@ struct UPIPaymentView: View {
 struct UPIPaymentContent: View {
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.modelContext) private var modelContext
     @State private var selectedAccount: Account?
     @State private var upiId = ""
@@ -430,7 +429,7 @@ struct UPIPaymentView_Previews: PreviewProvider {
         return UPIPaymentView()
             .environment(avm)
             .environment(tvm)
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
             .modelContainer(container)
     }
 }

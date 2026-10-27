@@ -4,7 +4,7 @@ import SwiftData
 struct LoanTrackerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AccountViewModel.self) var accountViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Query(sort: \Loan.startDate, order: .reverse) private var allLoans: [Loan]
     @State private var showingApply = false
     

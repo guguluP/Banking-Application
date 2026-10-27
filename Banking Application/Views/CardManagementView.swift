@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 
 struct CardManagementView: View {
@@ -82,7 +81,7 @@ struct CardManagementView: View {
 
 struct CardControlsView: View {
     @Bindable var card: Card
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
 
     var body: some View {
         GlassCard {

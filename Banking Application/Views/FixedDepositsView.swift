@@ -5,7 +5,7 @@ struct FixedDepositsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AccountViewModel.self) var accountViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Query(sort: \FixedDeposit.startDate, order: .reverse) private var allDeposits: [FixedDeposit]
     @State private var showingOpenDeposit = false
     

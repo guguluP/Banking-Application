@@ -1,12 +1,11 @@
 import SwiftUI
-import Combine
 import SwiftData
 #if canImport(UIKit)
 import UIKit
 #endif
 
 struct MainTabView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
     @Environment(\.modelContext) private var modelContext
@@ -47,13 +46,13 @@ struct MainTabView: View {
                     .zIndex(50)
             }
         }
-        .sheet(isPresented: $authenticationService.isPresentingStepUpPasscode) {
+        .sheet(isPresented: Bindable(authenticationService).isPresentingStepUpPasscode) {
             StepUpPasscodeSheet()
-                .environmentObject(authenticationService)
+                .environment(authenticationService)
         }
         .sheet(isPresented: $showChatbot) {
             ChatbotView()
-                .environmentObject(authenticationService)
+                .environment(authenticationService)
                 .environment(accountViewModel)
                 .environment(transactionViewModel)
                 .presentationDetents(PlatformUI.isMac ? [.large] : [.medium, .large])
@@ -323,7 +322,7 @@ private struct ActivityTouchRelay: UIViewRepresentable {
 
 struct LockView: View {
     @Binding var isVisible: Bool
-    @ObservedObject var authenticationService: AuthenticationService
+    var authenticationService: AuthenticationService
 
     var body: some View {
         ZStack {

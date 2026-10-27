@@ -18,7 +18,7 @@ final class TransactionViewModel {
         // Defer the initial load: mutating state synchronously
         // inside init can run during a SwiftUI view update (e.g. when this
         // object is constructed inside another init that's itself building
-        // a @StateObject), which triggers "Publishing changes from within
+        // a state object), which triggers "Publishing changes from within
         // view updates is not allowed."
         Task { @MainActor [weak self] in
             self?.loadAllTransactions()

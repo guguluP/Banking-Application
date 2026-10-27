@@ -162,7 +162,7 @@ struct InternationalWireView: View {
 }
 
 struct RoundUpSavingsView: View {
-    @ObservedObject private var settings = AppSettings.shared
+    @Bindable private var settings = AppSettings.shared
 
     var body: some View {
         Form {

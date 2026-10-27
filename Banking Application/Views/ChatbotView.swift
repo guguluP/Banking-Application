@@ -3,7 +3,7 @@ import SwiftData
 import BankThinkingOrbs
 import BankVoiceGlow
 struct ChatbotView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
     @Query private var budgets: [Budget]
@@ -287,7 +287,7 @@ struct ChatbotView_Previews: PreviewProvider {
         let transactionViewModel = TransactionViewModel(modelContext: context)
         let accountViewModel = AccountViewModel(modelContext: context, transactionViewModel: transactionViewModel)
         return ChatbotView()
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
             .environment(accountViewModel)
             .environment(transactionViewModel)
     }

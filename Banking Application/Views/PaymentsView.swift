@@ -1,10 +1,9 @@
 import SwiftUI
-import Combine
 import SwiftData
 
 struct PaymentsView: View {
     @Environment(AccountViewModel.self) var accountViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @State private var selectedPaymentType: PaymentType = .upi
     @State private var searchText = ""
     
@@ -86,7 +85,7 @@ struct PaymentsView_Previews: PreviewProvider {
             PaymentsView()
                 .environment(avm)
                 .environment(tvm)
-                .environmentObject(AuthenticationService())
+                .environment(AuthenticationService())
         }
         .modelContainer(container)
     }

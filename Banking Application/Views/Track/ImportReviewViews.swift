@@ -157,7 +157,7 @@ struct SecurityActivityView: View {
 }
 
 struct LimitSettingsView: View {
-    @ObservedObject private var settings = AppSettings.shared
+    @Bindable private var settings = AppSettings.shared
     var body: some View {
         Form {
             Section("Transfers") {

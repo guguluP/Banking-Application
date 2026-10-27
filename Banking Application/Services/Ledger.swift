@@ -49,7 +49,7 @@ enum Ledger {
     /// For background bookkeeping with no form to report to (seeding, logs,
     /// schedule state). Rolls back and logs on failure instead of dropping the error.
     @discardableResult
-    static func saveOrLog(_ context: ModelContext, _ what: StaticString) -> Bool {
+    static func saveOrLog(_ context: ModelContext, _ what: String) -> Bool {
         do {
             try save(context, rollbackOnFailure: true)
             return true

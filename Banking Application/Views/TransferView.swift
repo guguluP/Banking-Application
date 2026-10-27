@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 
 struct TransferView: View {
@@ -7,7 +6,7 @@ struct TransferView: View {
     var isEmbedded: Bool = false
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Beneficiary.nickname) private var allBeneficiaries: [Beneficiary]
     @State private var viewModel = TransferViewModel()
@@ -404,7 +403,7 @@ struct TransferView_Previews: PreviewProvider {
         return TransferView()
             .environment(avm)
             .environment(tvm)
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
             .modelContainer(container)
     }
 }

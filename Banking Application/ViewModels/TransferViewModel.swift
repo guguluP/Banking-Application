@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 @Observable
-class TransferViewModel {
+final class TransferViewModel {
     var recipientAccount = ""
     var amount = ""
     var description = ""

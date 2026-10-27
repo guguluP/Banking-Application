@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 #if canImport(UIKit)
 import UIKit
@@ -7,10 +6,10 @@ import UIKit
 
 @main
 struct BankApp: App {
-    @StateObject private var authenticationService = AuthenticationService()
+    @State private var authenticationService = AuthenticationService()
     @State private var transactionViewModel: TransactionViewModel
     @State private var accountViewModel: AccountViewModel
-    @ObservedObject private var settings = AppSettings.shared
+    private var settings = AppSettings.shared
 
     private let container: ModelContainer
 
@@ -43,18 +42,18 @@ struct BankApp: App {
                     OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
                 } else if !authenticationService.hasPasscodeConfigured {
                     PasscodeSetupView()
-                        .environmentObject(authenticationService)
+                        .environment(authenticationService)
                 } else if authenticationService.isAuthenticated {
                     AuthenticatedHomeGate {
                         accountViewModel.loadAccounts()
                         transactionViewModel.loadAllTransactions()
                     }
-                    .environmentObject(authenticationService)
+                    .environment(authenticationService)
                     .environment(accountViewModel)
                     .environment(transactionViewModel)
                 } else {
                     LoginView()
-                        .environmentObject(authenticationService)
+                        .environment(authenticationService)
                 }
             }
             .modelContainer(container)

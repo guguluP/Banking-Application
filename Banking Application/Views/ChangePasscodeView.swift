@@ -1,8 +1,7 @@
 import SwiftUI
-import Combine
 
 struct ChangePasscodeView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.dismiss) private var dismiss
     @State private var currentPasscode: String = ""
     @State private var newPasscode: String = ""
@@ -191,6 +190,6 @@ struct PasscodeDots: View {
 struct ChangePasscodeView_Previews: PreviewProvider {
     static var previews: some View {
         ChangePasscodeView()
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
     }
 }
