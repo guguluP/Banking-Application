@@ -191,7 +191,7 @@ struct UPIPaymentContent: View {
         }
         .overlay {
             if showingPaymentSuccess {
-                PaymentSuccessOverlay(amount: successAmount, subtitle: "UPI Payment Sent", isPresented: $showingPaymentSuccess)
+                SuccessOverlay(style: .payment(amount: successAmount, subtitle: "UPI Payment Sent"), isPresented: $showingPaymentSuccess)
             }
         }
         .accessibilityElement(children: .contain)

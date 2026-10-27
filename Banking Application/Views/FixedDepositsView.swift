@@ -198,9 +198,9 @@ struct FixedDepositDetailView: View {
                         Divider().padding(.vertical, 4)
 
                         HStack {
-                            statColumn(title: "Principal", value: deposit.formattedPrincipal)
+                            StatColumn(title: "Principal", value: deposit.formattedPrincipal)
                             Divider().frame(height: 30)
-                            statColumn(title: "At Maturity", value: deposit.formattedMaturityValue)
+                            StatColumn(title: "At Maturity", value: deposit.formattedMaturityValue)
                         }
 
                         if deposit.status == .active {
@@ -282,16 +282,6 @@ struct FixedDepositDetailView: View {
         }
     }
 
-    private func statColumn(title: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.subheadline.bold())
-            Text(title)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
 }
 
 struct OpenFixedDepositView: View {

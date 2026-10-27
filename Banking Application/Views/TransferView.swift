@@ -218,7 +218,10 @@ struct TransferView: View {
             .bankSoftScrollEdges()
             .overlay {
                 if showingSuccess {
-                    TransferSuccessOverlay(isPresented: $showingSuccess)
+                    SuccessOverlay(
+                        style: .check(title: "Transfer Complete", message: "Your money is on its way.", dismissAfter: .milliseconds(2200)),
+                        isPresented: $showingSuccess
+                    )
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
             }
@@ -389,56 +392,6 @@ struct AccountPicker: View {
             .cornerRadius(AppTheme.CornerRadius.small)
         }
         .accessibilityLabel(selection == nil ? "Select Account" : (selection?.nickname ?? "Account") + ": \(selection?.formattedAvailableBalance ?? "0") available")
-    }
-}
-
-struct TransferSuccessOverlay: View {
-    @Binding var isPresented: Bool
-    @State private var checkmarkScale: CGFloat = 0.4
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .onTapGesture { dismiss() }
-
-            VStack(spacing: AppSpacing.md) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.green)
-                    .scaleEffect(checkmarkScale)
-                    .onAppear {
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
-                            checkmarkScale = 1.0
-                        }
-                    }
-
-                Text("Transfer Complete")
-                    .font(.headline)
-
-                Text("Your money is on its way.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                ModernButton(title: "Done", systemImage: nil, variant: .filled) {
-                    dismiss()
-                }
-                .padding(.top, AppSpacing.sm)
-            }
-            .padding(AppSpacing.xl)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large))
-            .padding(.horizontal, AppSpacing.xxl)
-        }
-        .task {
-            try? await Task.sleep(nanoseconds: 2_200_000_000)
-            dismiss()
-        }
-    }
-
-    private func dismiss() {
-        withAnimation(.easeOut(duration: 0.25)) {
-            isPresented = false
-        }
     }
 }
 

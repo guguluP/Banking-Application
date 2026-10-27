@@ -203,11 +203,11 @@ struct LoanDetailView: View {
                         Divider().padding(.vertical, 4)
                         
                         HStack {
-                            statColumn(title: "Outstanding", value: loan.formattedOutstanding)
+                            StatColumn(title: "Outstanding", value: loan.formattedOutstanding)
                             Divider().frame(height: 30)
-                            statColumn(title: "EMI", value: loan.formattedEMI)
+                            StatColumn(title: "EMI", value: loan.formattedEMI)
                             Divider().frame(height: 30)
-                            statColumn(title: "Remaining", value: "\(loan.remainingEMIs) mo")
+                            StatColumn(title: "Remaining", value: "\(loan.remainingEMIs) mo")
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -266,16 +266,6 @@ struct LoanDetailView: View {
         }
     }
     
-    private func statColumn(title: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.subheadline.bold())
-            Text(title)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
 }
 
 struct PrepayLoanView: View {

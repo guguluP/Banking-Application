@@ -1,7 +1,5 @@
 import SwiftUI
 import SwiftData
-import SwiftData
-import SwiftData
 
 struct AddCardView: View {
     @Environment(AccountViewModel.self) var accountViewModel
@@ -132,7 +130,14 @@ struct AddCardView: View {
                 }
 
                 if showingSuccess {
-                    AddCardSuccessOverlay(isPresented: $showingSuccess, network: selectedNetwork) {
+                    SuccessOverlay(
+                        style: .check(
+                            title: "Card Issued",
+                            message: "Your new \(selectedNetwork.rawValue) card is ready to use.",
+                            dismissAfter: .milliseconds(1800)
+                        ),
+                        isPresented: $showingSuccess
+                    ) {
                         dismiss()
                     }
                 }
@@ -199,60 +204,6 @@ private struct NetworkChoiceChip: View {
         case .mastercard: return "Mastercard"
         default: return network.rawValue
         }
-    }
-}
-
-private struct AddCardSuccessOverlay: View {
-    @Binding var isPresented: Bool
-    let network: CardType
-    let onDone: () -> Void
-    @State private var checkmarkScale: CGFloat = 0.4
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .onTapGesture { dismiss() }
-
-            VStack(spacing: AppSpacing.md) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.green)
-                    .scaleEffect(checkmarkScale)
-                    .onAppear {
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
-                            checkmarkScale = 1.0
-                        }
-                    }
-
-                Text("Card Issued")
-                    .font(.headline)
-
-                Text("Your new \(network.rawValue) card is ready to use.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-
-                ModernButton(title: "Done", systemImage: nil, variant: .filled) {
-                    dismiss()
-                }
-                .padding(.top, AppSpacing.sm)
-            }
-            .padding(AppSpacing.xl)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large))
-            .padding(.horizontal, AppSpacing.xxl)
-        }
-        .task {
-            try? await Task.sleep(nanoseconds: 1_800_000_000)
-            dismiss()
-        }
-    }
-
-    private func dismiss() {
-        withAnimation(.easeOut(duration: 0.25)) {
-            isPresented = false
-        }
-        onDone()
     }
 }
 

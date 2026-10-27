@@ -284,7 +284,7 @@ struct BalanceCard: View {
     }
     
     var body: some View {
-        GlassCard(reactsToTilt: true, tint: Color.bankPrimary) {
+        GlassCard(usesLiquidGlass: true, tint: Color.bankPrimary) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Label(title, systemImage: "indianrupee.circle.fill")
