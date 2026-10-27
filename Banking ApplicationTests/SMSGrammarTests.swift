@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class SMSGrammarTests: XCTestCase {
     func testGenericDebitAlert() {
-        let sms = IndianBankSMSGrammar.parse("Rs.1,234.50 debited from HDFC Bank A/c **7001 to sample.merchant@okicici. UTR 910000000001")
+        let sms = IndianBankSMSGrammar.parse("Rs.1,234.50 debited from HDFC Bank A/c **7001 to sample.store@upi. UTR 910000000001")
         XCTAssertEqual(sms?.amount, Decimal(string: "1234.50"))
         XCTAssertEqual(sms?.isCredit, false)
         XCTAssertEqual(sms?.accountLast4, "7001")
