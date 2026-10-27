@@ -128,8 +128,8 @@ final class LoanViewModel {
             return false
         }
 
-        // Captured so a failed save can restore the loan to exactly where it was,
-        // even if the context rollback leaves the in-memory object untouched.
+        // Captured so a failed save can restore the loan to exactly where it was;
+        // Ledger only puts back balances and inserts.
         let previousOutstandingPrincipal = loan.outstandingPrincipal
         let previousEmisPaid = loan.emisPaid
         let previousNextDueDate = loan.nextDueDate

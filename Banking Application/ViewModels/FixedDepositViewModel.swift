@@ -88,8 +88,8 @@ final class FixedDepositViewModel {
         )
 
         do {
-            // On failure Ledger rolls the context back, so neither the deposit
-            // nor the debit survives and the balance is restored.
+            // On failure Ledger deletes the two inserts, so neither the deposit
+            // nor the debit survives, and the balance is restored.
             try Ledger.commit(context, touching: [sourceAccount]) {
                 Ledger.apply(-principal, to: sourceAccount)
                 debitTransaction.countsInLedger = true

@@ -33,7 +33,7 @@ enum DepositService {
                     )
                 }
             } catch {
-                // Ledger rolled the context back; make sure the deposit can be retried.
+                // Ledger dropped the credit and put the balance back; reopen the deposit so it can be retried.
                 if deposit.status != previousStatus { deposit.status = previousStatus }
             }
         }

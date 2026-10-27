@@ -189,8 +189,8 @@ enum BankImportPipeline {
         if post(row, in: context, saving: batch == nil) {
             return row
         }
-        // A failed post may have rolled the context back with `row` in it, so the
-        // review row is a fresh object rather than a re-insert of a discarded one.
+        // A failed post deletes `row` if it inserted it, so the review row is a
+        // fresh object rather than a re-insert of a deleted one.
         let pending = makeRow()
         pending.status = .pendingReview
         context.insert(pending)
@@ -346,8 +346,13 @@ enum BankImportPipeline {
     }
 
     static func reject(_ row: ImportedEvent, in context: ModelContext) {
+        let previous = row.status
         row.status = .rejected
-        try? Ledger.save(context, rollbackOnFailure: true)
+        do {
+            try Ledger.save(context)
+        } catch {
+            row.status = previous
+        }
     }
 
     static func deleteAggregatorImports(in context: ModelContext) {
@@ -388,7 +393,8 @@ enum BankImportPipeline {
     /// Files the expense on the account the user named. Does not change that account's balance:
     /// the last digits are not a link to the bank, so there is no balance to move.
     /// - Parameter saving: `false` inside a batch, which saves once at the end.
-    /// When saving, a failed save rolls the context back and returns `false`.
+    /// When saving, a failed save drops the new transaction (and `row`, if it was inserted
+    /// here), puts `row.status` back and returns `false`.
     private static func recordLabeled(_ row: ImportedEvent, on account: Account, in context: ModelContext, saving: Bool) -> Bool {
         if AuthenticationService.movementBlocked { return false }
         if let ref = row.externalRef, !ref.isEmpty, transactionExists(withRef: ref, in: context) {
@@ -413,14 +419,20 @@ enum BankImportPipeline {
         tx.railRaw = PaymentRail.imported.rawValue
         tx.categoryRef = category(named: row.categoryName, in: context)
         tx.account = account
+        let previousStatus = row.status
+        let insertsRow = row.modelContext == nil
         context.insert(tx)
         row.status = .posted
-        if row.modelContext == nil { context.insert(row) }
+        if insertsRow { context.insert(row) }
         guard saving else { return true }
         do {
-            try Ledger.save(context, rollbackOnFailure: true)
+            try Ledger.save(context)
             return true
         } catch {
+            row.status = previousStatus
+            tx.account = nil
+            context.delete(tx)
+            if insertsRow { context.delete(row) }
             return false
         }
     }

@@ -161,13 +161,14 @@ final class ExpenseTrackerViewModel {
 
         let original = originalAccount(for: transaction)
         let category = category(named: categoryName)
-        commitAndReload(touching: [original, account]) {
+        let before = EditableFields(transaction)
+        commitAndReload(touching: [original, account], restore: { before.restore(on: transaction) }) {
             if original?.isDeclaredSpendAccount != true {
                 reverseBalanceChange(for: transaction, on: original)
             }
 
             if !isIncome, !account.isDeclaredSpendAccount, amount > account.availableBalance {
-                // Thrown inside the commit so the reversal above is rolled back with it.
+                // Thrown inside the commit so the reversal above is undone with it.
                 throw InsufficientFundsForEdit()
             }
 
@@ -423,11 +424,30 @@ final class ExpenseTrackerViewModel {
         tightestBudget = tightest.map { (category: $0.category, budget: $0.budget, status: $0.status) }
     }
 
-    /// Runs `changes` and saves through `Ledger`. A failed save rolls back the context
-    /// (including any balance moved inside `changes`) and sets `error`. Always reloads.
-    private func commitAndReload(touching accounts: [Account?], _ changes: () throws -> Void) {
+    /// Runs `changes` and saves through `Ledger`. A failed save undoes the balances,
+    /// inserts and envelope totals moved inside `changes`, runs `restore`, and sets
+    /// `error`. Always reloads.
+    private func commitAndReload(
+        touching accounts: [Account?],
+        restore: () -> Void = {},
+        _ changes: () throws -> Void
+    ) {
+        if envelopeCache == nil {
+            envelopeCache = (try? modelContext.fetch(FetchDescriptor<Envelope>())) ?? []
+        }
+        let envelopes = (envelopeCache ?? []).map { (envelope: $0, spent: $0.spent) }
         do {
-            try Ledger.commit(modelContext, touching: accounts.compactMap { $0 }, changes)
+            try Ledger.commit(
+                modelContext,
+                touching: accounts.compactMap { $0 },
+                restore: {
+                    for saved in envelopes where saved.envelope.spent != saved.spent {
+                        saved.envelope.spent = saved.spent
+                    }
+                    restore()
+                },
+                changes
+            )
         } catch is InsufficientFundsForEdit {
             self.error = .insufficientFunds
         } catch {
@@ -436,10 +456,11 @@ final class ExpenseTrackerViewModel {
         reload()
     }
 
-    /// Saves a change that does not move money. Rolls back on failure.
+    /// Saves a change that does not move money. On failure a new insert is dropped;
+    /// an edit or delete stays pending for the next successful save.
     private func persistAndReload() {
         do {
-            try Ledger.save(modelContext, rollbackOnFailure: true)
+            try Ledger.save(modelContext, discardingInsertsOnFailure: true)
         } catch {
             self.error = .transactionFailed
         }
@@ -461,6 +482,49 @@ final class ExpenseTrackerViewModel {
     private func reverseBalanceChange(for transaction: Transaction, on account: Account?) {
         guard let account else { return }
         applyBalanceChange(to: account, amount: transaction.amount, isIncome: transaction.isDebit)
+    }
+
+    /// The fields `updateExpense` edits, so a failed save can put them back.
+    private struct EditableFields {
+        let accountId: String
+        let account: Account?
+        let countsInLedger: Bool
+        let typeRaw: String
+        let amount: Decimal
+        let merchant: String?
+        let counterparty: String?
+        let transactionDescription: String
+        let category: String?
+        let categoryRef: ExpenseCategory?
+        let transactionDate: Date
+
+        init(_ transaction: Transaction) {
+            accountId = transaction.accountId
+            account = transaction.account
+            countsInLedger = transaction.countsInLedger
+            typeRaw = transaction.typeRaw
+            amount = transaction.amount
+            merchant = transaction.merchant
+            counterparty = transaction.counterparty
+            transactionDescription = transaction.transactionDescription
+            category = transaction.category
+            categoryRef = transaction.categoryRef
+            transactionDate = transaction.transactionDate
+        }
+
+        func restore(on transaction: Transaction) {
+            transaction.accountId = accountId
+            transaction.account = account
+            transaction.countsInLedger = countsInLedger
+            transaction.typeRaw = typeRaw
+            transaction.amount = amount
+            transaction.merchant = merchant
+            transaction.counterparty = counterparty
+            transaction.transactionDescription = transactionDescription
+            transaction.category = category
+            transaction.categoryRef = categoryRef
+            transaction.transactionDate = transactionDate
+        }
     }
 
     private func adjustEnvelope(named name: String, by delta: Decimal) {

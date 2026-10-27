@@ -2,15 +2,15 @@ import SwiftUI
 import SwiftData
 
 extension Ledger {
-    static let saveFailedMessage = "Your change couldn't be saved. Nothing was changed. Please try again."
+    static let saveFailedMessage = "Your change couldn't be saved. Please try again."
 
-    /// Saves a change that does not move money. On failure the context is rolled
-    /// back, `error` receives a message for `saveFailureAlert`, and this returns
-    /// `false`, so callers only clear their form when it returns `true`.
+    /// Saves a change that does not move money. On failure models inserted and not
+    /// yet saved are dropped, `error` receives a message for `saveFailureAlert`, and
+    /// this returns `false`, so callers only clear their form when it returns `true`.
     @discardableResult
     static func saveOrReport(_ context: ModelContext, error report: Binding<String?>) -> Bool {
         do {
-            try save(context, rollbackOnFailure: true)
+            try save(context, discardingInsertsOnFailure: true)
             return true
         } catch {
             report.wrappedValue = saveFailedMessage
