@@ -26,8 +26,8 @@ final class LedgerAndDepositTests: XCTestCase {
         return account
     }
 
-    private func transactions() throws -> [Transaction] {
-        try context.fetch(FetchDescriptor<Transaction>())
+    private func transactions() throws -> [Banking_Application.Transaction] {
+        try context.fetch(FetchDescriptor<Banking_Application.Transaction>())
     }
 
     // MARK: Ledger
@@ -45,7 +45,7 @@ final class LedgerAndDepositTests: XCTestCase {
         let account = try savedAccount(balance: 100)
         try Ledger.commit(context, touching: [account]) {
             Ledger.apply(-40, to: account)
-            context.insert(Transaction(accountId: account.id, type: .payment, amount: 40, description: "Sample", transactionDate: Date(), category: "Test"))
+            context.insert(Banking_Application.Transaction(accountId: account.id, type: .payment, amount: 40, description: "Sample", transactionDate: Date(), category: "Test"))
         }
         XCTAssertFalse(context.hasChanges)
         XCTAssertEqual(account.balance, 60)
@@ -56,7 +56,7 @@ final class LedgerAndDepositTests: XCTestCase {
         let account = try savedAccount(balance: 100)
         XCTAssertThrowsError(try Ledger.commit(context, touching: [account]) {
             Ledger.apply(-40, to: account)
-            context.insert(Transaction(accountId: account.id, type: .payment, amount: 40, description: "Sample", transactionDate: Date(), category: "Test"))
+            context.insert(Banking_Application.Transaction(accountId: account.id, type: .payment, amount: 40, description: "Sample", transactionDate: Date(), category: "Test"))
             Ledger.debugFailNextCommit = true
         })
         XCTAssertEqual(account.balance, 100)
