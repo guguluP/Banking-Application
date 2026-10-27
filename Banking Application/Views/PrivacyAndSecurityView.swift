@@ -2,8 +2,8 @@ import SwiftUI
 
 struct PrivacyAndSecurityView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var authenticationService: AuthenticationService
-    @ObservedObject private var settings = AppSettings.shared
+    @Environment(AuthenticationService.self) var authenticationService
+    @Bindable private var settings = AppSettings.shared
 
     var body: some View {
         ScrollView {
@@ -65,7 +65,7 @@ struct PrivacyAndSecurityView: View {
 
                             NavigationLink("Set duress passcode") {
                                 DuressPasscodeView()
-                                    .environmentObject(authenticationService)
+                                    .environment(authenticationService)
                             }
                             .font(.body)
                         }
@@ -102,6 +102,6 @@ struct PrivacyAndSecurityView: View {
 struct PrivacyAndSecurityView_Previews: PreviewProvider {
     static var previews: some View {
         PrivacyAndSecurityView()
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
     }
 }

@@ -1,23 +1,20 @@
 import Foundation
-import Combine
 import SwiftData
 
-/// Single source of truth for the app's on-device + iCloud-synced data store.
+/// Single source of truth for the app's on-device data store.
 ///
 /// This replaces the previous `NetworkingService` HTTP client and the standalone
 /// Spring Boot backend for day-to-day app data: account balances, transactions,
-/// cards, beneficiaries, and billers now live in SwiftData and are transparently
-/// synced across the signed-in user's own devices through CloudKit's **private**
-/// database (never a public/shared database), so no data is ever exposed to
-/// other iCloud users. This also removes the app's dependence on a
-/// self-hosted server, an HTTP stack, and manual Codable networking code —
-/// everything is native Swift + Apple frameworks.
+/// cards, beneficiaries, and billers live in SwiftData on this device only.
+/// The store is created with `cloudKitDatabase: .none`, so nothing is synced to
+/// iCloud. The models keep CloudKit-compatible shapes (defaults, no unique
+/// constraints) so sync could be turned on later without a migration.
 @MainActor
 enum PersistenceController {
 
-    /// The full schema synced with CloudKit. Every type here is a `@Model` class
-    /// with default values and no unique constraints, which is required for
-    /// CloudKit-backed SwiftData containers.
+    /// The full schema. Every type here is a `@Model` class with default values
+    /// and no unique constraints, which keeps it CloudKit-compatible even though
+    /// sync is currently off.
     static var schema: Schema {
         Schema([
             User.self,
@@ -47,10 +44,8 @@ enum PersistenceController {
         ])
     }
 
-    /// The shared container. CloudKit sync is enabled automatically; SwiftData
-    /// mirrors local writes to the user's private CloudKit database in the
-    /// background and merges remote changes back in, so the same account looks
-    /// identical across the user's iPhone, iPad, and Mac.
+    /// The shared on-disk container. CloudKit sync is off (`cloudKitDatabase: .none`),
+    /// so data stays on this device and is not mirrored to iCloud.
     static var didFallBackToMemory = false
     static var storeFailureDescription: String?
 
@@ -108,7 +103,7 @@ enum PersistenceController {
         let billerCount = (try? context.fetchCount(FetchDescriptor<Biller>())) ?? 0
         guard force || billerCount == 0 else { return }
 
-        let userId = "user_001"
+        let userId = LocalUser.id
         let calendar = Calendar.current
 
         // Store last four only — never a full PAN, even in demo seed data.
@@ -135,7 +130,7 @@ enum PersistenceController {
             context.insert(Biller(userId: userId, name: name, accountNumber: account, nickname: nickname))
         }
 
-        try? context.save()
+        Ledger.saveOrLog(context, "seed data")
     }
 
     /// Seeds the built-in expense categories on first run. Idempotent and
@@ -159,7 +154,7 @@ enum PersistenceController {
             context.insert(category)
         }
 
-        try? context.save()
+        Ledger.saveOrLog(context, "seed data")
     }
 
     /// Migrates any legacy rows that still hold a full PAN down to last-four only.
@@ -180,7 +175,7 @@ enum PersistenceController {
             }
         }
         if changed {
-            try? context.save()
+            Ledger.saveOrLog(context, "seed data")
         }
         UserDefaults.standard.set(true, forKey: flagKey)
     }

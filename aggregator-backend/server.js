@@ -4,6 +4,7 @@
 const http = require("http");
 
 const consents = new Map();
+const MAX_BODY_BYTES = 1024 * 1024; // 1 MB
 
 function send(res, code, body) {
   const data = JSON.stringify(body);
@@ -15,9 +16,30 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
   if (req.method === "POST" && url.pathname === "/v1/consent") {
     let raw = "";
-    req.on("data", (chunk) => { raw += chunk; });
+    let tooLarge = false;
+    req.on("data", (chunk) => {
+      if (tooLarge) return;
+      raw += chunk;
+      if (Buffer.byteLength(raw) > MAX_BODY_BYTES) {
+        tooLarge = true;
+        raw = "";
+        send(res, 413, { error: "request body too large" });
+        req.resume();
+      }
+    });
     req.on("end", () => {
-      const body = JSON.parse(raw || "{}");
+      if (tooLarge) return;
+      let body;
+      try {
+        body = JSON.parse(raw || "{}");
+      } catch {
+        send(res, 400, { error: "invalid JSON" });
+        return;
+      }
+      if (body === null || typeof body !== "object") {
+        send(res, 400, { error: "expected a JSON object" });
+        return;
+      }
       const consentId = Math.random().toString(36).slice(2, 10);
       consents.set(consentId, {
         mobile: body.mobile || "",

@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 @Observable
-class LoanViewModel {
+final class LoanViewModel {
     var nickname = ""
     var loanType: LoanType = .personal
     var principalText = ""
@@ -11,8 +11,7 @@ class LoanViewModel {
     var error: AppError?
 
     var principal: Decimal? {
-        let cleaned = principalText.replacingOccurrences(of: ",", with: "")
-        guard let value = Decimal(string: cleaned), value > 0 else { return nil }
+        guard let value = AmountParser.parse(principalText), value > 0 else { return nil }
         return value
     }
 
@@ -69,9 +68,6 @@ class LoanViewModel {
             disbursementAccountId: account.id
         )
 
-        account.balance += principal
-        account.availableBalance += principal
-
         let creditTransaction = Transaction(
             accountId: account.id,
             type: .deposit,
@@ -80,23 +76,18 @@ class LoanViewModel {
             transactionDate: startDate,
             category: "Loans"
         )
-        creditTransaction.countsInLedger = true
-        creditTransaction.account = account
-
-        context.insert(loan)
-        context.insert(creditTransaction)
 
         do {
-            try context.save()
+            try Ledger.commit(context, touching: [account]) {
+                Ledger.apply(principal, to: account)
+                creditTransaction.countsInLedger = true
+                creditTransaction.account = account
+                context.insert(loan)
+                context.insert(creditTransaction)
+            }
             reset()
             return true
         } catch {
-            // Roll back the disbursement credit and remove the inserted
-            // objects if persistence failed, mirroring FixedDepositViewModel.
-            account.balance -= principal
-            account.availableBalance -= principal
-            context.delete(loan)
-            context.delete(creditTransaction)
             self.error = .unknownError("Couldn't process the loan. Please try again.")
             return false
         }
@@ -137,51 +128,44 @@ class LoanViewModel {
             return false
         }
 
-        account.balance -= debitAmount
-        account.availableBalance -= debitAmount
-
-        // Captured so a failed save can restore the loan to exactly where it was.
+        // Captured so a failed save can restore the loan to exactly where it was;
+        // Ledger only puts back balances and inserts.
         let previousOutstandingPrincipal = loan.outstandingPrincipal
         let previousEmisPaid = loan.emisPaid
         let previousNextDueDate = loan.nextDueDate
         let previousStatus = loan.status
 
-        loan.outstandingPrincipal = max(0, loan.outstandingPrincipal - principalPortion)
-        loan.emisPaid += 1
-        if loan.outstandingPrincipal <= 0 {
-            loan.outstandingPrincipal = 0
-            loan.status = .closed
-        } else {
-            loan.nextDueDate = Calendar.current.date(byAdding: .month, value: 1, to: loan.nextDueDate) ?? loan.nextDueDate
-        }
-
-        let debitTransaction = Transaction(
-            accountId: account.id,
-            type: .payment,
-            amount: debitAmount,
-            description: "EMI — \(loan.nickname)",
-            transactionDate: Date(),
-            category: "Loans"
-        )
-        debitTransaction.countsInLedger = true
-        debitTransaction.account = account
-
-        context.insert(debitTransaction)
-
         do {
-            try context.save()
+            try Ledger.commit(context, touching: [account]) {
+                Ledger.apply(-debitAmount, to: account)
+                loan.outstandingPrincipal = max(0, loan.outstandingPrincipal - principalPortion)
+                loan.emisPaid += 1
+                if loan.outstandingPrincipal <= 0 {
+                    loan.outstandingPrincipal = 0
+                    loan.status = .closed
+                } else {
+                    loan.nextDueDate = Calendar.current.date(byAdding: .month, value: 1, to: loan.nextDueDate) ?? loan.nextDueDate
+                }
+
+                let debitTransaction = Transaction(
+                    accountId: account.id,
+                    type: .payment,
+                    amount: debitAmount,
+                    description: "EMI — \(loan.nickname)",
+                    transactionDate: Date(),
+                    category: "Loans"
+                )
+                debitTransaction.countsInLedger = true
+                debitTransaction.account = account
+                context.insert(debitTransaction)
+            }
             error = nil
             return true
         } catch {
-            // Roll back the actual debit and the loan schedule mutation if
-            // persistence failed, so the EMI never appears paid when it wasn't saved.
-            account.balance += debitAmount
-            account.availableBalance += debitAmount
             loan.outstandingPrincipal = previousOutstandingPrincipal
             loan.emisPaid = previousEmisPaid
             loan.nextDueDate = previousNextDueDate
             loan.status = previousStatus
-            context.delete(debitTransaction)
             self.error = .unknownError("Couldn't process the EMI payment. Please try again.")
             return false
         }
@@ -211,54 +195,47 @@ class LoanViewModel {
             return false
         }
 
-        account.balance -= amount
-        account.availableBalance -= amount
-
         // Captured so a failed save can restore the loan to exactly where it was.
         let previousOutstandingPrincipal = loan.outstandingPrincipal
         let previousStatus = loan.status
         let previousTenureMonths = loan.tenureMonths
 
-        loan.outstandingPrincipal -= amount
-
-        if loan.outstandingPrincipal <= 0 {
-            loan.outstandingPrincipal = 0
-            loan.status = .closed
-        } else {
-            let monthlyRate = loan.interestRate / 100.0 / 12.0
-            let months = LoanCalculator.monthsToPayoff(
-                balance: loan.outstandingPrincipal,
-                monthlyRate: monthlyRate,
-                emi: loan.emiAmount
-            )
-            loan.tenureMonths = loan.emisPaid + months
-        }
-
-        let debitTransaction = Transaction(
-            accountId: account.id,
-            type: .payment,
-            amount: amount,
-            description: "Prepayment — \(loan.nickname)",
-            transactionDate: Date(),
-            category: "Loans"
-        )
-        debitTransaction.countsInLedger = true
-        debitTransaction.account = account
-        context.insert(debitTransaction)
-
         do {
-            try context.save()
+            try Ledger.commit(context, touching: [account]) {
+                Ledger.apply(-amount, to: account)
+                loan.outstandingPrincipal -= amount
+
+                if loan.outstandingPrincipal <= 0 {
+                    loan.outstandingPrincipal = 0
+                    loan.status = .closed
+                } else {
+                    let monthlyRate = loan.interestRate / 100.0 / 12.0
+                    let months = LoanCalculator.monthsToPayoff(
+                        balance: loan.outstandingPrincipal,
+                        monthlyRate: monthlyRate,
+                        emi: loan.emiAmount
+                    )
+                    loan.tenureMonths = loan.emisPaid + months
+                }
+
+                let debitTransaction = Transaction(
+                    accountId: account.id,
+                    type: .payment,
+                    amount: amount,
+                    description: "Prepayment — \(loan.nickname)",
+                    transactionDate: Date(),
+                    category: "Loans"
+                )
+                debitTransaction.countsInLedger = true
+                debitTransaction.account = account
+                context.insert(debitTransaction)
+            }
             error = nil
             return true
         } catch {
-            // Roll back the debit and the loan mutation if persistence
-            // failed, so the prepayment never appears applied when it wasn't saved.
-            account.balance += amount
-            account.availableBalance += amount
             loan.outstandingPrincipal = previousOutstandingPrincipal
             loan.status = previousStatus
             loan.tenureMonths = previousTenureMonths
-            context.delete(debitTransaction)
             self.error = .unknownError("Couldn't process the prepayment. Please try again.")
             return false
         }

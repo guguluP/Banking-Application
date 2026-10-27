@@ -1,16 +1,17 @@
 import Foundation
 import UserNotifications
-import Combine
+import Observation
 
 /// Local notifications for transactions, low balance, large payments, and
 /// the weekly summary. Demo mode has no push server — these fire on-device.
 @MainActor
-final class NotificationService: ObservableObject {
+@Observable
+final class NotificationService {
     static let shared = NotificationService()
 
     static let lowBalanceThreshold: Decimal = 1_000
 
-    @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
     private let center = UNUserNotificationCenter.current()
     private let weeklyIdentifier = "weekly-summary"

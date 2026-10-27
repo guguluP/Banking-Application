@@ -23,7 +23,7 @@ struct ParsedExpenseDraft {
 /// speed), backed by a lightweight keyword-dictionary classifier for
 /// merchant/category (see `CategoryKeywordClassifier`).
 ///
-/// This intentionally does not call any network API — Windfall's local-first
+/// This intentionally does not call any network API — BankSecure's local-first
 /// promise means this pipeline must work with no connectivity and without
 /// sending the user's spending text anywhere. The dictionary classifier is
 /// also intentionally isolated behind `CategoryClassifying` so it can be
@@ -64,26 +64,35 @@ final class ExpenseParsingService {
         )
     }
 
+    /// Merchant and category only, without the amount and date rules. Same result as
+    /// `parse(text).merchant` / `.categoryName`.
+    func classify(_ text: String) -> CategoryClassification {
+        classifier.classify(text: text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     // MARK: - Amount extraction
+
+    private static let numberPattern = #"(?:[0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]+)(?:\.[0-9]{1,2})?"#
+    private static let currencyAmountRegexes: [NSRegularExpression] = [
+        "(?:₹|Rs\\.?|INR|\\$)\\s?(\(numberPattern))",
+        "(\(numberPattern))\\s?(?:rupees|rs\\.?|inr|dollars|usd)"
+    ].compactMap { try? NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
+    private static let bareAmountRegex = try? NSRegularExpression(pattern: #"(?<![\d.])([0-9]+(?:\.[0-9]{1,2})?)(?![\d.])"#)
+    private static let dateDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue)
 
     /// Matches currency-prefixed or currency-suffixed numbers: "$8.40",
     /// "₹450", "Rs 450", "450 rupees", or a bare "450" as a last resort
     /// (only used if nothing more specific is found, since a bare number
     /// could be a house number, a time, etc.)
     static func extractAmount(from text: String) -> Decimal? {
-        let number = #"(?:[0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]+)(?:\.[0-9]{1,2})?"#
-        let patterns = [
-            "(?:₹|Rs\\.?|INR|\\$)\\s?(\(number))",
-            "(\(number))\\s?(?:rupees|rs\\.?|inr|dollars|usd)"
-        ]
         func currencyAmounts(in scope: String) -> [Decimal] {
-            patterns.flatMap { pattern in
-                allMatches(pattern: pattern, in: scope, group: 1, options: [.caseInsensitive]).compactMap(decimal)
+            currencyAmountRegexes.flatMap { regex in
+                allMatches(regex, in: scope, group: 1).compactMap(AmountParser.parse)
             }
         }
-        let barePattern = #"(?<![\d.])([0-9]+(?:\.[0-9]{1,2})?)(?![\d.])"#
         func bareAmounts(in scope: String) -> [Decimal] {
-            allMatches(pattern: barePattern, in: scope, group: 1).compactMap { Decimal(string: $0) }
+            guard let bareAmountRegex else { return [] }
+            return allMatches(bareAmountRegex, in: scope, group: 1).compactMap(AmountParser.parse)
         }
 
         var totalCurrency: [Decimal] = []
@@ -129,7 +138,7 @@ final class ExpenseParsingService {
             return calendar.mostRecentDate(matchingWeekday: targetWeekday, before: Date())
         }
 
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue) else {
+        guard let detector = dateDetector else {
             return nil
         }
         let range = NSRange(text.startIndex..., in: text)
@@ -141,12 +150,7 @@ final class ExpenseParsingService {
 
     // MARK: - Regex helpers
 
-    private static func decimal(_ raw: String) -> Decimal? {
-        Decimal(string: raw.replacingOccurrences(of: ",", with: ""))
-    }
-
-    private static func allMatches(pattern: String, in text: String, group: Int, options: NSRegularExpression.Options = []) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else { return [] }
+    private static func allMatches(_ regex: NSRegularExpression, in text: String, group: Int) -> [String] {
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).compactMap { match in
             guard match.numberOfRanges > group, let matchedRange = Range(match.range(at: group), in: text) else { return nil }

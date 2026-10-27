@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// The single save path for every way an expense enters the app — typed
 /// Quick-Add, natural-language parsing, and receipt OCR all end here.
@@ -191,12 +190,12 @@ struct ExpenseConfirmationView: View {
     }
 
     private var isFormValid: Bool {
-        guard let amount = Decimal(string: amountText), amount > 0 else { return false }
+        guard let amount = AmountParser.parse(amountText), amount > 0 else { return false }
         return selectedAccount != nil
     }
 
     private func save() {
-        guard let amount = Decimal(string: amountText), let account = selectedAccount else { return }
+        guard let amount = AmountParser.parse(amountText), let account = selectedAccount else { return }
         let trimmedMerchant = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = trimmedMerchant.isEmpty ? selectedCategoryName : trimmedMerchant
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)

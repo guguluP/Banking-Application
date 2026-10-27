@@ -28,20 +28,20 @@ struct GlassCard<Content: View>: View {
     /// When true, the card uses a single Liquid Glass surface (hero only).
     /// Default cards use a cheap translucent fill so a dashboard of many
     /// cards does not sample glass/material on every frame.
-    var reactsToTilt: Bool = false
+    var usesLiquidGlass: Bool = false
     var tint: Color? = nil
 
     @Environment(\.colorScheme) private var colorScheme
 
     init(
         cornerRadius: CGFloat = AppTheme.CornerRadius.card,
-        reactsToTilt: Bool = false,
+        usesLiquidGlass: Bool = false,
         tint: Color? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.content = content()
         self.cornerRadius = cornerRadius
-        self.reactsToTilt = reactsToTilt
+        self.usesLiquidGlass = usesLiquidGlass
         self.tint = tint
     }
 
@@ -64,7 +64,7 @@ struct GlassCard<Content: View>: View {
             )
             .bankCardShadow()
 
-        if reactsToTilt {
+        if usesLiquidGlass {
             card.glassControl(cornerRadius: cornerRadius, tint: tint, interactive: false)
         } else {
             card

@@ -4,7 +4,7 @@ import SwiftData
 struct LoanTrackerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AccountViewModel.self) var accountViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Query(sort: \Loan.startDate, order: .reverse) private var allLoans: [Loan]
     @State private var showingApply = false
     
@@ -203,11 +203,11 @@ struct LoanDetailView: View {
                         Divider().padding(.vertical, 4)
                         
                         HStack {
-                            statColumn(title: "Outstanding", value: loan.formattedOutstanding)
+                            StatColumn(title: "Outstanding", value: loan.formattedOutstanding)
                             Divider().frame(height: 30)
-                            statColumn(title: "EMI", value: loan.formattedEMI)
+                            StatColumn(title: "EMI", value: loan.formattedEMI)
                             Divider().frame(height: 30)
-                            statColumn(title: "Remaining", value: "\(loan.remainingEMIs) mo")
+                            StatColumn(title: "Remaining", value: "\(loan.remainingEMIs) mo")
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -246,7 +246,7 @@ struct LoanDetailView: View {
                             Label("Prepayment tip", systemImage: "lightbulb.fill")
                                 .font(.caption.bold())
                                 .foregroundColor(.orange)
-                            Text("Prepaying \(CurrencyFormatter.shared.string(from: min(loan.emiAmount * 6, loan.outstandingPrincipal))) now could save roughly \(CurrencyFormatter.shared.string(from: impact.interestSaved)) in interest and \(max(0, loan.remainingEMIs - impact.newRemainingMonths)) months off the tenure.")
+                            Text("Prepaying \(CurrencyFormatter.shared.string(from: min(loan.emiAmount * 6, loan.outstandingPrincipal))) now could save roughly \(CurrencyFormatter.shared.string(from: impact.interestSaved)) in interest and \(impact.monthsSaved) months off the tenure.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -266,16 +266,6 @@ struct LoanDetailView: View {
         }
     }
     
-    private func statColumn(title: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.subheadline.bold())
-            Text(title)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
 }
 
 struct PrepayLoanView: View {
@@ -287,7 +277,7 @@ struct PrepayLoanView: View {
     @State private var amountText = ""
     
     private var amount: Decimal? {
-        Decimal(string: amountText.replacingOccurrences(of: ",", with: ""))
+        AmountParser.parse(amountText)
     }
     
     var body: some View {

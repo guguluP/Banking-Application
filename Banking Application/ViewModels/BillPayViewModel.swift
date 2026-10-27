@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 @Observable
-class BillPayViewModel {
+final class BillPayViewModel {
     var billerAccount = ""
     var amount = ""
     var error: AppError?
@@ -20,13 +20,13 @@ class BillPayViewModel {
     }
 
     var isAmountValid: Bool {
-        guard let amountDecimal = Decimal(string: amount) else { return false }
+        guard let amountDecimal = AmountParser.parse(amount) else { return false }
         return amountDecimal > 0
     }
 
     var amountError: String {
         guard !amount.isEmpty else { return "" }
-        guard let amountDecimal = Decimal(string: amount) else { return "Enter a valid amount" }
+        guard let amountDecimal = AmountParser.parse(amount) else { return "Enter a valid amount" }
         if amountDecimal <= 0 { return "Amount must be greater than zero" }
         return ""
     }
@@ -74,7 +74,7 @@ class BillPayViewModel {
             HapticFeedbackService.shared.errorOccurred()
             return false
         }
-        guard let amountDecimal = Decimal(string: amount), amountDecimal > 0 else {
+        guard let amountDecimal = AmountParser.parse(amount), amountDecimal > 0 else {
             error = .invalidAmount
             HapticFeedbackService.shared.errorOccurred()
             return false

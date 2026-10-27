@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 #if canImport(UIKit)
 import UIKit
@@ -7,10 +6,10 @@ import UIKit
 
 @main
 struct BankApp: App {
-    @StateObject private var authenticationService = AuthenticationService()
+    @State private var authenticationService = AuthenticationService()
     @State private var transactionViewModel: TransactionViewModel
     @State private var accountViewModel: AccountViewModel
-    @ObservedObject private var settings = AppSettings.shared
+    private let settings = AppSettings.shared
 
     private let container: ModelContainer
 
@@ -19,7 +18,8 @@ struct BankApp: App {
         self.container = container
 
         let context = container.mainContext
-        let tvm = TransactionViewModel(modelContext: context)
+        // Transactions load once after unlock (see `.onChange(of: isAuthenticated)`).
+        let tvm = TransactionViewModel(modelContext: context, loadImmediately: false)
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         _transactionViewModel = State(initialValue: tvm)
         _accountViewModel = State(initialValue: avm)
@@ -42,18 +42,18 @@ struct BankApp: App {
                     OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
                 } else if !authenticationService.hasPasscodeConfigured {
                     PasscodeSetupView()
-                        .environmentObject(authenticationService)
+                        .environment(authenticationService)
                 } else if authenticationService.isAuthenticated {
                     AuthenticatedHomeGate {
                         accountViewModel.loadAccounts()
                         transactionViewModel.loadAllTransactions()
                     }
-                    .environmentObject(authenticationService)
+                    .environment(authenticationService)
                     .environment(accountViewModel)
                     .environment(transactionViewModel)
                 } else {
                     LoginView()
-                        .environmentObject(authenticationService)
+                        .environment(authenticationService)
                 }
             }
             .modelContainer(container)
@@ -72,8 +72,9 @@ struct BankApp: App {
                     authenticationService.loadUser(from: container)
                     if !authenticationService.isDecoySession {
                         BankingSessionTasks.runAfterUnlock(in: container.mainContext)
-                        accountViewModel.loadAccounts()
+                        // Transactions first so the account analytics see them.
                         transactionViewModel.loadAllTransactions()
+                        accountViewModel.loadAccounts()
                     }
                 }
             }

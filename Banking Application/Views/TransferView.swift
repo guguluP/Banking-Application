@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 
 struct TransferView: View {
@@ -7,7 +6,7 @@ struct TransferView: View {
     var isEmbedded: Bool = false
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Beneficiary.nickname) private var allBeneficiaries: [Beneficiary]
     @State private var viewModel = TransferViewModel()
@@ -16,6 +15,9 @@ struct TransferView: View {
     @State private var showingConfirmation = false
     @State private var showingSuccess = false
     @State private var showingAddBeneficiary = false
+    /// Round-up that would ride along with the typed amount. Recomputed when
+    /// its inputs change rather than on every body evaluation (it fetches).
+    @State private var transferSpare: Decimal = 0
     
     private let quickAmounts: [Decimal] = [Decimal(100), Decimal(500), Decimal(1000), Decimal(5000)]
     
@@ -215,14 +217,19 @@ struct TransferView: View {
             .bankSoftScrollEdges()
             .overlay {
                 if showingSuccess {
-                    TransferSuccessOverlay(isPresented: $showingSuccess)
+                    SuccessOverlay(
+                        style: .check(title: "Transfer Complete", message: "Your money is on its way.", dismissAfter: .milliseconds(2200)),
+                        isPresented: $showingSuccess
+                    )
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
             }
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.isProcessing)
             .navigationTitle("Transfer Money")
-            .searchable(text: $viewModel.searchText, prompt: "Search accounts")
             .autocorrectionDisabled(true)
+            .onChange(of: spareInputs, initial: true) {
+                transferSpare = computeTransferSpare()
+            }
             .toolbar {
                 ToolbarItem(placement: .keyboard) {
                     Button("Done") {
@@ -237,7 +244,7 @@ struct TransferView: View {
                     requestBiometricAuth()
                 }
             } message: {
-                let amountDecimal = Decimal(string: viewModel.amount) ?? 0
+                let amountDecimal = AmountParser.parse(viewModel.amount) ?? 0
                 let amountText = CurrencyFormatter.shared.string(from: amountDecimal)
                 let spareText = CurrencyFormatter.shared.string(from: transferSpare)
                 Text(transferSpare > 0
@@ -251,14 +258,19 @@ struct TransferView: View {
             .accessibilityElement(children: .contain)
     }
     
-    private var transferSpare: Decimal {
-        guard let from = selectedFromAccount, let amountDecimal = Decimal(string: viewModel.amount), amountDecimal > 0 else { return 0 }
+    /// Everything `computeTransferSpare()` depends on.
+    private var spareInputs: String {
+        "\(selectedFromAccount?.id ?? "")|\(viewModel.amount)|\(AppSettings.shared.isRoundUpEnabled)"
+    }
+
+    private func computeTransferSpare() -> Decimal {
+        guard let from = selectedFromAccount, let amountDecimal = AmountParser.parse(viewModel.amount), amountDecimal > 0 else { return 0 }
         return TransactionService.roundUpDebit(for: amountDecimal, from: from, in: modelContext)
     }
 
     private var isFormValid: Bool {
         guard let from = selectedFromAccount else { return false }
-        guard let amountDecimal = Decimal(string: viewModel.amount), amountDecimal > 0 else { return false }
+        guard let amountDecimal = AmountParser.parse(viewModel.amount), amountDecimal > 0 else { return false }
         guard amountDecimal + transferSpare <= from.availableBalance else { return false }
         return viewModel.isFormValid
     }
@@ -287,12 +299,13 @@ struct TransferView: View {
         
         guard viewModel.validateForm() else { return }
         
-        guard let amountDecimal = Decimal(string: viewModel.amount) else {
+        guard let amountDecimal = AmountParser.parse(viewModel.amount) else {
             viewModel.error = .invalidAmount
             HapticFeedbackService.shared.errorOccurred()
             return
         }
         
+        transferSpare = computeTransferSpare()
         guard amountDecimal + transferSpare <= from.availableBalance else {
             viewModel.error = .insufficientFunds
             HapticFeedbackService.shared.errorOccurred()
@@ -381,56 +394,6 @@ struct AccountPicker: View {
     }
 }
 
-struct TransferSuccessOverlay: View {
-    @Binding var isPresented: Bool
-    @State private var checkmarkScale: CGFloat = 0.4
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .onTapGesture { dismiss() }
-
-            VStack(spacing: AppSpacing.md) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.green)
-                    .scaleEffect(checkmarkScale)
-                    .onAppear {
-                        withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
-                            checkmarkScale = 1.0
-                        }
-                    }
-
-                Text("Transfer Complete")
-                    .font(.headline)
-
-                Text("Your money is on its way.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                ModernButton(title: "Done", systemImage: nil, variant: .filled) {
-                    dismiss()
-                }
-                .padding(.top, AppSpacing.sm)
-            }
-            .padding(AppSpacing.xl)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large))
-            .padding(.horizontal, AppSpacing.xxl)
-        }
-        .task {
-            try? await Task.sleep(nanoseconds: 2_200_000_000)
-            dismiss()
-        }
-    }
-
-    private func dismiss() {
-        withAnimation(.easeOut(duration: 0.25)) {
-            isPresented = false
-        }
-    }
-}
-
 struct TransferView_Previews: PreviewProvider {
     static var previews: some View {
         let container = PersistenceController.preview
@@ -440,7 +403,7 @@ struct TransferView_Previews: PreviewProvider {
         return TransferView()
             .environment(avm)
             .environment(tvm)
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
             .modelContainer(container)
     }
 }

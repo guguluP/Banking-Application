@@ -113,9 +113,40 @@ nonisolated enum IndianBankCatalog {
 }
 
 nonisolated enum IndianBankSMSGrammar {
-    static func parse(_ text: String, now: Date = Date()) -> CapturedBankSMS? {
+    /// Compiled once. `NSRegularExpression` is immutable and safe to share across threads.
+    private static func compile(_ pattern: String, _ options: NSRegularExpression.Options = [.caseInsensitive]) -> NSRegularExpression? {
+        try? NSRegularExpression(pattern: pattern, options: options)
+    }
+
+    private static let number = #"(?:[0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]+)(?:\.[0-9]{1,2})?"#
+    nonisolated(unsafe) private static let otpCodeRegex = compile(#"\b\d{4,8}\b"#, [])
+    nonisolated(unsafe) private static let namedMonthDateRegex = compile(#"\b(\d{1,2})[\/\-.]([A-Za-z]{3})[\/\-.](\d{2,4})\b"#)
+    nonisolated(unsafe) private static let numericDateRegex = compile(#"\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b"#)
+    nonisolated(unsafe) private static let amountRegexes: [NSRegularExpression] = [
+        "(?:₹|Rs\\.?|INR)\\s*(\(number))",
+        "(\(number))\\s*(?:₹|Rs\\.?|INR|rupees)"
+    ].compactMap { compile($0) }
+    nonisolated(unsafe) private static let accountLast4Regexes: [NSRegularExpression] = [
+        #"(?:a/?c(?:count)?|acct|card)(?:\s*(?:no\.?|number|ending))?\s*(?:xx+|\*{2,}|x{2,})?\s*(\d{4})\b"#,
+        #"(?:xx+|\*{2,}|x{2,})(\d{4})\b"#,
+        #"ending\s+(\d{4})\b"#
+    ].compactMap { compile($0) }
+    nonisolated(unsafe) private static let externalRefRegexes: [NSRegularExpression] = [
+        #"(?:UTR|RRN|UPI\s*Ref(?:erence)?(?:\s*No\.?)?|Ref(?:erence)?(?:\s*No\.?)?|IMPS\s*Ref)\s*[:\-]?\s*([A-Za-z0-9]{6,22})"#,
+        #"\b((?:IMPS|NEFT|RTGS|UPI)[A-Z0-9]{8,})\b"#
+    ].compactMap { compile($0) }
+    nonisolated(unsafe) private static let merchantRegexes: [NSRegularExpression] = [
+        #"(?:VPA|UPI\s*ID)\s*[:\-]?\s*([A-Za-z0-9.\-_]+@[A-Za-z0-9]+)"#,
+        #"UPI[/\-]([A-Za-z0-9.\-_@]{2,40})"#,
+        #"(?:to|at|towards|info:?)\s+([A-Za-z0-9][A-Za-z0-9@.\- ]{1,40})"#,
+        #"([A-Za-z0-9.\-_]+@[A-Za-z0-9]+)"#
+    ].compactMap { compile($0) }
+
+    /// - Parameter checkOTP: pass `false` only when the caller already ran `looksLikeOTP` on this text.
+    static func parse(_ text: String, now: Date = Date(), checkOTP: Bool = true) -> CapturedBankSMS? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !looksLikeOTP(trimmed) else { return nil }
+        guard !trimmed.isEmpty else { return nil }
+        if checkOTP, looksLikeOTP(trimmed) { return nil }
         guard let amount = amount(in: trimmed), let isCredit = directionIsCredit(in: trimmed) else { return nil }
         let known = IndianBankCatalog.identify(in: trimmed)
         let last4 = accountLast4(in: trimmed) ?? ""
@@ -146,7 +177,7 @@ nonisolated enum IndianBankSMSGrammar {
     static func looksLikeOTP(_ text: String) -> Bool {
         let lower = text.lowercased()
         let keywords = ["one-time password", "one time password", "one time", "otp"]
-        guard let regex = try? NSRegularExpression(pattern: #"\b\d{4,8}\b"#) else { return false }
+        guard let regex = otpCodeRegex else { return false }
         let nsRange = NSRange(lower.startIndex..., in: lower)
         let codes = regex.matches(in: lower, range: nsRange).compactMap { Range($0.range, in: lower) }
         guard !codes.isEmpty else { return false }
@@ -184,24 +215,19 @@ nonisolated enum IndianBankSMSGrammar {
     }
 
     static func occurredAt(in text: String, now: Date = Date()) -> Date {
-        if let date = dateMatch(in: text, pattern: #"\b(\d{1,2})[\/\-.]([A-Za-z]{3})[\/\-.](\d{2,4})\b"#, namedMonth: true) {
+        if let regex = namedMonthDateRegex, let date = dateMatch(in: text, regex: regex, namedMonth: true) {
             return date
         }
-        if let date = dateMatch(in: text, pattern: #"\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b"#, namedMonth: false) {
+        if let regex = numericDateRegex, let date = dateMatch(in: text, regex: regex, namedMonth: false) {
             return date
         }
         return now
     }
 
     private static func amount(in text: String) -> Decimal? {
-        let number = #"(?:[0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]+)(?:\.[0-9]{1,2})?"#
-        let patterns = [
-            "(?:₹|Rs\\.?|INR)\\s*(\(number))",
-            "(\(number))\\s*(?:₹|Rs\\.?|INR|rupees)"
-        ]
-        for pattern in patterns {
-            guard let raw = firstGroup(pattern, in: text, group: 1) else { continue }
-            if let value = Decimal(string: raw.replacingOccurrences(of: ",", with: "")), value > 0 {
+        for regex in amountRegexes {
+            guard let raw = firstGroup(regex, in: text, group: 1) else { continue }
+            if let value = AmountParser.parse(raw), value > 0 {
                 return value
             }
         }
@@ -228,8 +254,7 @@ nonisolated enum IndianBankSMSGrammar {
         }
     }
 
-    private static func dateMatch(in text: String, pattern: String, namedMonth: Bool) -> Date? {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+    private static func dateMatch(in text: String, regex: NSRegularExpression, namedMonth: Bool) -> Date? {
         let range = NSRange(text.startIndex..., in: text)
         for hit in regex.matches(in: text, range: range) {
             guard hit.numberOfRanges > 3,
@@ -266,13 +291,8 @@ nonisolated enum IndianBankSMSGrammar {
     }
 
     private static func accountLast4(in text: String) -> String? {
-        let patterns = [
-            #"(?:a/?c(?:count)?|acct|card)(?:\s*(?:no\.?|number|ending))?\s*(?:xx+|\*{2,}|x{2,})?\s*(\d{4})\b"#,
-            #"(?:xx+|\*{2,}|x{2,})(\d{4})\b"#,
-            #"ending\s+(\d{4})\b"#
-        ]
-        for pattern in patterns {
-            if let raw = firstGroup(pattern, in: text, group: 1) {
+        for regex in accountLast4Regexes {
+            if let raw = firstGroup(regex, in: text, group: 1) {
                 return String(raw.filter(\.isNumber).suffix(4))
             }
         }
@@ -280,33 +300,22 @@ nonisolated enum IndianBankSMSGrammar {
     }
 
     private static func externalRef(in text: String) -> String? {
-        let patterns = [
-            #"(?:UTR|RRN|UPI\s*Ref(?:erence)?(?:\s*No\.?)?|Ref(?:erence)?(?:\s*No\.?)?|IMPS\s*Ref)\s*[:\-]?\s*([A-Za-z0-9]{6,22})"#,
-            #"\b((?:IMPS|NEFT|RTGS|UPI)[A-Z0-9]{8,})\b"#
-        ]
-        for pattern in patterns {
-            if let raw = firstGroup(pattern, in: text, group: 1) { return raw }
+        for regex in externalRefRegexes {
+            if let raw = firstGroup(regex, in: text, group: 1) { return raw }
         }
         return nil
     }
 
     private static func merchant(in text: String) -> String? {
-        let patterns = [
-            #"(?:VPA|UPI\s*ID)\s*[:\-]?\s*([A-Za-z0-9.\-_]+@[A-Za-z0-9]+)"#,
-            #"UPI[/\-]([A-Za-z0-9.\-_@]{2,40})"#,
-            #"(?:to|at|towards|info:?)\s+([A-Za-z0-9][A-Za-z0-9@.\- ]{1,40})"#,
-            #"([A-Za-z0-9.\-_]+@[A-Za-z0-9]+)"#
-        ]
-        for pattern in patterns {
-            guard let raw = firstGroup(pattern, in: text, group: 1) else { continue }
+        for regex in merchantRegexes {
+            guard let raw = firstGroup(regex, in: text, group: 1) else { continue }
             let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             if cleaned.count >= 2 { return cleaned }
         }
         return nil
     }
 
-    private static func firstGroup(_ pattern: String, in text: String, group: Int) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+    private static func firstGroup(_ regex: NSRegularExpression, in text: String, group: Int) -> String? {
         let range = NSRange(text.startIndex..., in: text)
         guard let hit = regex.firstMatch(in: text, range: range),
               hit.numberOfRanges > group,

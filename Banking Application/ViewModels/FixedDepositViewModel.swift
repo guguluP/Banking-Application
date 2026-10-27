@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 @Observable
-class FixedDepositViewModel {
+final class FixedDepositViewModel {
     
     var nickname = ""
     var principalText = ""
@@ -12,8 +12,7 @@ class FixedDepositViewModel {
     var error: AppError?
 
     var principal: Decimal? {
-        let cleaned = principalText.replacingOccurrences(of: ",", with: "")
-        guard let value = Decimal(string: cleaned), value > 0 else { return nil }
+        guard let value = AmountParser.parse(principalText), value > 0 else { return nil }
         return value
     }
 
@@ -79,9 +78,6 @@ class FixedDepositViewModel {
             sourceAccountId: sourceAccount.id
         )
 
-        sourceAccount.balance -= principal
-        sourceAccount.availableBalance -= principal
-
         let debitTransaction = Transaction(
             accountId: sourceAccount.id,
             type: .payment,
@@ -90,24 +86,20 @@ class FixedDepositViewModel {
             transactionDate: startDate,
             category: "Savings & Investments"
         )
-        debitTransaction.countsInLedger = true
-        debitTransaction.account = sourceAccount
-
-        context.insert(deposit)
-        context.insert(debitTransaction)
 
         do {
-            try context.save()
+            // On failure Ledger deletes the two inserts, so neither the deposit
+            // nor the debit survives, and the balance is restored.
+            try Ledger.commit(context, touching: [sourceAccount]) {
+                Ledger.apply(-principal, to: sourceAccount)
+                debitTransaction.countsInLedger = true
+                debitTransaction.account = sourceAccount
+                context.insert(deposit)
+                context.insert(debitTransaction)
+            }
             reset()
             return true
         } catch {
-            // Roll back the in-memory balance change and remove the
-            // inserted objects if persistence failed, so the UI never shows
-            // the deposit as opened (and the money as moved) when it wasn't saved.
-            sourceAccount.balance += principal
-            sourceAccount.availableBalance += principal
-            context.delete(deposit)
-            context.delete(debitTransaction)
             self.error = .unknownError("Couldn't open the deposit. Please try again.")
             return false
         }

@@ -21,7 +21,7 @@ struct DecoyHomeView: View {
 }
 
 struct StepUpPasscodeSheet: View {
-    @EnvironmentObject private var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) private var authenticationService
     @State private var passcode = ""
 
     var body: some View {

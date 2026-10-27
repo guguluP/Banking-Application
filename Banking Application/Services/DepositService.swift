@@ -9,37 +9,32 @@ enum DepositService {
     static func processMatured(in context: ModelContext, now: Date = Date()) {
         guard AuthenticationService.sessionIsLive, !AuthenticationService.movementBlocked else { return }
 
-        let deposits = (try? context.fetch(FetchDescriptor<FixedDeposit>())) ?? []
+        let active = FDStatus.active.rawValue
+        let due = FetchDescriptor<FixedDeposit>(
+            predicate: #Predicate<FixedDeposit> { $0.statusRaw == active && $0.maturityDate <= now }
+        )
+        let deposits = (try? context.fetch(due)) ?? []
         for deposit in deposits where deposit.status == .active && deposit.maturityDate <= now {
             guard let account = account(id: deposit.sourceAccountId, in: context),
                   account.accountStatus == .active else { continue }
 
             let amount = deposit.maturityValue
-            let previousBalance = account.balance
-            let previousAvailable = account.availableBalance
             let previousStatus = deposit.status
-
-            account.balance += amount
-            account.availableBalance += amount
-            deposit.status = .matured
-
-            let transaction = credit(
-                account: account,
-                amount: amount,
-                description: "Fixed Deposit matured — \(deposit.nickname)",
-                on: now,
-                in: context
-            )
-
             do {
-                try context.save()
+                try Ledger.commit(context, touching: [account]) {
+                    Ledger.apply(amount, to: account)
+                    deposit.status = .matured
+                    credit(
+                        account: account,
+                        amount: amount,
+                        description: "Fixed Deposit matured — \(deposit.nickname)",
+                        on: now,
+                        in: context
+                    )
+                }
             } catch {
-                account.balance = previousBalance
-                account.availableBalance = previousAvailable
-                deposit.status = previousStatus
-                context.delete(transaction)
-                // SwiftData keeps a deleted row on the inverse until the context saves.
-                try? context.save()
+                // Ledger dropped the credit and put the balance back; reopen the deposit so it can be retried.
+                if deposit.status != previousStatus { deposit.status = previousStatus }
             }
         }
     }
@@ -52,40 +47,33 @@ enum DepositService {
               account.accountStatus == .active else { return false }
 
         let amount = deposit.principal
-        let previousBalance = account.balance
-        let previousAvailable = account.availableBalance
         let previousStatus = deposit.status
-
-        account.balance += amount
-        account.availableBalance += amount
-        deposit.status = .closed
-
-        let transaction = credit(
-            account: account,
-            amount: amount,
-            description: "Fixed Deposit broken — \(deposit.nickname)",
-            on: Date(),
-            in: context
-        )
-
         do {
-            try context.save()
+            try Ledger.commit(context, touching: [account]) {
+                Ledger.apply(amount, to: account)
+                deposit.status = .closed
+                credit(
+                    account: account,
+                    amount: amount,
+                    description: "Fixed Deposit broken — \(deposit.nickname)",
+                    on: Date(),
+                    in: context
+                )
+            }
             return true
         } catch {
-            account.balance = previousBalance
-            account.availableBalance = previousAvailable
-            deposit.status = previousStatus
-            context.delete(transaction)
-            try? context.save()
+            if deposit.status != previousStatus { deposit.status = previousStatus }
             return false
         }
     }
 
     private static func account(id: String, in context: ModelContext) -> Account? {
-        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        return accounts.first { $0.id == id }
+        var descriptor = FetchDescriptor<Account>(predicate: #Predicate<Account> { $0.id == id })
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
     }
 
+    @discardableResult
     private static func credit(
         account: Account,
         amount: Decimal,

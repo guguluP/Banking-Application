@@ -3,7 +3,7 @@ import SwiftData
 
 @MainActor
 @Observable
-class BeneficiaryViewModel {
+final class BeneficiaryViewModel {
     init(
         nickname: String = "",
         accountNumber: String = "",
@@ -140,12 +140,22 @@ class BeneficiaryViewModel {
 
     func delete(_ beneficiary: Beneficiary, in context: ModelContext) {
         context.delete(beneficiary)
-        try? context.save()
+        do {
+            // On failure the delete stays pending and the next successful save writes it.
+            try Ledger.save(context)
+        } catch {
+            self.error = .unknownError("Couldn't delete this payee. Please try again.")
+        }
     }
 
     func toggleFavorite(_ beneficiary: Beneficiary, in context: ModelContext) {
         beneficiary.isFavorite.toggle()
-        try? context.save()
+        do {
+            try Ledger.save(context)
+        } catch {
+            beneficiary.isFavorite.toggle()
+            self.error = .unknownError("Couldn't update this payee. Please try again.")
+        }
     }
 
     private func reset() {

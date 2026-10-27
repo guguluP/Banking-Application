@@ -1,11 +1,10 @@
 import SwiftUI
-import Combine
 
 /// Profile tab: identity plus a single Settings hub.
 /// Child screens are pushed on this stack (they must not wrap another `NavigationStack`).
 struct ProfileView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
-    @ObservedObject private var settings = AppSettings.shared
+    @Environment(AuthenticationService.self) var authenticationService
+    @Bindable private var settings = AppSettings.shared
 
     var body: some View {
         NavigationStack {
@@ -272,6 +271,6 @@ struct SettingsRow: View {
 struct ProfileView_Previews: PreviewProvider {
     static var previews: some View {
         ProfileView()
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
     }
 }

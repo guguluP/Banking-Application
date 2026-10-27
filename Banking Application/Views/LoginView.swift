@@ -1,8 +1,7 @@
 import SwiftUI
-import Combine
 
 struct LoginView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @State private var passcode = ""
     @State private var error: AppError?
     @State private var shakeTrigger = false
@@ -314,6 +313,6 @@ struct LockoutBanner: View {
 struct LoginView_Previews: PreviewProvider {
     static var previews: some View {
         LoginView()
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
     }
 }

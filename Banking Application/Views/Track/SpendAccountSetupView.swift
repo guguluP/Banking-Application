@@ -138,7 +138,7 @@ struct SpendAccountSetupView: View {
 
     private func save() {
         let rows = prepared
-        let userId = accounts.first?.userId ?? "user_001"
+        let userId = accounts.first?.userId ?? LocalUser.id
         let alreadyPrimary = accounts.contains(where: \.isPrimary)
         for (index, row) in rows.enumerated() {
             let account = Account(
@@ -164,7 +164,7 @@ struct SpendAccountSetupView: View {
 }
 
 struct AuthenticatedHomeGate: View {
-    @EnvironmentObject private var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) private var authenticationService
     @Query(sort: \Account.openedDate) private var accounts: [Account]
     var onAccountsChanged: () -> Void
 

@@ -1,5 +1,5 @@
 import Foundation
-import Combine
+import Observation
 import FoundationModels
 
 /// Read-only snapshot of the signed-in user's data that the chatbot is
@@ -49,29 +49,28 @@ struct ChatbotContext {
 ///     category, help finding a feature) directly from local data, so the
 ///     chatbot works on every device.
 @MainActor
-final class AIChatbotService: ObservableObject {
+@Observable
+final class AIChatbotService {
     static let shared = AIChatbotService()
 
     /// Whether the AFM-backed path is available on this device right now.
     /// Views can use this to show a small "on-device AI" vs "offline
     /// assistant" indicator if desired, but it never gates whether the
     /// chatbot can be used at all.
-    @Published private(set) var isUsingOnDeviceModel: Bool = false
-    @Published private(set) var lastAction: AssistantAction?
+    private(set) var isUsingOnDeviceModel: Bool = false
+    private(set) var lastAction: AssistantAction?
 
-    private var session: Any?
-    private var fallbackTurns: [(role: String, text: String)] = []
+    @ObservationIgnored private var session: Any?
+    @ObservationIgnored private var fallbackTurns: [(role: String, text: String)] = []
 
     private init() {
         refreshAvailability()
     }
 
     private func refreshAvailability() {
-        if #available(iOS 26.0, *) {
-            if case .available = SystemLanguageModel.default.availability {
-                isUsingOnDeviceModel = true
-                return
-            }
+        if case .available = SystemLanguageModel.default.availability {
+            isUsingOnDeviceModel = true
+            return
         }
         isUsingOnDeviceModel = false
     }
@@ -104,7 +103,7 @@ final class AIChatbotService: ObservableObject {
         Spending:
         \(summaryLines)
         """
-        if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability {
+        if case .available = SystemLanguageModel.default.availability {
             let session = LanguageModelSession()
             let response = try await session.respond(to: prompt)
             return response.content
@@ -120,7 +119,7 @@ final class AIChatbotService: ObservableObject {
         var ctx = context
         ctx.conversationMemory = fallbackTurns
 
-        if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability {
+        if case .available = SystemLanguageModel.default.availability {
             do {
                 let text = try await replyUsingAFM(trimmed, context: ctx)
                 remember(user: trimmed, assistant: text)
@@ -148,7 +147,6 @@ final class AIChatbotService: ObservableObject {
 
     // MARK: - AFM (on-device Apple Intelligence) path
 
-    @available(iOS 26.0, *)
     private func replyUsingAFM(_ userMessage: String, context: ChatbotContext) async throws -> String {
         let activeSession: LanguageModelSession
         if let existing = session as? LanguageModelSession {

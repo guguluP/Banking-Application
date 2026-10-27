@@ -124,7 +124,7 @@ private struct BudgetEditorView: View {
     @State private var formError: String?
 
     private var limitAmount: Decimal? {
-        Decimal(string: limitText.trimmingCharacters(in: .whitespacesAndNewlines))
+        AmountParser.parse(limitText)
     }
 
     var body: some View {

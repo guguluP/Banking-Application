@@ -4,18 +4,19 @@ on:
   pull_request:
 jobs:
   build:
-    runs-on: macos-26
+    # The app targets iOS 27.0, which needs the Xcode 27 SDK and an iOS 27 simulator.
+    runs-on: xcode-27
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode
         run: |
-          if [ -d /Applications/Xcode_26.5.app ]; then
-            sudo xcode-select -s /Applications/Xcode_26.5.app
-          elif [ -d /Applications/Xcode_26.4.1.app ]; then
-            sudo xcode-select -s /Applications/Xcode_26.4.1.app
-          elif [ -d /Applications/Xcode.app ]; then
-            sudo xcode-select -s /Applications/Xcode.app
-          fi
+          for app in /Applications/Xcode_27.0.app /Applications/Xcode_27*.app /Applications/Xcode.app; do
+            if [ -d "$app" ]; then
+              sudo xcode-select -s "$app"
+              break
+            fi
+          done
           xcodebuild -version
       - name: Build and test
         run: |
@@ -24,17 +25,21 @@ jobs:
           import json, sys
           data = json.load(sys.stdin)
           for runtime, devices in data.get("devices", {}).items():
-              if "iOS" not in runtime:
+              if "iOS-27" not in runtime:
                   continue
               for device in devices:
                   if device.get("isAvailable") and "iPhone" in device.get("name", ""):
                       print(device["udid"])
                       raise SystemExit
-          raise SystemExit("no iPhone simulator")
+          raise SystemExit("no iOS 27 iPhone simulator")
           ')
           xcodebuild test \
             -project "Banking Application.xcodeproj" \
             -scheme "Banking Application" \
             -destination "platform=iOS Simulator,id=${UDID}" \
             -only-testing:"Banking ApplicationTests" \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 60 \
+            -maximum-test-execution-time-allowance 120 \
             CODE_SIGNING_ALLOWED=NO

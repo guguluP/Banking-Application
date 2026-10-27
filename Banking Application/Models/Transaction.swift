@@ -18,8 +18,8 @@ enum TransactionStatus: String, Codable {
 }
 
 enum TransactionEntrySource: String, Codable {
-    /// Produced by the app's existing simulated banking flows (transfer,
-    /// UPI, bill pay, seed data) — unrelated to Windfall-style tracking.
+    /// Produced by the app's simulated banking flows (transfer, UPI, bill pay,
+    /// seed data), as opposed to entries added through the Track tab.
     case system = "System"
     case manualEntry = "Manual Entry"
     case naturalLanguage = "Natural Language"
@@ -30,6 +30,9 @@ enum TransactionEntrySource: String, Codable {
 
 @Model
 nonisolated final class Transaction {
+    /// Dedupe looks up by reference and external ref; lists and reports bound by date.
+    #Index<Transaction>([\.referenceNumber], [\.transactionDate], [\.externalRef])
+
     var id: String = UUID().uuidString
     var accountId: String = ""
     var typeRaw: String = TransactionType.payment.rawValue
@@ -74,8 +77,8 @@ nonisolated final class Transaction {
     var countsInLedger: Bool = false
     var railRaw: String = ""
 
-    // Inverse of Account.transactions. Optional, as CloudKit-backed SwiftData
-    // relationships must not be required.
+    // Inverse of Account.transactions. Optional so a transaction outlives a
+    // removed account (delete rule `.nullify`).
     var account: Account?
     var categoryRef: ExpenseCategory?
 
@@ -173,8 +176,13 @@ nonisolated final class Transaction {
     /// Spending Track should show. Transfers, round-up savings, and deposit funding stay on the account, not in the budget.
     var countsTowardSpending: Bool {
         guard isDebit, type != .transfer else { return false }
-        let labels = [category, categoryRef?.name].compactMap { $0?.lowercased() }
-        let excluded = ["transfer", "savings", "fixed deposit"]
-        return !labels.contains { excluded.contains($0) }
+        return !Self.isExcludedFromSpending(category) && !Self.isExcludedFromSpending(categoryRef?.name)
+    }
+
+    private static func isExcludedFromSpending(_ label: String?) -> Bool {
+        guard let label else { return false }
+        return label.caseInsensitiveCompare("transfer") == .orderedSame
+            || label.caseInsensitiveCompare("savings") == .orderedSame
+            || label.caseInsensitiveCompare("fixed deposit") == .orderedSame
     }
 }

@@ -40,12 +40,13 @@ enum ScheduledPaymentRunner {
                 } else {
                     item.status = .completed
                 }
-                try? context.save()
+                // The payment itself is already saved; its externalRef keeps a retry from paying twice.
+                Ledger.saveOrLog(context, "scheduled instruction advanced")
             } catch let failure as PaymentFailure {
                 item.lastError = failureNote(failure)
                 item.lastAttempt = now
                 item.status = .scheduled
-                try? context.save()
+                Ledger.saveOrLog(context, "scheduled instruction failure note")
             } catch {
                 continue
             }
@@ -125,7 +126,6 @@ enum ScheduledPaymentRunner {
         case .invalidAmount: return "Invalid amount"
         case .invalidAccountNumber: return "Invalid account number"
         case .sameAccount: return "Same account"
-        case .duplicate: return "Already posted"
         case .saveFailed: return "Could not save"
         case .cardBlocked: return "Card blocked"
         }

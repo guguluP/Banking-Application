@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 import SwiftData
 
 enum ImportDirection: String, Codable {
@@ -29,6 +28,8 @@ enum ImportEventStatus: String, Codable {
 
 @Model
 nonisolated final class ImportedEvent {
+    #Index<ImportedEvent>([\.externalRef], [\.rawHash], [\.occurredAt])
+
     var id: String = UUID().uuidString
     var sourceRaw: String = TransactionEntrySource.smsImport.rawValue
     var statusRaw: String = ImportEventStatus.pendingReview.rawValue
@@ -88,12 +89,16 @@ nonisolated final class AAConsent {
 }
 
 enum BankSMSParser {
+    private static let last4Regex = try? NSRegularExpression(pattern: #"(?:\*\*|XX|xx)(\d{4})"#)
+    private static let utrRegex = try? NSRegularExpression(pattern: #"(?:UTR|Ref)\s*(\d{6,})"#, options: [.caseInsensitive])
+
     static func parse(_ text: String, now: Date = Date()) -> RawBankEvent? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+        // The OTP check runs once here; the grammar is told not to repeat it.
         if IndianBankSMSGrammar.looksLikeOTP(trimmed) { return nil }
 
-        if let captured = IndianBankSMSGrammar.parse(trimmed, now: now) {
+        if let captured = IndianBankSMSGrammar.parse(trimmed, now: now, checkOTP: false) {
             return RawBankEvent(
                 amount: captured.amount,
                 direction: captured.isCredit ? .credit : .debit,
@@ -112,9 +117,9 @@ enum BankSMSParser {
         return RawBankEvent(
             amount: amount,
             direction: trimmed.lowercased().contains("credited") ? .credit : .debit,
-            accountLast4: last4(in: trimmed) ?? "",
+            accountLast4: firstGroup(last4Regex, in: trimmed) ?? "",
             merchant: draft.merchant,
-            externalRef: utr(in: trimmed),
+            externalRef: firstGroup(utrRegex, in: trimmed),
             occurredAt: draft.date,
             bank: "Unknown",
             source: .smsImport,
@@ -122,15 +127,8 @@ enum BankSMSParser {
         )
     }
 
-    private static func last4(in text: String) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: #"(?:\*\*|XX|xx)(\d{4})"#) else { return nil }
-        let range = NSRange(text.startIndex..., in: text)
-        guard let hit = regex.firstMatch(in: text, range: range), let r = Range(hit.range(at: 1), in: text) else { return nil }
-        return String(text[r])
-    }
-
-    private static func utr(in text: String) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: #"(?:UTR|Ref)\s*(\d{6,})"#, options: [.caseInsensitive]) else { return nil }
+    private static func firstGroup(_ regex: NSRegularExpression?, in text: String) -> String? {
+        guard let regex else { return nil }
         let range = NSRange(text.startIndex..., in: text)
         guard let hit = regex.firstMatch(in: text, range: range), let r = Range(hit.range(at: 1), in: text) else { return nil }
         return String(text[r])
@@ -140,43 +138,89 @@ enum BankSMSParser {
 @MainActor
 enum BankImportPipeline {
     static let reviewThreshold = 0.7
+    /// Duplicate and rejected rows older than this are deleted on the next SMS drain.
+    static let staleRowRetentionDays = 90
+
+    /// Refs and hashes seen in the current batch, so a batch can dedupe before its single save.
+    private final class Batch {
+        var refs: Set<String> = []
+        var hashes: Set<String> = []
+    }
 
     @discardableResult
     static func ingest(_ event: RawBankEvent, in context: ModelContext) -> ImportedEvent? {
+        ingest(event, in: context, batch: nil)
+    }
+
+    private static func ingest(_ event: RawBankEvent, in context: ModelContext, batch: Batch?) -> ImportedEvent? {
         let hash = rawHash(for: event)
-        if isDuplicate(event, hash: hash, in: context) {
+        let duplicate = isDuplicate(event, hash: hash, in: context)
+            || batch.map { batch in
+                batch.hashes.contains(hash) || (event.externalRef.map { batch.refs.contains($0) } ?? false)
+            } ?? false
+        if let batch {
+            batch.hashes.insert(hash)
+            if let ref = event.externalRef { batch.refs.insert(ref) }
+        }
+        if duplicate {
             let row = ImportedEvent(event: event, hash: hash, categoryName: "Duplicate")
             row.status = .duplicate
             context.insert(row)
-            try? context.save()
+            saveUnlessBatched(context, batch: batch)
             return row
         }
         let resolved = resolution(for: event, in: context)
         var display = event
         display.merchant = resolved.merchant
-        let row = ImportedEvent(event: display, hash: hash, categoryName: resolved.categoryName)
-        row.payeeKey = resolved.payeeKey
-        row.personName = resolved.personName
-        row.needsPayeeChoice = resolved.needsChoice
+        func makeRow() -> ImportedEvent {
+            let row = ImportedEvent(event: display, hash: hash, categoryName: resolved.categoryName)
+            row.payeeKey = resolved.payeeKey
+            row.personName = resolved.personName
+            row.needsPayeeChoice = resolved.needsChoice
+            return row
+        }
+        let row = makeRow()
         if resolved.needsChoice || event.confidence < reviewThreshold {
             row.status = .pendingReview
             context.insert(row)
-            try? context.save()
+            saveUnlessBatched(context, batch: batch)
             return row
         }
-        if post(row, in: context) {
+        if post(row, in: context, saving: batch == nil) {
             return row
         }
-        row.status = .pendingReview
-        context.insert(row)
-        try? context.save()
-        return row
+        // A failed post deletes `row` if it inserted it, so the review row is a
+        // fresh object rather than a re-insert of a deleted one.
+        let pending = makeRow()
+        pending.status = .pendingReview
+        context.insert(pending)
+        saveUnlessBatched(context, batch: batch)
+        return pending
     }
 
+    /// Drains the shared SMS inbox, ingests every message, then saves once.
     static func ingestCapturedSMS(in context: ModelContext) {
-        for text in SMSInbox.drain() {
-            _ = ingestSMS(text, in: context)
+        let texts = SMSInbox.drain()
+        guard !texts.isEmpty else { return }
+        ingestBatch(texts, in: context)
+    }
+
+    /// Ingests several SMS bodies with one save at the end. Returns the rows created.
+    @discardableResult
+    static func ingestBatch(_ texts: [String], in context: ModelContext, now: Date = Date()) -> [ImportedEvent] {
+        let batch = Batch()
+        var rows: [ImportedEvent] = []
+        for text in texts {
+            guard let event = BankSMSParser.parse(text) else { continue }
+            if let row = ingest(event, in: context, batch: batch) { rows.append(row) }
         }
+        purgeStaleRows(in: context, now: now)
+        do {
+            try Ledger.save(context)
+        } catch {
+            // Same as before: the rows stay pending in the context and the next save retries them.
+        }
+        return rows
     }
 
     static func ingestSMS(_ text: String, in context: ModelContext) -> ImportedEvent? {
@@ -184,14 +228,32 @@ enum BankImportPipeline {
         return ingest(event, in: context)
     }
 
+    /// Deletes duplicate and rejected rows whose message is older than `staleRowRetentionDays`.
+    /// Pending and posted rows are kept. Does not save.
+    static func purgeStaleRows(in context: ModelContext, now: Date = Date()) {
+        guard let cutoff = Calendar.current.date(byAdding: .day, value: -staleRowRetentionDays, to: now) else { return }
+        let duplicate = ImportEventStatus.duplicate.rawValue
+        let rejected = ImportEventStatus.rejected.rawValue
+        let descriptor = FetchDescriptor<ImportedEvent>(predicate: #Predicate {
+            $0.occurredAt < cutoff && ($0.statusRaw == duplicate || $0.statusRaw == rejected)
+        })
+        for row in (try? context.fetch(descriptor)) ?? [] {
+            context.delete(row)
+        }
+    }
+
+    private static func saveUnlessBatched(_ context: ModelContext, batch: Batch?) {
+        guard batch == nil else { return }
+        try? Ledger.save(context)
+    }
+
     /// Stores the user's label for this person and posts the debit. A later SMS to the same VPA or name reuses it.
     @discardableResult
     static func remember(_ row: ImportedEvent, as choice: PayeeChoice, in context: ModelContext) -> Bool {
         guard row.status == .pendingReview, row.needsPayeeChoice, !row.payeeKey.isEmpty else { return false }
         let title = choice.title(person: row.personName)
-        let rows = (try? context.fetch(FetchDescriptor<RememberedPayee>())) ?? []
         let created: RememberedPayee?
-        if let existing = rows.first(where: { $0.payeeKey == row.payeeKey }) {
+        if let existing = rememberedPayee(forKey: row.payeeKey, in: context) {
             existing.label = choice.label
             existing.personName = row.personName
             existing.categoryName = choice.categoryName
@@ -227,12 +289,17 @@ enum BankImportPipeline {
         var needsChoice: Bool
     }
 
+    private static func rememberedPayee(forKey key: String, in context: ModelContext) -> RememberedPayee? {
+        var descriptor = FetchDescriptor<RememberedPayee>(predicate: #Predicate { $0.payeeKey == key })
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
+    }
+
     private static func resolution(for event: RawBankEvent, in context: ModelContext) -> PayeeResolution {
         let raw = event.merchant ?? ""
         let key = MerchantDirectory.payeeKey(from: raw)
         if !key.isEmpty {
-            let remembered = (try? context.fetch(FetchDescriptor<RememberedPayee>())) ?? []
-            if let match = remembered.first(where: { $0.payeeKey == key }) {
+            if let match = rememberedPayee(forKey: key, in: context) {
                 return PayeeResolution(
                     merchant: match.displayTitle,
                     categoryName: match.categoryName,
@@ -261,10 +328,11 @@ enum BankImportPipeline {
                 needsChoice: true
             )
         }
-        let draft = ExpenseParsingService.shared.parse(raw.isEmpty ? event.bank : raw)
+        // Only the merchant/category classifier is needed here, not the amount and date rules.
+        let guess = ExpenseParsingService.shared.classify(raw.isEmpty ? event.bank : raw)
         return PayeeResolution(
-            merchant: raw.isEmpty ? (draft.merchant ?? event.bank) : raw,
-            categoryName: draft.categoryName,
+            merchant: raw.isEmpty ? (guess.merchant ?? event.bank) : raw,
+            categoryName: guess.categoryName,
             payeeKey: key,
             personName: "",
             needsChoice: false
@@ -278,49 +346,59 @@ enum BankImportPipeline {
     }
 
     static func reject(_ row: ImportedEvent, in context: ModelContext) {
+        let previous = row.status
         row.status = .rejected
-        try? context.save()
+        do {
+            try Ledger.save(context)
+        } catch {
+            row.status = previous
+        }
     }
 
     static func deleteAggregatorImports(in context: ModelContext) {
         let source = TransactionEntrySource.aggregator.rawValue
-        let events = (try? context.fetch(FetchDescriptor<ImportedEvent>())) ?? []
-        for event in events where event.sourceRaw == source { context.delete(event) }
-        let txs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        for tx in txs where tx.entrySourceRaw == source {
-            let account = tx.account ?? accounts.first { $0.id == tx.accountId }
-            if let account, tx.countsInLedger {
-                if tx.isCredit {
-                    account.balance -= tx.amount
-                    account.availableBalance -= tx.amount
-                } else {
-                    account.balance += tx.amount
-                    account.availableBalance += tx.amount
-                }
+        let events = (try? context.fetch(FetchDescriptor<ImportedEvent>(predicate: #Predicate { $0.sourceRaw == source }))) ?? []
+        let txs = (try? context.fetch(FetchDescriptor<Transaction>(predicate: #Predicate { $0.entrySourceRaw == source }))) ?? []
+        var touched: [String: Account] = [:]
+        for tx in txs where tx.countsInLedger {
+            if let account = tx.account ?? account(id: tx.accountId, in: context) {
+                touched[account.id] = account
             }
-            context.delete(tx)
         }
-        try? context.save()
+        try? Ledger.commit(context, touching: Array(touched.values)) {
+            for event in events { context.delete(event) }
+            for tx in txs {
+                if tx.countsInLedger, let account = tx.account ?? touched[tx.accountId] {
+                    Ledger.apply(tx.isCredit ? -tx.amount : tx.amount, to: account)
+                }
+                context.delete(tx)
+            }
+        }
     }
 
-    private static func post(_ row: ImportedEvent, in context: ModelContext) -> Bool {
-        let accounts = (try? context.fetch(FetchDescriptor<Account>())) ?? []
-        guard let account = Account.match(last4: row.accountLast4, bank: row.bank, among: accounts) else {
+    private static func account(id: String, in context: ModelContext) -> Account? {
+        var descriptor = FetchDescriptor<Account>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
+    }
+
+    private static func post(_ row: ImportedEvent, in context: ModelContext, saving: Bool = true) -> Bool {
+        let declared = (try? context.fetch(FetchDescriptor<Account>(predicate: #Predicate { $0.bankName != "" }))) ?? []
+        guard let account = Account.match(last4: row.accountLast4, bank: row.bank, among: declared) else {
             return false
         }
-        return recordLabeled(row, on: account, in: context)
+        return recordLabeled(row, on: account, in: context, saving: saving)
     }
 
     /// Files the expense on the account the user named. Does not change that account's balance:
     /// the last digits are not a link to the bank, so there is no balance to move.
-    private static func recordLabeled(_ row: ImportedEvent, on account: Account, in context: ModelContext) -> Bool {
+    /// - Parameter saving: `false` inside a batch, which saves once at the end.
+    /// When saving, a failed save drops the new transaction (and `row`, if it was inserted
+    /// here), puts `row.status` back and returns `false`.
+    private static func recordLabeled(_ row: ImportedEvent, on account: Account, in context: ModelContext, saving: Bool) -> Bool {
         if AuthenticationService.movementBlocked { return false }
-        if let ref = row.externalRef, !ref.isEmpty {
-            let existing = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-            if existing.contains(where: { $0.externalRef == ref || $0.referenceNumber == ref }) {
-                return false
-            }
+        if let ref = row.externalRef, !ref.isEmpty, transactionExists(withRef: ref, in: context) {
+            return false
         }
         let isCredit = row.directionRaw == ImportDirection.credit.rawValue
         let tx = Transaction(
@@ -341,24 +419,54 @@ enum BankImportPipeline {
         tx.railRaw = PaymentRail.imported.rawValue
         tx.categoryRef = category(named: row.categoryName, in: context)
         tx.account = account
+        let previousStatus = row.status
+        let insertsRow = row.modelContext == nil
         context.insert(tx)
         row.status = .posted
-        if row.modelContext == nil { context.insert(row) }
-        try? context.save()
-        return true
+        if insertsRow { context.insert(row) }
+        guard saving else { return true }
+        do {
+            try Ledger.save(context)
+            return true
+        } catch {
+            row.status = previousStatus
+            tx.account = nil
+            context.delete(tx)
+            if insertsRow { context.delete(row) }
+            return false
+        }
+    }
+
+    private static func transactionExists(withRef ref: String, in context: ModelContext) -> Bool {
+        var byExternal = FetchDescriptor<Transaction>(predicate: #Predicate { $0.externalRef == ref })
+        byExternal.fetchLimit = 1
+        if let hit = try? context.fetch(byExternal), !hit.isEmpty { return true }
+        var byReference = FetchDescriptor<Transaction>(predicate: #Predicate { $0.referenceNumber == ref })
+        byReference.fetchLimit = 1
+        if let hit = try? context.fetch(byReference), !hit.isEmpty { return true }
+        return false
     }
 
     private static func isDuplicate(_ event: RawBankEvent, hash: String, in context: ModelContext) -> Bool {
-        let events = (try? context.fetch(FetchDescriptor<ImportedEvent>())) ?? []
-        if let ref = event.externalRef, events.contains(where: { $0.externalRef == ref && $0.statusRaw != ImportEventStatus.rejected.rawValue }) {
+        if let ref = event.externalRef {
+            let rejected = ImportEventStatus.rejected.rawValue
+            var byRef = FetchDescriptor<ImportedEvent>(predicate: #Predicate { $0.externalRef == ref && $0.statusRaw != rejected })
+            byRef.fetchLimit = 1
+            if let hit = try? context.fetch(byRef), !hit.isEmpty { return true }
+        }
+        var byHash = FetchDescriptor<ImportedEvent>(predicate: #Predicate { $0.rawHash == hash })
+        byHash.fetchLimit = 1
+        if let hit = try? context.fetch(byHash), !hit.isEmpty { return true }
+        if let ref = event.externalRef, transactionExists(withRef: ref, in: context) {
             return true
         }
-        if events.contains(where: { $0.rawHash == hash }) { return true }
-        let txs = (try? context.fetch(FetchDescriptor<Transaction>())) ?? []
-        if let ref = event.externalRef, txs.contains(where: { $0.externalRef == ref || $0.referenceNumber == ref }) {
-            return true
-        }
-        return txs.contains { tx in
+        // Fuzzy match only looks at rows within the 180-second window.
+        let earliest = event.occurredAt.addingTimeInterval(-180)
+        let latest = event.occurredAt.addingTimeInterval(180)
+        let nearby = (try? context.fetch(FetchDescriptor<Transaction>(predicate: #Predicate {
+            $0.transactionDate > earliest && $0.transactionDate < latest
+        }))) ?? []
+        return nearby.contains { tx in
             tx.amount == event.amount
                 && abs(tx.transactionDate.timeIntervalSince(event.occurredAt)) < 180
                 && (tx.account.map { String($0.accountNumber.suffix(4)) } == event.accountLast4)
@@ -385,7 +493,6 @@ enum BankImportPipeline {
         let parts = calendar.dateComponents([.year, .month, .day], from: event.occurredAt)
         let day = String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
         let payload = "\(event.bank)|\(event.amount)|\(event.accountLast4)|\(event.externalRef ?? "")|\(event.merchant ?? "")|\(day)|\(event.direction.rawValue)"
-        let digest = SHA256.hash(data: Data(payload.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
+        return CryptoService.receiptHash(for: payload)
     }
 }

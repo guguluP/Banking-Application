@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LanguageAndRegionView: View {
-    @ObservedObject private var settings = AppSettings.shared
+    @Bindable private var settings = AppSettings.shared
 
     var body: some View {
         ScrollView {

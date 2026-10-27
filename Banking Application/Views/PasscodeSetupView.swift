@@ -1,11 +1,10 @@
 import SwiftUI
-import Combine
 
 /// Shown exactly once, the first time the app runs on a device (i.e. before any
 /// passcode hash exists in the Keychain). Asks the person to choose a 4-digit
 /// passcode, then asks them to confirm it, and stores only its salted hash.
 struct PasscodeSetupView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
 
     private enum Stage: Equatable {
         case create
@@ -142,6 +141,6 @@ struct PasscodeSetupView: View {
 struct PasscodeSetupView_Previews: PreviewProvider {
     static var previews: some View {
         PasscodeSetupView()
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
     }
 }

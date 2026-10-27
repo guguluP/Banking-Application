@@ -1,6 +1,6 @@
 # BankSecure
 
-[![Platform](https://img.shields.io/badge/platform-iOS%2026%2B-lightgrey)](#requirements)
+[![Platform](https://img.shields.io/badge/platform-iOS%2027%2B-lightgrey)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-6-orange)](#requirements)
 [![UI](https://img.shields.io/badge/UI-SwiftUI-blue)](#tech-stack)
 [![Status](https://img.shields.io/badge/status-demo%20%2F%20educational-yellow)](#disclaimer)
@@ -100,8 +100,8 @@ Banking Application/
 
 ## Requirements
 
-- **Xcode 26** or later
-- **iOS 26+** target device or simulator (the project's `IPHONEOS_DEPLOYMENT_TARGET` is 26.0; earlier-OS Material-style fallback code exists in a few places like `LiquidGlass.swift` and `AIChatbotService` but is currently unreachable at this deployment target — lower it only after confirming those paths still build and behave correctly)
+- **Xcode 27** or later (iOS 27 SDK)
+- **iOS 27+** target device or simulator (the project's `IPHONEOS_DEPLOYMENT_TARGET` is 27.0 for the app and test targets; the old pre-Liquid Glass fallbacks and `#available(iOS 26.0, *)` checks have been removed, so lowering the target would need those paths restored)
 - A free Apple Personal Team can run the app. Paid capabilities (Push, iCloud, App Groups, the Data Protection entitlement) are not enabled
 
 ## Getting started
@@ -169,4 +169,4 @@ BankSecure is built for **learning, portfolio demonstration, and UI/architecture
 
 ## License
 
-Add your preferred license here (e.g. MIT) before making this repository public.
+This project is released under the MIT License. See [LICENSE](LICENSE).

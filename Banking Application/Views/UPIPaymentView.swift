@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 import CoreImage.CIFilterBuiltins
 
@@ -26,7 +25,7 @@ struct UPIPaymentView: View {
 struct UPIPaymentContent: View {
     @Environment(AccountViewModel.self) var accountViewModel
     @Environment(TransactionViewModel.self) var transactionViewModel
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.modelContext) private var modelContext
     @State private var selectedAccount: Account?
     @State private var upiId = ""
@@ -186,12 +185,12 @@ struct UPIPaymentContent: View {
                 requestBiometricAuth()
             }
         } message: {
-            Text("Pay \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)?")
-                .accessibilityLabel("Confirm payment of \(CurrencyFormatter.shared.string(from: Decimal(string: amount) ?? 0)) to \(upiId)")
+            Text("Pay \(CurrencyFormatter.shared.string(from: AmountParser.parse(amount) ?? 0)) to \(upiId)?")
+                .accessibilityLabel("Confirm payment of \(CurrencyFormatter.shared.string(from: AmountParser.parse(amount) ?? 0)) to \(upiId)")
         }
         .overlay {
             if showingPaymentSuccess {
-                PaymentSuccessOverlay(amount: successAmount, subtitle: "UPI Payment Sent", isPresented: $showingPaymentSuccess)
+                SuccessOverlay(style: .payment(amount: successAmount, subtitle: "UPI Payment Sent"), isPresented: $showingPaymentSuccess)
             }
         }
         .accessibilityElement(children: .contain)
@@ -199,7 +198,7 @@ struct UPIPaymentContent: View {
     
     private var isFormValid: Bool {
         guard let account = selectedAccount else { return false }
-        guard let amountDecimal = Decimal(string: amount), amountDecimal > 0 else { return false }
+        guard let amountDecimal = AmountParser.parse(amount), amountDecimal > 0 else { return false }
         guard !upiId.isEmpty else { return false }
         guard isValidUPIId else { return false }
         guard amountDecimal <= account.availableBalance else { return false }
@@ -211,13 +210,13 @@ struct UPIPaymentContent: View {
     }
 
     private var isValidAmount: Bool {
-        guard let amountDecimal = Decimal(string: amount), amountDecimal > 0 else { return false }
+        guard let amountDecimal = AmountParser.parse(amount), amountDecimal > 0 else { return false }
         if let account = selectedAccount, amountDecimal > account.availableBalance { return false }
         return true
     }
 
     private var amountErrorMessage: String {
-        guard let amountDecimal = Decimal(string: amount), amountDecimal > 0 else {
+        guard let amountDecimal = AmountParser.parse(amount), amountDecimal > 0 else {
             return "Enter a valid amount"
         }
         if let account = selectedAccount, amountDecimal > account.availableBalance {
@@ -235,7 +234,7 @@ struct UPIPaymentContent: View {
             return
         }
         
-        guard let amountDecimal = Decimal(string: amount), amountDecimal > 0 else {
+        guard let amountDecimal = AmountParser.parse(amount), amountDecimal > 0 else {
             error = .invalidAmount
             HapticFeedbackService.shared.errorOccurred()
             return
@@ -263,7 +262,7 @@ struct UPIPaymentContent: View {
     }
     
     private func processUPIPayment() {
-        guard let amountDecimal = Decimal(string: amount) else { return }
+        guard let amountDecimal = AmountParser.parse(amount) else { return }
         guard let account = selectedAccount else { return }
 
         guard amountDecimal <= account.availableBalance else {
@@ -430,7 +429,7 @@ struct UPIPaymentView_Previews: PreviewProvider {
         return UPIPaymentView()
             .environment(avm)
             .environment(tvm)
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
             .modelContainer(container)
     }
 }

@@ -82,28 +82,84 @@ nonisolated private struct Checkmark: Shape {
     }
 }
 
-/// Full-screen overlay wrapper — presents `PaymentSuccessAnimation` over a
-/// translucent backdrop, matching the weight of Apple Pay's sheet.
-struct PaymentSuccessOverlay: View {
-    let amount: String
-    var subtitle: String = "Payment Complete"
+/// The one success overlay: a translucent backdrop with a material card.
+///
+/// `.payment` presents `PaymentSuccessAnimation` (Apple Pay-style ring draw) and
+/// dismisses itself when the animation finishes. `.check` shows a springy checkmark
+/// with a title, message and Done button, dismisses on backdrop tap, and
+/// auto-dismisses after `dismissAfter`.
+struct SuccessOverlay: View {
+    enum Style {
+        case payment(amount: String, subtitle: String)
+        case check(title: String, message: String, dismissAfter: Duration)
+    }
+
+    let style: Style
     @Binding var isPresented: Bool
+    var onDone: () -> Void = {}
+    @State private var checkmarkScale: CGFloat = 0.4
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
+        switch style {
+        case let .payment(amount, subtitle):
+            ZStack {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
 
-            PaymentSuccessAnimation(amount: amount, subtitle: subtitle) {
-                withAnimation(.easeOut(duration: 0.25)) {
-                    isPresented = false
+                PaymentSuccessAnimation(amount: amount, subtitle: subtitle) {
+                    dismiss()
                 }
+                .padding(AppSpacing.xxl)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large))
+                .padding(.horizontal, AppSpacing.xxl)
             }
-            .padding(AppSpacing.xxl)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large))
-            .padding(.horizontal, AppSpacing.xxl)
+            .transition(.opacity)
+        case let .check(title, message, dismissAfter):
+            ZStack {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture { dismiss() }
+
+                VStack(spacing: AppSpacing.md) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 56))
+                        .foregroundStyle(.green)
+                        .scaleEffect(checkmarkScale)
+                        .onAppear {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
+                                checkmarkScale = 1.0
+                            }
+                        }
+
+                    Text(title)
+                        .font(.headline)
+
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    ModernButton(title: "Done", systemImage: nil, variant: .filled) {
+                        dismiss()
+                    }
+                    .padding(.top, AppSpacing.sm)
+                }
+                .padding(AppSpacing.xl)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large))
+                .padding(.horizontal, AppSpacing.xxl)
+            }
+            .task {
+                try? await Task.sleep(for: dismissAfter)
+                dismiss()
+            }
         }
-        .transition(.opacity)
+    }
+
+    private func dismiss() {
+        withAnimation(.easeOut(duration: 0.25)) {
+            isPresented = false
+        }
+        onDone()
     }
 }
 

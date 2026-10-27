@@ -14,9 +14,13 @@ struct AnimatedMeshBackground: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
 
+    private static let frameInterval: TimeInterval = 1.0 / 30.0
+
     var body: some View {
         let paused = reduceMotion || scenePhase != .active
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: paused)) { context in
+        // The blobs drift over tens of seconds; 30 fps is indistinguishable from
+        // 60 here and halves the always-on redraw cost.
+        TimelineView(.animation(minimumInterval: Self.frameInterval, paused: paused)) { context in
             let time = paused ? 0 : context.date.timeIntervalSinceReferenceDate
             Canvas { canvasContext, size in
                 canvasContext.fill(

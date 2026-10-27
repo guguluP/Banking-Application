@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 
 struct CreditCardView: View {
     let card: Card
@@ -8,12 +7,21 @@ struct CreditCardView: View {
     /// contexts like Reduce Motion where tilt effects should be skipped).
     var reactsToTilt: Bool = true
 
-    @ObservedObject private var motion = MotionManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var tiltEnabled: Bool { reactsToTilt && !reduceMotion }
 
     var body: some View {
+        // Only `CardTiltEffect` reads the motion value, so a tilt change
+        // re-renders the rotation and sheen, not this whole card face.
+        CardTiltEffect(enabled: tiltEnabled) {
+            cardFace
+        }
+        .onAppear { if tiltEnabled { MotionManager.shared.subscribe() } }
+        .onDisappear { if tiltEnabled { MotionManager.shared.unsubscribe() } }
+    }
+
+    private var cardFace: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 Text(card.cardType.displayName)
@@ -79,7 +87,7 @@ struct CreditCardView: View {
         .frame(height: 190)
         .background(metallicBackground)
         .overlay(brushedMetalTexture)
-        .overlay(specularSheen)
+        .overlay(CardSpecularSheen(enabled: tiltEnabled))
         .overlay(edgeHighlight)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous))
         .overlay(
@@ -87,20 +95,6 @@ struct CreditCardView: View {
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         )
         .shadow(color: AppShadows.large.color, radius: AppShadows.large.radius, x: AppShadows.large.x, y: AppShadows.large.y)
-        .rotation3DEffect(
-            .degrees(tiltEnabled ? motion.normalizedY * 6 : 0),
-            axis: (x: 1, y: 0, z: 0),
-            perspective: 0.4
-        )
-        .rotation3DEffect(
-            .degrees(tiltEnabled ? -motion.normalizedX * 6 : 0),
-            axis: (x: 0, y: 1, z: 0),
-            perspective: 0.4
-        )
-        .animation(.easeOut(duration: 0.12), value: motion.normalizedX)
-        .animation(.easeOut(duration: 0.12), value: motion.normalizedY)
-        .onAppear { if tiltEnabled { MotionManager.shared.subscribe() } }
-        .onDisappear { if tiltEnabled { MotionManager.shared.unsubscribe() } }
     }
 
     // MARK: - Metallic surface
@@ -132,33 +126,6 @@ struct CreditCardView: View {
         }
         .allowsHitTesting(false)
         .blendMode(.plusLighter)
-    }
-
-    /// A soft, wide band of light simulating how a metallic card catches
-    /// light when tilted. Deliberately not real glass — the card number and
-    /// name need full contrast, not translucency.
-    private var specularSheen: some View {
-        // Sheen band slides across the card as the phone tilts, mimicking
-        // how light glances off brushed metal. Falls back to a fixed,
-        // centered band when tilt is disabled (Reduce Motion, static
-        // previews) so the card still looks intentionally lit rather than
-        // flat.
-        let sweep = tiltEnabled ? motion.normalizedX : 0
-        let center = 0.5 + sweep * 0.35
-        let intensity = tiltEnabled ? 0.16 + abs(sweep) * 0.14 : 0.22
-
-        return LinearGradient(
-            stops: [
-                .init(color: .white.opacity(0), location: max(0, center - 0.18)),
-                .init(color: .white.opacity(intensity), location: center),
-                .init(color: .white.opacity(intensity * 0.25), location: min(1, center + 0.06)),
-                .init(color: .white.opacity(0), location: min(1, center + 0.20))
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .allowsHitTesting(false)
-        .animation(.easeOut(duration: 0.12), value: sweep)
     }
 
     /// Faint top edge highlight + bottom edge shadow — reinforces the sense
@@ -330,5 +297,64 @@ private extension CardType {
         case .amex: return "Amex"
         default: return rawValue
         }
+    }
+}
+
+/// Applies the tilt rotation to an already-built card face. Reading
+/// `MotionManager.shared` here keeps tilt updates from re-running the
+/// parent card's body.
+private struct CardTiltEffect<Content: View>: View {
+    let enabled: Bool
+    @ViewBuilder let content: Content
+
+    private var motion: MotionManager { MotionManager.shared }
+
+    var body: some View {
+        let tilt = enabled ? motion.tilt : .zero
+        content
+            .rotation3DEffect(
+                .degrees(tilt.y * 6),
+                axis: (x: 1, y: 0, z: 0),
+                perspective: 0.4
+            )
+            .rotation3DEffect(
+                .degrees(-tilt.x * 6),
+                axis: (x: 0, y: 1, z: 0),
+                perspective: 0.4
+            )
+            .animation(.easeOut(duration: 0.12), value: tilt)
+    }
+}
+
+/// A soft, wide band of light simulating how a metallic card catches
+/// light when tilted. Deliberately not real glass — the card number and
+/// name need full contrast, not translucency.
+private struct CardSpecularSheen: View {
+    let enabled: Bool
+
+    private var motion: MotionManager { MotionManager.shared }
+
+    var body: some View {
+        // Sheen band slides across the card as the phone tilts, mimicking
+        // how light glances off brushed metal. Falls back to a fixed,
+        // centered band when tilt is disabled (Reduce Motion, static
+        // previews) so the card still looks intentionally lit rather than
+        // flat.
+        let sweep = enabled ? motion.tilt.x : 0
+        let center = 0.5 + sweep * 0.35
+        let intensity = enabled ? 0.16 + abs(sweep) * 0.14 : 0.22
+
+        LinearGradient(
+            stops: [
+                .init(color: .white.opacity(0), location: max(0, center - 0.18)),
+                .init(color: .white.opacity(intensity), location: center),
+                .init(color: .white.opacity(intensity * 0.25), location: min(1, center + 0.06)),
+                .init(color: .white.opacity(0), location: min(1, center + 0.20))
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .allowsHitTesting(false)
+        .animation(.easeOut(duration: 0.12), value: sweep)
     }
 }

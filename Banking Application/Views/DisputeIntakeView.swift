@@ -17,7 +17,7 @@ struct DisputeIntakeView: View {
             TextField("Details", text: $details, axis: .vertical)
             Button("Submit dispute") {
                 let dispute = TransactionDispute(
-                    userId: "user_001",
+                    userId: LocalUser.id,
                     transactionId: transaction.id,
                     reason: reason,
                     details: details

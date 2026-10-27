@@ -1,7 +1,6 @@
 .DS_Store
 .kilo
 DeadCodeReport.md
-banking-backend/target/
 *.swift.skip
 *.xcuserstate
 *.xcscmblueprint

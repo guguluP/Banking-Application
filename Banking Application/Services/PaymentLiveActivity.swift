@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import Combine
 #if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 import ActivityKit
 #endif
@@ -29,7 +28,8 @@ extension PaymentActivityAttributes: ActivityAttributes {
 /// Starts/updates/ends ActivityKit live activities when available, and always
 /// drives an in-app banner so Mac / iOS-on-Mac still show progress.
 @MainActor
-final class LiveActivityManager: ObservableObject {
+@Observable
+final class LiveActivityManager {
     static let shared = LiveActivityManager()
 
     struct Banner: Equatable {
@@ -38,10 +38,10 @@ final class LiveActivityManager: ObservableObject {
         var isComplete: Bool
     }
 
-    @Published var banner: Banner?
+    var banner: Banner?
 
 #if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
-    private var activity: Activity<PaymentActivityAttributes>?
+    @ObservationIgnored private var activity: Activity<PaymentActivityAttributes>?
 #endif
 
     func startPayment(kind: String, counterparty: String, amount: Decimal) {
@@ -119,7 +119,7 @@ final class LiveActivityManager: ObservableObject {
 }
 
 struct InAppLiveActivityBanner: View {
-    @ObservedObject private var manager = LiveActivityManager.shared
+    private let manager = LiveActivityManager.shared
 
     var body: some View {
         VStack {

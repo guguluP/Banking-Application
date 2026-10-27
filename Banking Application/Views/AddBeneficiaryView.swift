@@ -4,7 +4,7 @@ import SwiftData
 struct AddBeneficiaryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @State private var viewModel = BeneficiaryViewModel()
     @FocusState private var focusedField: Field?
     

@@ -6,18 +6,20 @@ struct ExpenseLedgerView: View {
     @State private var selectedCategoryId: String?
     @State private var editingTransaction: Transaction?
     @State private var transactionPendingDelete: Transaction?
+    /// The search text the list is filtered by, applied after typing pauses.
+    @State private var appliedSearch = ""
+    /// Filtered, day-grouped rows. Rebuilt only when the filter or the data changes.
+    @State private var groups: [DayGroup] = []
 
     var body: some View {
         VStack(spacing: 0) {
             categoryFilterBar
 
-            let entries = tracker.filteredEntries(searchText: searchText, categoryId: selectedCategoryId)
-
-            if entries.isEmpty {
+            if groups.isEmpty {
                 emptyState
             } else {
                 List {
-                    ForEach(groupedByDay(entries), id: \.date) { group in
+                    ForEach(groups, id: \.date) { group in
                         Section {
                             ForEach(group.entries) { entry in
                                 ExpenseLedgerRow(entry: entry)
@@ -47,6 +49,18 @@ struct ExpenseLedgerView: View {
             }
         }
         .searchable(text: $searchText, prompt: "Search expenses")
+        .task(id: searchText) {
+            // Debounce: filter once typing pauses, but clear at once.
+            if !searchText.isEmpty {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+            }
+            appliedSearch = searchText
+        }
+        .onAppear(perform: rebuildGroups)
+        .onChange(of: appliedSearch) { rebuildGroups() }
+        .onChange(of: selectedCategoryId) { rebuildGroups() }
+        .onChange(of: tracker.revision) { rebuildGroups() }
         .navigationTitle("Ledger")
         .sheet(isPresented: Binding(
             get: { editingTransaction != nil },
@@ -135,7 +149,11 @@ struct ExpenseLedgerView: View {
         let entries: [Transaction]
     }
 
-    private func groupedByDay(_ entries: [Transaction]) -> [DayGroup] {
+    private func rebuildGroups() {
+        groups = Self.groupedByDay(tracker.filteredEntries(searchText: appliedSearch, categoryId: selectedCategoryId))
+    }
+
+    private static func groupedByDay(_ entries: [Transaction]) -> [DayGroup] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: entries) { calendar.startOfDay(for: $0.transactionDate) }
         return grouped

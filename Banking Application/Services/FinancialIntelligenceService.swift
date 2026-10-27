@@ -215,6 +215,11 @@ enum FinancialIntelligenceService {
         let hourCounts = Dictionary(grouping: debits) {
             Calendar.current.component(.hour, from: $0.transactionDate)
         }.mapValues(\.count)
+        // Bucketed once so the "new location" check is O(1) per row, not a rescan.
+        var locationCounts: [String: Int] = [:]
+        for tx in debits {
+            if let loc = tx.location { locationCounts[loc, default: 0] += 1 }
+        }
 
         return debits.compactMap { tx -> Anomaly? in
             let z = (NSDecimalNumber(decimal: tx.amount).doubleValue - mean) / std
@@ -227,8 +232,7 @@ enum FinancialIntelligenceService {
                 reasons.append("unusual time (\(hour):00)")
             }
             if let loc = tx.location, !loc.isEmpty {
-                let sameLoc = debits.filter { $0.location == loc }.count
-                if sameLoc == 1 {
+                if locationCounts[loc] == 1 {
                     reasons.append("new location: \(loc)")
                 }
             }
@@ -241,28 +245,6 @@ enum FinancialIntelligenceService {
                 description: tx.description
             )
         }
-    }
-
-    static func budgetAnswer(budgets: [Budget], transactions: [Transaction]) -> String {
-        let monthStart = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date())) ?? Date()
-        let monthDebits = transactions.filter { $0.isDebit && $0.transactionDate >= monthStart }
-        guard !budgets.isEmpty else {
-            return "You haven't set category budgets yet. Add them in Track > Budgets and I can tell you if you're on track."
-        }
-        var lines: [String] = []
-        for b in budgets {
-            let spent = monthDebits.filter { $0.category == b.categoryId || $0.categoryRef?.id == b.categoryId }
-                .reduce(Decimal(0)) { $0 + $1.amount }
-            let remaining = b.limitAmount - spent
-            let status: String
-            if remaining < 0 {
-                status = "over by \(CurrencyFormatter.shared.string(from: abs(remaining)))"
-            } else {
-                status = "\(CurrencyFormatter.shared.string(from: remaining)) left"
-            }
-            lines.append("\(b.categoryId): \(status)")
-        }
-        return "This month: " + lines.joined(separator: ". ") + "."
     }
 
     static func parseSearch(_ query: String, transactions: [Transaction]) -> [Transaction] {
@@ -290,6 +272,8 @@ enum FinancialIntelligenceService {
             ("transfer", "Transfer")
         ]
         let category = keywords.first { q.contains($0.0) }?.1
+        // Split once, not once per transaction.
+        let tokens = q.split(separator: " ").map(String.init).filter { $0.count > 2 }
 
         return transactions.filter { tx in
             if let start, tx.transactionDate < start { return false }
@@ -298,7 +282,6 @@ enum FinancialIntelligenceService {
                 return (tx.category ?? "").localizedCaseInsensitiveContains(category)
                     || tx.description.localizedCaseInsensitiveContains(category)
             }
-            let tokens = q.split(separator: " ").map(String.init).filter { $0.count > 2 }
             guard !tokens.isEmpty else { return true }
             let hay = (tx.description + " " + (tx.merchant ?? "") + " " + (tx.category ?? "")).lowercased()
             return tokens.contains { hay.contains($0) }

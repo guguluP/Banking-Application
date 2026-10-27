@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 import SwiftUI
 
 /// Single source of truth for user-facing preferences that are not credentials.
@@ -8,7 +7,8 @@ import SwiftUI
 /// did nothing — wiring them here makes Privacy, Profile, Login, and
 /// Notifications all read/write the same flags.
 @MainActor
-final class AppSettings: ObservableObject {
+@Observable
+final class AppSettings {
     static let shared = AppSettings()
 
     private enum Key {
@@ -39,74 +39,74 @@ final class AppSettings: ObservableObject {
         static let coolingLarge = "limits.coolingLarge"
     }
 
-    @Published var isBiometricsEnabled: Bool {
+    var isBiometricsEnabled: Bool {
         didSet { UserDefaults.standard.set(isBiometricsEnabled, forKey: Key.biometricsEnabled) }
     }
 
-    @Published var isPasscodeLockEnabled: Bool {
+    var isPasscodeLockEnabled: Bool {
         didSet { UserDefaults.standard.set(isPasscodeLockEnabled, forKey: Key.passcodeLockEnabled) }
     }
 
-    @Published var isTransactionNotificationsEnabled: Bool {
+    var isTransactionNotificationsEnabled: Bool {
         didSet { UserDefaults.standard.set(isTransactionNotificationsEnabled, forKey: Key.transactionNotifications) }
     }
 
-    @Published var isMarketingNotificationsEnabled: Bool {
+    var isMarketingNotificationsEnabled: Bool {
         didSet { UserDefaults.standard.set(isMarketingNotificationsEnabled, forKey: Key.marketingNotifications) }
     }
 
-    @Published var isLowBalanceAlertsEnabled: Bool {
+    var isLowBalanceAlertsEnabled: Bool {
         didSet { UserDefaults.standard.set(isLowBalanceAlertsEnabled, forKey: Key.lowBalanceAlerts) }
     }
 
-    @Published var isLargeTransactionAlertsEnabled: Bool {
+    var isLargeTransactionAlertsEnabled: Bool {
         didSet { UserDefaults.standard.set(isLargeTransactionAlertsEnabled, forKey: Key.largeTransactionAlerts) }
     }
 
-    @Published var isWeeklySummaryEnabled: Bool {
+    var isWeeklySummaryEnabled: Bool {
         didSet { UserDefaults.standard.set(isWeeklySummaryEnabled, forKey: Key.weeklySummary) }
     }
 
     /// When true, balances show as •••• on home and account cards.
-    @Published var hideBalances: Bool {
+    var hideBalances: Bool {
         didSet { UserDefaults.standard.set(hideBalances, forKey: Key.hideBalances) }
     }
 
     /// Light / Dark / follow-System appearance override, applied at the app
     /// root via `.preferredColorScheme`.
-    @Published var appearanceMode: AppearanceMode {
+    var appearanceMode: AppearanceMode {
         didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: Key.appearanceMode) }
     }
 
-    @Published var languageIndex: Int {
+    var languageIndex: Int {
         didSet { UserDefaults.standard.set(languageIndex, forKey: Key.languageIndex) }
     }
 
-    @Published var regionIndex: Int {
+    var regionIndex: Int {
         didSet { UserDefaults.standard.set(regionIndex, forKey: Key.regionIndex) }
     }
 
-    @Published var dateFormat: BankDateFormat {
+    var dateFormat: BankDateFormat {
         didSet { UserDefaults.standard.set(dateFormat.rawValue, forKey: Key.dateFormat) }
     }
 
-    @Published var timeFormat: BankTimeFormat {
+    var timeFormat: BankTimeFormat {
         didSet { UserDefaults.standard.set(timeFormat.rawValue, forKey: Key.timeFormat) }
     }
 
-    @Published var isRoundUpEnabled: Bool {
+    var isRoundUpEnabled: Bool {
         didSet { UserDefaults.standard.set(isRoundUpEnabled, forKey: Key.roundUpEnabled) }
     }
 
-    @Published var dailyTransferLimit: Decimal
-    @Published var monthlyTransferLimit: Decimal
-    @Published var dailyUPILimit: Decimal
-    @Published var monthlyUPILimit: Decimal
-    @Published var dailyBillPayLimit: Decimal
-    @Published var monthlyBillPayLimit: Decimal
-    @Published var largeTransactionAmount: Decimal
-    @Published var payeeCoolingHours: Double
-    @Published var coolingLargeAmount: Decimal
+    var dailyTransferLimit: Decimal
+    var monthlyTransferLimit: Decimal
+    var dailyUPILimit: Decimal
+    var monthlyUPILimit: Decimal
+    var dailyBillPayLimit: Decimal
+    var monthlyBillPayLimit: Decimal
+    var largeTransactionAmount: Decimal
+    var payeeCoolingHours: Double
+    var coolingLargeAmount: Decimal
 
     static let languageOptions = ["English (US)", "English (UK)", "Hindi", "Spanish", "French"]
     static let regionOptions = ["India", "United States", "United Kingdom", "Canada", "Australia"]
@@ -215,11 +215,17 @@ final class AppSettings: ObservableObject {
         dateFormatter("\(dateFormat.pattern) \(timeFormat.pattern)").string(from: date)
     }
 
+    /// One formatter per pattern. There are only a handful of date/time patterns, and
+    /// creating a `DateFormatter` per row was the expensive part of rendering a list.
+    private static var formatterCache: [String: DateFormatter] = [:]
+
     private func dateFormatter(_ pattern: String) -> DateFormatter {
+        if let cached = Self.formatterCache[pattern] { return cached }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_IN")
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.dateFormat = pattern
+        Self.formatterCache[pattern] = formatter
         return formatter
     }
 }

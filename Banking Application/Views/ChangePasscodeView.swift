@@ -1,8 +1,7 @@
 import SwiftUI
-import Combine
 
 struct ChangePasscodeView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @Environment(\.dismiss) private var dismiss
     @State private var currentPasscode: String = ""
     @State private var newPasscode: String = ""
@@ -25,7 +24,7 @@ struct ChangePasscodeView: View {
                     .padding(.vertical, AppSpacing.xl)
                     .accessibilityLabel("\(passcodeTitle): \(passcodeDotsDescription)")
                 
-                PasscodeKeypad(passcode: currentPasscodeBinding, onDelete: deletePasscode)
+                KeypadView(passcode: currentPasscodeBinding, onDelete: deletePasscode)
                 
                 if let error = error {
                     ErrorBannerModern(error: error)
@@ -188,74 +187,9 @@ struct PasscodeDots: View {
     }
 }
 
-struct PasscodeKeypad: View {
-    @Binding var passcode: String
-    let onDelete: () -> Void
-    
-    let buttonSize: CGFloat = 70
-    
-    var body: some View {
-        LiquidGlass.container(spacing: 12) {
-            VStack(spacing: 12) {
-                ForEach(0..<3) { row in
-                    HStack(spacing: 12) {
-                        ForEach(1..<4) { column in
-                            let number = row * 3 + column
-                            Button(action: {
-                                if passcode.count < 4 {
-                                    passcode.append(String(number))
-                                    HapticFeedbackService.shared.lightImpact()
-                                }
-                            }) {
-                                Text("\(number)")
-                                    .font(.title)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.primary)
-                                    .frame(width: buttonSize, height: buttonSize)
-                                    .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .disabled(passcode.count >= 4)
-                        }
-                    }
-                }
-                
-                HStack(spacing: 12) {
-                    Button(action: onDelete) {
-                        Image(systemName: "delete.backward")
-                            .font(.title3)
-                            .foregroundColor(.primary)
-                            .frame(width: buttonSize, height: buttonSize)
-                            .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .disabled(passcode.isEmpty)
-                    .accessibilityLabel("Delete")
-                    
-                    Button(action: {
-                        if passcode.count < 4 {
-                            passcode.append("0")
-                            HapticFeedbackService.shared.lightImpact()
-                        }
-                    }) {
-                        Text("0")
-                            .font(.title)
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
-                            .frame(width: buttonSize, height: buttonSize)
-                            .glassControl(cornerRadius: AppTheme.CornerRadius.pill)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .disabled(passcode.count >= 4)
-                }
-            }
-        }
-    }
-}
-
 struct ChangePasscodeView_Previews: PreviewProvider {
     static var previews: some View {
         ChangePasscodeView()
-            .environmentObject(AuthenticationService())
+            .environment(AuthenticationService())
     }
 }

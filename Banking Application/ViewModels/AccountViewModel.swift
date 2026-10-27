@@ -4,7 +4,7 @@ import SwiftUI
 
 @MainActor
 @Observable
-class AccountViewModel {
+final class AccountViewModel {
     private(set) var accounts: [Account] = []
     private(set) var upiTransactions: [UPITransaction] = []
     var weeklySpending: [SpendingDataPoint] = []
@@ -45,7 +45,7 @@ class AccountViewModel {
     var totalBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.balance } }
     var totalAvailableBalance: Decimal { accounts.filter { $0.accountType != .credit }.reduce(Decimal(0)) { $0 + $1.availableBalance } }
 
-    func loadAccounts(userId: String = "user_001") {
+    func loadAccounts(userId: String = LocalUser.id) {
         isLoading = true
         error = nil
 
@@ -126,7 +126,7 @@ class AccountViewModel {
         error = nil
     }
 
-    private func isHomeSpending(_ transaction: Transaction) -> Bool {
+    private func isHomeSpending(_ transaction: Transaction, declared: [Account]) -> Bool {
         guard transaction.isDebit, transaction.type != .transfer else { return false }
         for label in [transaction.category, transaction.categoryRef?.name] {
             guard let label else { continue }
@@ -135,7 +135,6 @@ class AccountViewModel {
                 return false
             }
         }
-        let declared = accounts.filter(\.isDeclaredSpendAccount)
         if !declared.isEmpty {
             let bank = transaction.account?.bankName ?? declared.first { $0.id == transaction.accountId }?.bankName ?? ""
             guard !bank.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
@@ -145,7 +144,12 @@ class AccountViewModel {
 
     private func calculateWeeklySpending() -> [SpendingDataPoint] {
         let sevenDaysAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
-        let recentTransactions = transactionViewModel.recentTransactions.filter { $0.transactionDate >= sevenDaysAgo && isHomeSpending($0) }
+        let declared = accounts.filter(\.isDeclaredSpendAccount)
+        // Rows are newest-first, so stop at the first one older than a week
+        // instead of scanning the whole history.
+        let recentTransactions = transactionViewModel.recentTransactions
+            .prefix { $0.transactionDate >= sevenDaysAgo }
+            .filter { isHomeSpending($0, declared: declared) }
 
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: recentTransactions) { transaction in
@@ -166,7 +170,8 @@ class AccountViewModel {
     }
 
     private func calculateCategoryBreakdown() -> [CategorySpending] {
-        let expenseTransactions = transactionViewModel.recentTransactions.filter(isHomeSpending)
+        let declared = accounts.filter(\.isDeclaredSpendAccount)
+        let expenseTransactions = transactionViewModel.recentTransactions.filter { isHomeSpending($0, declared: declared) }
 
         let grouped = Dictionary(grouping: expenseTransactions) { $0.category ?? "Uncategorized" }
 

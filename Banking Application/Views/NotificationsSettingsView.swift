@@ -2,7 +2,7 @@ import SwiftUI
 
 struct NotificationsSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var settings = AppSettings.shared
+    @Bindable private var settings = AppSettings.shared
 
     var body: some View {
         ScrollView {

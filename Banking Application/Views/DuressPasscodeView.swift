@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DuressPasscodeView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
+    @Environment(AuthenticationService.self) var authenticationService
     @State private var code = ""
     @State private var message = "Choose a 4-digit code different from your login passcode."
 

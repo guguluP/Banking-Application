@@ -16,10 +16,9 @@ enum AccountStatus: String, Codable {
     case closed = "Closed"
 }
 
-/// Persisted locally with SwiftData and synced across the user's devices via
-/// CloudKit's private database (see `PersistenceController`). Every property has a
-/// default value, and there are no `.unique` constraints, both of which are
-/// required for a SwiftData model to be CloudKit-eligible.
+/// Persisted locally with SwiftData (see `PersistenceController`; CloudKit sync is
+/// off). Every property has a default value and there are no `.unique` constraints,
+/// which keeps the model CloudKit-eligible if sync is enabled later.
 @Model
 nonisolated final class Account {
     var id: String = UUID().uuidString
