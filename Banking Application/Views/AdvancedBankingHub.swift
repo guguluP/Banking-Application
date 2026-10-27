@@ -460,19 +460,22 @@ struct CardReissueView: View {
 }
 
 struct StatementsView: View {
-    @Query private var transactions: [Transaction]
+    @Environment(\.modelContext) private var modelContext
     @Query private var accounts: [Account]
     @State private var from = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
     @State private var to = Date()
     @State private var accountId = "all"
     @State private var pdfPassword = ""
+    @State private var rangeCount = 0
+    /// Built only when the user taps a prepare button, never while the view renders.
+    @State private var csvExport: String?
+    @State private var pdfExport: Data?
+
+    private var label: String {
+        accounts.first { $0.id == accountId }?.nickname ?? "All accounts"
+    }
+
     var body: some View {
-        let filtered = transactions.filter { tx in
-            tx.transactionDate >= from && tx.transactionDate <= to
-                && (accountId == "all" || tx.accountId == accountId)
-        }
-        let label = accounts.first { $0.id == accountId }?.nickname ?? "All accounts"
-        let csv = StatementExporter.csv(for: filtered, accountLabel: label)
         Form {
             DatePicker("From", selection: $from, displayedComponents: .date)
             DatePicker("To", selection: $to, displayedComponents: .date)
@@ -482,18 +485,70 @@ struct StatementsView: View {
                     Text(account.nickname ?? account.accountType.rawValue).tag(account.id)
                 }
             }
-            ShareLink(item: csv, preview: SharePreview("statement.csv")) {
-                Label("Export CSV", systemImage: "square.and.arrow.up")
-            }
-            SecureField("PDF password", text: $pdfPassword)
-            if let data = StatementExporter.passwordProtectedPDF(for: filtered, accountLabel: label, password: pdfPassword), !pdfPassword.isEmpty {
-                ShareLink(item: data, preview: SharePreview("statement.pdf")) {
-                    Label("Export password PDF", systemImage: "lock.doc")
+            if let csvExport {
+                ShareLink(item: csvExport, preview: SharePreview("statement.csv")) {
+                    Label("Export CSV", systemImage: "square.and.arrow.up")
+                }
+            } else {
+                Button {
+                    csvExport = StatementExporter.csv(for: rangeTransactions(), accountLabel: label)
+                } label: {
+                    Label("Prepare CSV", systemImage: "doc.text")
                 }
             }
-            Text("\(filtered.count) transactions in range")
+            SecureField("PDF password", text: $pdfPassword)
+            if let pdfExport {
+                ShareLink(item: pdfExport, preview: SharePreview("statement.pdf")) {
+                    Label("Export password PDF", systemImage: "lock.doc")
+                }
+            } else if !pdfPassword.isEmpty {
+                Button {
+                    pdfExport = StatementExporter.passwordProtectedPDF(
+                        for: rangeTransactions(),
+                        accountLabel: label,
+                        password: pdfPassword
+                    )
+                } label: {
+                    Label("Prepare password PDF", systemImage: "lock.doc")
+                }
+            }
+            Text("\(rangeCount) transactions in range")
         }
         .navigationTitle("Statements")
+        .task(id: rangeKey) {
+            csvExport = nil
+            pdfExport = nil
+            rangeCount = (try? modelContext.fetchCount(rangeDescriptor())) ?? 0
+        }
+        .onChange(of: pdfPassword) {
+            pdfExport = nil
+        }
+    }
+
+    private var rangeKey: String {
+        "\(from.timeIntervalSinceReferenceDate)|\(to.timeIntervalSinceReferenceDate)|\(accountId)"
+    }
+
+    /// Only rows inside the chosen dates (and account) are fetched.
+    private func rangeDescriptor() -> FetchDescriptor<Transaction> {
+        let start = from
+        let end = to
+        let id = accountId
+        let order = [SortDescriptor(\Transaction.transactionDate, order: .reverse)]
+        if id == "all" {
+            return FetchDescriptor<Transaction>(
+                predicate: #Predicate<Transaction> { $0.transactionDate >= start && $0.transactionDate <= end },
+                sortBy: order
+            )
+        }
+        return FetchDescriptor<Transaction>(
+            predicate: #Predicate<Transaction> { $0.transactionDate >= start && $0.transactionDate <= end && $0.accountId == id },
+            sortBy: order
+        )
+    }
+
+    private func rangeTransactions() -> [Transaction] {
+        (try? modelContext.fetch(rangeDescriptor())) ?? []
     }
 }
 

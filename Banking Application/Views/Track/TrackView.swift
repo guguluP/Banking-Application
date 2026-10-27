@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Root of the "Track" tab — a Windfall-style expense tracker layered on
+/// Root of the "Track" tab — BankSecure's expense tracker layered on
 /// top of the app's real accounts. Entries created here are real
 /// `Transaction`s (see `ExpenseTrackerViewModel.addExpense`), so they debit
 /// the chosen account exactly like a payment or transfer would; this view
@@ -291,7 +291,7 @@ struct TrackView: View {
                 }
             }
 
-            let repeats = FinancialIntelligenceService.detectRecurring(transactions: tracker.expenseEntries.filter(\.countsTowardSpending))
+            let repeats = tracker.recurringSpend
             if !repeats.isEmpty {
                 GlassCard {
                     VStack(alignment: .leading, spacing: 8) {

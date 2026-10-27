@@ -19,7 +19,8 @@ struct BankApp: App {
         self.container = container
 
         let context = container.mainContext
-        let tvm = TransactionViewModel(modelContext: context)
+        // Transactions load once after unlock (see `.onChange(of: isAuthenticated)`).
+        let tvm = TransactionViewModel(modelContext: context, loadImmediately: false)
         let avm = AccountViewModel(modelContext: context, transactionViewModel: tvm)
         _transactionViewModel = State(initialValue: tvm)
         _accountViewModel = State(initialValue: avm)
@@ -72,8 +73,9 @@ struct BankApp: App {
                     authenticationService.loadUser(from: container)
                     if !authenticationService.isDecoySession {
                         BankingSessionTasks.runAfterUnlock(in: container.mainContext)
-                        accountViewModel.loadAccounts()
+                        // Transactions first so the account analytics see them.
                         transactionViewModel.loadAllTransactions()
+                        accountViewModel.loadAccounts()
                     }
                 }
             }

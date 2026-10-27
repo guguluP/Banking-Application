@@ -17,8 +17,21 @@ final class ExpenseTrackerViewModel {
     /// least once. Lets `TrackView` avoid flashing its "no expenses yet"
     /// empty state for the one frame before that first load completes.
     private(set) var hasLoadedOnce = false
+    /// Bumped on every reload so views that cache derived rows know to rebuild.
+    private(set) var revision = 0
+
+    // Aggregates are computed once per `reload()` instead of on every render.
+    private(set) var amountSpentThisMonth: Decimal = 0
+    private(set) var uncategorizedThisMonth: [Transaction] = []
+    private(set) var tightestBudget: (category: ExpenseCategory, budget: Budget, status: BudgetStatus)?
+    private(set) var recurringSpend: [FinancialIntelligenceService.RecurringCandidate] = []
+    private var spentThisMonthByCategoryId: [String: Decimal] = [:]
+    /// Lowercased search text per entry id, built once per reload.
+    private var searchHaystacks: [String: String] = [:]
 
     private let modelContext: ModelContext
+    /// Envelopes for the current edit; cleared on every reload.
+    @ObservationIgnored private var envelopeCache: [Envelope]?
     private let accountViewModel: AccountViewModel
     private let transactionViewModel: TransactionViewModel
 
@@ -45,35 +58,29 @@ final class ExpenseTrackerViewModel {
             .sorted { $0.sortOrder < $1.sortOrder }
     }
 
-    var amountSpentThisMonth: Decimal {
-        let start = Self.startOfMonth(Date())
-        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? .distantFuture
-        let rows = expenseEntries.filter { $0.transactionDate >= start && $0.transactionDate < end }
-        let debits = rows.filter(\.isDebit).reduce(Decimal(0)) { $0 + $1.amount }
-        let credits = rows.filter { $0.isCredit && ($0.category ?? "") != "Income" && $0.categoryRef?.name != "Income" }
-            .reduce(Decimal(0)) { $0 + $1.amount }
-        return max(0, debits - credits)
-    }
-
     func filteredEntries(searchText: String, categoryId: String? = nil) -> [Transaction] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if query.isEmpty && categoryId == nil { return expenseEntries }
         return expenseEntries.filter { entry in
             if let categoryId, entry.categoryRef?.id != categoryId {
                 return false
             }
             guard !query.isEmpty else { return true }
-            let haystack = [
-                entry.merchant,
-                entry.transactionDescription,
-                entry.notes,
-                entry.categoryRef?.name,
-                entry.category,
-                entry.account?.expenseAccountLabel
-            ]
-            .compactMap { $0?.lowercased() }
-            .joined(separator: " ")
-            return haystack.contains(query)
+            return (searchHaystacks[entry.id] ?? Self.searchHaystack(for: entry)).contains(query)
         }
+    }
+
+    private static func searchHaystack(for entry: Transaction) -> String {
+        [
+            entry.merchant,
+            entry.transactionDescription,
+            entry.notes,
+            entry.categoryRef?.name,
+            entry.category,
+            entry.account?.expenseAccountLabel
+        ]
+        .compactMap { $0?.lowercased() }
+        .joined(separator: " ")
     }
 
     func addExpense(
@@ -101,10 +108,6 @@ final class ExpenseTrackerViewModel {
         }
 
         let category = category(named: categoryName)
-        if !account.isDeclaredSpendAccount {
-            applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
-        }
-
         let txn = Transaction(
             accountId: account.id,
             type: isIncome ? .deposit : .payment,
@@ -120,11 +123,15 @@ final class ExpenseTrackerViewModel {
             notes: notes,
             categoryRef: category
         )
-        txn.account = account
-        txn.countsInLedger = !account.isDeclaredSpendAccount
-        modelContext.insert(txn)
-        adjustEnvelope(named: category?.name ?? categoryName, by: isIncome ? -amount : amount)
-        persistAndReload()
+        commitAndReload(touching: [account]) {
+            if !account.isDeclaredSpendAccount {
+                applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
+            }
+            txn.account = account
+            txn.countsInLedger = !account.isDeclaredSpendAccount
+            modelContext.insert(txn)
+            adjustEnvelope(named: category?.name ?? categoryName, by: isIncome ? -amount : amount)
+        }
         noteBudgetThresholds()
         if error == nil {
             NotificationService.shared.notifyTransaction(
@@ -153,77 +160,72 @@ final class ExpenseTrackerViewModel {
         }
 
         let original = originalAccount(for: transaction)
-        if original?.isDeclaredSpendAccount != true {
-            reverseBalanceChange(for: transaction, on: original)
-        }
-
-        if !isIncome, !account.isDeclaredSpendAccount, amount > account.availableBalance {
-            if original?.isDeclaredSpendAccount != true {
-                applyBalanceChange(
-                    to: original ?? account,
-                    amount: transaction.amount,
-                    isIncome: transaction.isCredit
-                )
-            }
-            error = .insufficientFunds
-            persistAndReload()
-            return
-        }
-
-        if !account.isDeclaredSpendAccount {
-            applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
-        }
-
-        let previousName = transaction.category ?? transaction.categoryRef?.name ?? ""
-        let previousEffect = transaction.isCredit ? -transaction.amount : transaction.amount
-        adjustEnvelope(named: previousName, by: -previousEffect)
-
         let category = category(named: categoryName)
-        transaction.accountId = account.id
-        transaction.account = account
-        transaction.countsInLedger = !account.isDeclaredSpendAccount
-        transaction.type = isIncome ? .deposit : .payment
-        transaction.amount = amount
-        transaction.merchant = merchant
-        transaction.counterparty = merchant
-        transaction.transactionDescription = description
-        transaction.category = category?.name ?? categoryName
-        transaction.categoryRef = category
-        transaction.transactionDate = date
-        adjustEnvelope(named: category?.name ?? categoryName, by: isIncome ? -amount : amount)
+        commitAndReload(touching: [original, account]) {
+            if original?.isDeclaredSpendAccount != true {
+                reverseBalanceChange(for: transaction, on: original)
+            }
 
-        persistAndReload()
-        noteBudgetThresholds()
+            if !isIncome, !account.isDeclaredSpendAccount, amount > account.availableBalance {
+                // Thrown inside the commit so the reversal above is rolled back with it.
+                throw InsufficientFundsForEdit()
+            }
+
+            if !account.isDeclaredSpendAccount {
+                applyBalanceChange(to: account, amount: amount, isIncome: isIncome)
+            }
+
+            let previousName = transaction.category ?? transaction.categoryRef?.name ?? ""
+            let previousEffect = transaction.isCredit ? -transaction.amount : transaction.amount
+            adjustEnvelope(named: previousName, by: -previousEffect)
+
+            transaction.accountId = account.id
+            transaction.account = account
+            transaction.countsInLedger = !account.isDeclaredSpendAccount
+            transaction.type = isIncome ? .deposit : .payment
+            transaction.amount = amount
+            transaction.merchant = merchant
+            transaction.counterparty = merchant
+            transaction.transactionDescription = description
+            transaction.category = category?.name ?? categoryName
+            transaction.categoryRef = category
+            transaction.transactionDate = date
+            adjustEnvelope(named: category?.name ?? categoryName, by: isIncome ? -amount : amount)
+        }
+        if error == nil { noteBudgetThresholds() }
     }
 
     func deleteExpense(_ transaction: Transaction) {
         error = nil
         let original = originalAccount(for: transaction)
-        if original?.isDeclaredSpendAccount != true {
-            reverseBalanceChange(for: transaction, on: original)
+        commitAndReload(touching: [original]) {
+            if original?.isDeclaredSpendAccount != true {
+                reverseBalanceChange(for: transaction, on: original)
+            }
+            adjustEnvelope(named: transaction.category ?? transaction.categoryRef?.name ?? "", by: transaction.isCredit ? transaction.amount : -transaction.amount)
+            modelContext.delete(transaction)
         }
-        adjustEnvelope(named: transaction.category ?? transaction.categoryRef?.name ?? "", by: transaction.isCredit ? transaction.amount : -transaction.amount)
-        modelContext.delete(transaction)
-        persistAndReload()
         noteBudgetThresholds()
     }
 
     func wipeAllTrackerData() {
         error = nil
-        for entry in expenseEntries {
-            let original = originalAccount(for: entry)
-            if original?.isDeclaredSpendAccount != true {
-                reverseBalanceChange(for: entry, on: original)
+        let touched = expenseEntries.map { originalAccount(for: $0) }
+        commitAndReload(touching: touched) {
+            for entry in expenseEntries {
+                let original = originalAccount(for: entry)
+                if original?.isDeclaredSpendAccount != true {
+                    reverseBalanceChange(for: entry, on: original)
+                }
+                modelContext.delete(entry)
             }
-            modelContext.delete(entry)
+            for budget in budgets {
+                modelContext.delete(budget)
+            }
+            for category in categories where !category.isBuiltIn {
+                modelContext.delete(category)
+            }
         }
-        for budget in budgets {
-            modelContext.delete(budget)
-        }
-        for category in categories where !category.isBuiltIn {
-            modelContext.delete(category)
-        }
-        persistAndReload()
     }
 
     func exportCSV() -> String {
@@ -288,42 +290,9 @@ final class ExpenseTrackerViewModel {
         return categories.first { $0.id == categoryId }?.name.caseInsensitiveCompare(name) == .orderedSame
     }
 
-    var uncategorizedThisMonth: [Transaction] {
-        let start = Self.startOfMonth(Date())
-        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? .distantFuture
-        return expenseEntries.filter { tx in
-            tx.isDebit && tx.countsTowardSpending &&
-            tx.transactionDate >= start && tx.transactionDate < end &&
-            tx.categoryRef == nil &&
-            !categories.contains { $0.name.caseInsensitiveCompare(tx.category ?? "") == .orderedSame }
-        }
-    }
-
-    var tightestBudget: (category: ExpenseCategory, budget: Budget, status: BudgetStatus)? {
-        let ranked = budgets.compactMap { budget -> (ExpenseCategory, Budget, BudgetStatus)? in
-            guard let category = categories.first(where: { $0.id == budget.categoryId }) else { return nil }
-            let status = status(for: budget)
-            guard status != .onTrack else { return nil }
-            return (category, budget, status)
-        }
-        return ranked.max { lhs, rhs in
-            amountSpent(categoryId: lhs.1.categoryId) / max(lhs.1.limitAmount, 1)
-                < amountSpent(categoryId: rhs.1.categoryId) / max(rhs.1.limitAmount, 1)
-        }.map { (category: $0.0, budget: $0.1, status: $0.2) }
-    }
-
+    /// This month's net spend for the category, from the totals built in `reload()`.
     func amountSpent(categoryId: String) -> Decimal {
-        let start = Self.startOfMonth(Date())
-        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? .distantFuture
-        let rows = expenseEntries.filter {
-            matchesCategory($0, categoryId: categoryId) &&
-            $0.transactionDate >= start &&
-            $0.transactionDate < end
-        }
-        let debits = rows.filter(\.isDebit).reduce(Decimal(0)) { $0 + $1.amount }
-        let credits = rows.filter { $0.isCredit && $0.categoryRef?.name != "Income" }
-            .reduce(Decimal(0)) { $0 + $1.amount }
-        return max(0, debits - credits)
+        spentThisMonthByCategoryId[categoryId] ?? 0
     }
 
     func status(for budget: Budget) -> BudgetStatus {
@@ -337,7 +306,8 @@ final class ExpenseTrackerViewModel {
 
     // MARK: - Persistence
 
-    private func reload() {
+    func reload() {
+        envelopeCache = nil
         let txnDescriptor = FetchDescriptor<Transaction>(
             sortBy: [SortDescriptor(\.transactionDate, order: .reverse)]
         )
@@ -362,18 +332,114 @@ final class ExpenseTrackerViewModel {
             }
             categories = try modelContext.fetch(categoryDescriptor)
             budgets = try modelContext.fetch(budgetDescriptor)
+            // Home shares this fetch instead of running the same full-table query again.
+            transactionViewModel.adopt(all)
         } catch {
             self.error = .unknownError("We couldn't load your expense data. Please try again.")
+            transactionViewModel.loadAllTransactions()
         }
 
-        transactionViewModel.loadAllTransactions()
+        recomputeAggregates()
         accountViewModel.loadAccounts()
         hasLoadedOnce = true
+        revision &+= 1
     }
 
+    /// One pass over this month's entries for every total the Track tab shows.
+    private func recomputeAggregates(now: Date = Date()) {
+        let start = Self.startOfMonth(now)
+        let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? .distantFuture
+
+        var categoryIdsByName: [String: [String]] = [:]
+        for category in categories {
+            categoryIdsByName[category.name.lowercased(), default: []].append(category.id)
+        }
+
+        var monthDebits: Decimal = 0
+        var monthCredits: Decimal = 0
+        var debitsByCategory: [String: Decimal] = [:]
+        var creditsByCategory: [String: Decimal] = [:]
+        var uncategorized: [Transaction] = []
+        var haystacks: [String: String] = [:]
+        haystacks.reserveCapacity(expenseEntries.count)
+
+        for tx in expenseEntries {
+            haystacks[tx.id] = Self.searchHaystack(for: tx)
+            guard tx.transactionDate >= start && tx.transactionDate < end else { continue }
+
+            let categoryName = tx.categoryRef?.name
+            if tx.isDebit {
+                monthDebits += tx.amount
+            } else if tx.isCredit && (tx.category ?? "") != "Income" && categoryName != "Income" {
+                monthCredits += tx.amount
+            }
+
+            // Same rule as `matchesCategory`: the linked category, or a legacy name match.
+            let matchedIds: [String]
+            if let ref = tx.categoryRef {
+                matchedIds = [ref.id]
+            } else if let name = tx.category {
+                matchedIds = categoryIdsByName[name.lowercased()] ?? []
+            } else {
+                matchedIds = []
+            }
+            for id in matchedIds {
+                if tx.isDebit {
+                    debitsByCategory[id, default: 0] += tx.amount
+                } else if tx.isCredit && categoryName != "Income" {
+                    creditsByCategory[id, default: 0] += tx.amount
+                }
+            }
+
+            if tx.isDebit && tx.countsTowardSpending && tx.categoryRef == nil
+                && categoryIdsByName[(tx.category ?? "").lowercased()] == nil {
+                uncategorized.append(tx)
+            }
+        }
+
+        var spent: [String: Decimal] = [:]
+        for id in Set(debitsByCategory.keys).union(creditsByCategory.keys) {
+            spent[id] = max(0, (debitsByCategory[id] ?? 0) - (creditsByCategory[id] ?? 0))
+        }
+
+        amountSpentThisMonth = max(0, monthDebits - monthCredits)
+        spentThisMonthByCategoryId = spent
+        uncategorizedThisMonth = uncategorized
+        searchHaystacks = haystacks
+        recurringSpend = FinancialIntelligenceService.detectRecurring(transactions: expenseEntries.filter(\.countsTowardSpending))
+
+        let categoriesById = Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var tightest: (category: ExpenseCategory, budget: Budget, status: BudgetStatus, ratio: Decimal)?
+        for budget in budgets {
+            guard let category = categoriesById[budget.categoryId] else { continue }
+            let status = status(for: budget)
+            guard status != .onTrack else { continue }
+            let ratio = amountSpent(categoryId: budget.categoryId) / max(budget.limitAmount, 1)
+            // `max(by:)` keeps the last of equal elements; `>=` does the same.
+            if tightest == nil || ratio >= tightest!.ratio {
+                tightest = (category, budget, status, ratio)
+            }
+        }
+        tightestBudget = tightest.map { (category: $0.category, budget: $0.budget, status: $0.status) }
+    }
+
+    /// Runs `changes` and saves through `Ledger`. A failed save rolls back the context
+    /// (including any balance moved inside `changes`) and sets `error`. Always reloads.
+    private func commitAndReload(touching accounts: [Account?], _ changes: () throws -> Void) {
+        do {
+            try Ledger.commit(modelContext, touching: accounts.compactMap { $0 }, changes)
+        } catch is InsufficientFundsForEdit {
+            self.error = .insufficientFunds
+        } catch {
+            self.error = .transactionFailed
+        }
+        reload()
+    }
+
+    /// Saves a change that does not move money. Rolls back on failure.
     private func persistAndReload() {
         do {
-            try modelContext.save()
+            try Ledger.save(modelContext, rollbackOnFailure: true)
         } catch {
             self.error = .transactionFailed
         }
@@ -389,13 +455,7 @@ final class ExpenseTrackerViewModel {
     }
 
     private func applyBalanceChange(to account: Account, amount: Decimal, isIncome: Bool) {
-        if isIncome {
-            account.balance += amount
-            account.availableBalance += amount
-        } else {
-            account.balance -= amount
-            account.availableBalance -= amount
-        }
+        Ledger.apply(isIncome ? amount : -amount, to: account)
     }
 
     private func reverseBalanceChange(for transaction: Transaction, on account: Account?) {
@@ -406,8 +466,10 @@ final class ExpenseTrackerViewModel {
     private func adjustEnvelope(named name: String, by delta: Decimal) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, delta != 0 else { return }
-        let envelopes = (try? modelContext.fetch(FetchDescriptor<Envelope>())) ?? []
-        guard let envelope = envelopes.first(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        if envelopeCache == nil {
+            envelopeCache = (try? modelContext.fetch(FetchDescriptor<Envelope>())) ?? []
+        }
+        guard let envelope = envelopeCache?.first(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
         envelope.spent = max(0, envelope.spent + delta)
     }
 
@@ -424,6 +486,8 @@ final class ExpenseTrackerViewModel {
             NotificationService.shared.notifyBudget(category: name, overLimit: status == .over)
         }
     }
+
+    private struct InsufficientFundsForEdit: Error {}
 
     private static func startOfMonth(_ date: Date) -> Date {
         var calendar = Calendar(identifier: .gregorian)

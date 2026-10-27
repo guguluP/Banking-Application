@@ -215,11 +215,17 @@ final class AppSettings: ObservableObject {
         dateFormatter("\(dateFormat.pattern) \(timeFormat.pattern)").string(from: date)
     }
 
+    /// One formatter per pattern. There are only a handful of date/time patterns, and
+    /// creating a `DateFormatter` per row was the expensive part of rendering a list.
+    private static var formatterCache: [String: DateFormatter] = [:]
+
     private func dateFormatter(_ pattern: String) -> DateFormatter {
+        if let cached = Self.formatterCache[pattern] { return cached }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_IN")
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.dateFormat = pattern
+        Self.formatterCache[pattern] = formatter
         return formatter
     }
 }

@@ -3,15 +3,18 @@ import SwiftData
 
 @MainActor
 @Observable
-class TransactionViewModel {
+final class TransactionViewModel {
     private(set) var transactions: [Transaction] = []
     var isLoading: Bool = false
     var error: AppError?
 
     private let modelContext: ModelContext
 
-    init(modelContext: ModelContext) {
+    /// - Parameter loadImmediately: the app passes `false` and loads after unlock
+    ///   instead, so launch does not fetch the whole history before anyone signs in.
+    init(modelContext: ModelContext, loadImmediately: Bool = true) {
         self.modelContext = modelContext
+        guard loadImmediately else { return }
         // Defer the initial load: mutating state synchronously
         // inside init can run during a SwiftUI view update (e.g. when this
         // object is constructed inside another init that's itself building
@@ -40,6 +43,13 @@ class TransactionViewModel {
         }
 
         isLoading = false
+    }
+
+    /// Takes rows another owner already fetched newest-first (the Track tab's reload),
+    /// so the same full-table query does not run twice in a row.
+    func adopt(_ newestFirst: [Transaction]) {
+        transactions = newestFirst
+        error = nil
     }
 
     /// Already fetched newest-first in `loadAllTransactions()`.

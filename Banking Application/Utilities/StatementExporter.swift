@@ -5,10 +5,13 @@ import UIKit
 #endif
 
 enum StatementExporter {
+    /// One formatter for every row; `ISO8601DateFormatter` is expensive to create.
+    private static let isoFormatter = ISO8601DateFormatter()
+
     static func csv(for transactions: [Transaction], accountLabel: String) -> String {
         var rows = ["Account,Date,Description,Merchant,Category,Amount,Type,Reference,Location"]
         for tx in transactions.sorted(by: { $0.transactionDate > $1.transactionDate }) {
-            let date = ISO8601DateFormatter().string(from: tx.transactionDate)
+            let date = isoFormatter.string(from: tx.transactionDate)
             let amt = NSDecimalNumber(decimal: tx.amount).stringValue
             rows.append([
                 csv(accountLabel),
@@ -76,6 +79,8 @@ enum StatementExporter {
     }
 
     static func passwordProtectedPDF(for transactions: [Transaction], accountLabel: String, password: String) -> Data? {
+        // Without a password there is nothing to export, so skip rendering entirely.
+        guard !password.isEmpty else { return nil }
         #if canImport(UIKit)
         let pageRect = CGRect(x: 0, y: 0, width: 612, height: 792)
         let margin: CGFloat = 36

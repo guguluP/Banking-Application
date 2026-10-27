@@ -16,6 +16,7 @@ struct MainTabView: View {
     @State private var showLockView = false
     @State private var showChatbot = false
     @State private var hideForSwitcher = false
+    @State private var wasInBackground = false
 
     var body: some View {
         ZStack {
@@ -76,13 +77,22 @@ struct MainTabView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             hideForSwitcher = newPhase != .active
-            if newPhase == .active, authenticationService.isAuthenticated, !authenticationService.isDecoySession {
-                BankingSessionTasks.runAfterUnlock(in: modelContext)
-                accountViewModel.loadAccounts()
-                transactionViewModel.loadAllTransactions()
+            // Refresh only when returning from the background. A trip through
+            // `.inactive` alone (Control Center, a system alert, the app switcher
+            // peek) has not given anything a chance to change the store.
+            if newPhase == .active, wasInBackground {
+                wasInBackground = false
+                if authenticationService.isAuthenticated, !authenticationService.isDecoySession {
+                    BankingSessionTasks.runAfterUnlock(in: modelContext)
+                    transactionViewModel.loadAllTransactions()
+                    accountViewModel.loadAccounts()
+                }
             }
-            if newPhase == .background, AppSettings.shared.isPasscodeLockEnabled {
-                authenticationService.isLocked = true
+            if newPhase == .background {
+                wasInBackground = true
+                if AppSettings.shared.isPasscodeLockEnabled {
+                    authenticationService.isLocked = true
+                }
             }
         }
         .task {
