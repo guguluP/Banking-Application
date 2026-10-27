@@ -172,10 +172,14 @@ enum BankImportPipeline {
         let resolved = resolution(for: event, in: context)
         var display = event
         display.merchant = resolved.merchant
-        let row = ImportedEvent(event: display, hash: hash, categoryName: resolved.categoryName)
-        row.payeeKey = resolved.payeeKey
-        row.personName = resolved.personName
-        row.needsPayeeChoice = resolved.needsChoice
+        func makeRow() -> ImportedEvent {
+            let row = ImportedEvent(event: display, hash: hash, categoryName: resolved.categoryName)
+            row.payeeKey = resolved.payeeKey
+            row.personName = resolved.personName
+            row.needsPayeeChoice = resolved.needsChoice
+            return row
+        }
+        let row = makeRow()
         if resolved.needsChoice || event.confidence < reviewThreshold {
             row.status = .pendingReview
             context.insert(row)
@@ -185,10 +189,13 @@ enum BankImportPipeline {
         if post(row, in: context, saving: batch == nil) {
             return row
         }
-        row.status = .pendingReview
-        context.insert(row)
+        // A failed post may have rolled the context back with `row` in it, so the
+        // review row is a fresh object rather than a re-insert of a discarded one.
+        let pending = makeRow()
+        pending.status = .pendingReview
+        context.insert(pending)
         saveUnlessBatched(context, batch: batch)
-        return row
+        return pending
     }
 
     /// Drains the shared SMS inbox, ingests every message, then saves once.
